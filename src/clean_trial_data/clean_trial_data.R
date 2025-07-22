@@ -10,6 +10,20 @@ library(survival)
 library(survminer)
 library(broom)
 library(gtsummary)
+library(cyphr)
+
+key <- cyphr::data_key()
+
+orderly_strict_mode()
+
+orderly_artefact(description = 'encrypted cleaned files',
+                 files = c('data/primary_persontime.rds',
+                           'data/mitt.rds',
+                           'data/weekly.rds',
+                           'data/serology.rds',
+                           'data/delivery_detail.rds',
+                           'data/primary.rds',
+                           'data/children.rds'))
 
 pathtodata = "C:/Users/kem22/OneDrive - Imperial College London/PhD Admin/Within host/RTSS SMC Data for Kelly_20250228/"
 
@@ -170,12 +184,23 @@ primary_persontime <- primary_persontime %>%
     arm == 1 ~ 'smc',
     arm == 2 ~ 'rtss',
     arm == 3 ~ 'both',
-    TRUE ~ NA
-  ),
-  country = case_when(
-    country == 1 ~ 'BF',
-    country == 2 ~ 'Mali',
-    TRUE ~ NA)) 
+    TRUE ~ NA),
+    country = case_when(
+      country == 1 ~ 'BF',
+      country == 2 ~ 'Mali',
+      TRUE ~ NA),
+    arm_smcref = factor(arm, levels = c('smc','rtss','both')),
+    arm_rtssref = factor(arm, levels = c('rtss','smc','both'))) %>%
+  rename(end_time = X_t,
+         start_time = X_t0,
+         event = X_d) 
 
 
-saveRDS(primary_persontime, file = 'data/primary_persontime.rds')
+dir.create('data/')
+cyphr::encrypt(saveRDS(primary_persontime, file = 'data/primary_persontime.rds'), key)
+cyphr::encrypt(saveRDS(mitt, file = 'data/mitt.rds'), key)
+cyphr::encrypt(saveRDS(weekly, file = 'data/weekly.rds'), key)
+cyphr::encrypt(saveRDS(serology, file = 'data/serology.rds'), key)
+cyphr::encrypt(saveRDS(delivery_detail, file = 'data/delivery_detail.rds'), key)
+cyphr::encrypt(saveRDS(primary, file = 'data/primary.rds'), key)
+cyphr::encrypt(saveRDS(children, file = 'data/children.rds'), key)
