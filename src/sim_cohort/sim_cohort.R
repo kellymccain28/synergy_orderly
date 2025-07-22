@@ -61,9 +61,10 @@ rainfall_coefs <- c(0.285505,-0.325352,-0.0109352,0.0779865,-0.132815,0.104675,-
 rainfall <- umbrella:::fourier_predict(coef = rainfall_coefs,
                             t = seq(1, 365),
                             floor = 0.001)
-rainfall$profile <- rainfall$profile / 10
-p_bite <- rep(rainfall$profile, (trial_ts)/365 + 1)# 0.002 # probability of infectious bite over 1 day -- this should eventually be changed to be a time-varying hazard function 
-plot(p_bite)
+rainfall$profile <- rainfall$profile / 150
+p_bite <- rep(rainfall$profile, (trial_ts)/365 + 1)# 0.002 # probability of infectious bite over 1 day 
+# plot(p_bite[1:(365*3)])
+# abline(v = 50, col = 'red')
 threshold <- 5000#100 # PB threshold per microL for when this is a detectable infection 
 
 n_particles = 1L
@@ -121,7 +122,8 @@ infection_records <- data.frame(
   vaccination_day = integer(),       # Store vaccination day
   PEV = integer(), 
   SMC = integer(), 
-  intervention = character()
+  intervention = character(),
+  p_bite = double()
 )
 
 # Day of intervention (0 = start of follow-up; - values are before follow-up; + values after follow-up) - where 0 is also end of burnin
@@ -231,7 +233,9 @@ for (t in 1:(trial_ts + burnin)){
         season_length = season_length, # ~4 months (120 days)
         smc_interval= smc_interval # how often are SMC rounds (days)
       )
+                      
       result$trajectory$child_id <- child_id
+      
       return(result)
     })
     
@@ -244,7 +248,8 @@ for (t in 1:(trial_ts + burnin)){
       threshold_day = sapply(outputs, function(x) x$threshold_day),               # days since BS starts that threshold is reached
       detection_day = (t - burnin) + sapply(outputs, function(x) x$threshold_day),# day in cohort simulation that threshold is reached, threshold is the day since BS infection that reaches threshold #+ t_liverstage 
       t_toreach_threshold = sapply(outputs, function(x) x$threshold_day) + t_liverstage,   # time to reach threshold value / detection since the bite  
-      vaccination_day = if(t < burnin) rep(vax_day, length(bit_kids)) else kid_metadata$vaccination_day   # day of vaccination relative to the start of follow-up (day 0 external time)
+      vaccination_day = if(t < burnin) rep(vax_day, length(bit_kids)) else kid_metadata$vaccination_day,   # day of vaccination relative to the start of follow-up (day 0 external time)
+      prob_bite = p_bite[t]
     ) 
     
     infection_records <- rbind(infection_records, new_records)
@@ -353,4 +358,4 @@ ggsave('outputs/plots/proportion_detectable.png', prop_det, height = 8, width = 
 ggsave("outputs/plots/incidence.png", incidence, height = 8, width = 12)
 ggsave('outputs/plots/cum_infections.png', cum_infections, height = 8, width = 12)
 
-dev.off()
+# dev.off()

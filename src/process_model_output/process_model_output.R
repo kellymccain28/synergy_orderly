@@ -3,6 +3,7 @@ library(grates) # ifw e want to use greates_isoweek format like incidence does
 library(survival)
 library(tidyverse)
 library(broom)
+library(survminer)
 
 orderly_strict_mode()
 
@@ -15,12 +16,15 @@ orderly_dependency(name = "sim_cohort", "latest()",
 orderly_resource(files = c('format_model_output.R'))
 source('format_model_output.R')
 
+orderly_shared_resource('get_cox_efficacy.R')
+source('get_cox_efficacy.R')
+
 orderly_artefact(description = 'plots and formatted model and analysis output',
                  files = c(
                    'efficacy_plot.png',
-                   'model_output_formatted.png',
+                   'model_output_formatted.rds',
                    'monthly_incidence_model.png',
-                   'surv_analysis_model.png', 
+                   'surv_analysis_model.rds', 
                    'monthly_incidence_model.rds'
                  ))
 
@@ -39,90 +43,47 @@ saveRDS(output, 'model_output_formatted.rds')
 model_output <- output %>%
   mutate(arm_smcref = factor(intervention, levels = c('smc','vax','vaxsmc','none')),
          arm_rtssref = factor(intervention, levels = c('vax','smc','vaxsmc','none')),
+         arm_noneref = factor(intervention, levels = c('none','vax','smc','vaxsmc')),
          country = 'BF') %>%
   filter(start_time != end_time)
 
 
 # Survival analysis to reproduce results from trial
-# with Smc as comparator :
-ag_model_smcref_model <- coxph(Surv(start_time, 
-                                    end_time, 
-                                    event) ~ factor(arm_smcref),# + factor(country), 
-                               data = model_output,
-                               cluster = child_id,
-                               ties = "efron")
+## SMC comparator by year and overall ---- 
+smcrefresults <- get_cox_efficacy(df = model_output, 
+                                  ref = 'arm_smcref',
+                                  model = TRUE)
 
-# Display results
-summary(ag_model_smcref_model)
+## RTSS comparator by year and overall ---- 
+rtssrefresults <- get_cox_efficacy(df = model_output, 
+                                   ref = 'arm_rtssref',
+                                   model = TRUE)
 
-coxsumm_model<-as.data.frame(summary(ag_model_smcref_model)$coefficients)
-
-tidy_results_smcref_model <- tidy(ag_model_smcref_model,
-                                  exponentiate = TRUE,
-                                  conf.int = TRUE) %>%
-  # Calculate vaccine efficacy and its confidence intervals
-  mutate(
-    term = case_when(
-      term == 'factor(arm_smcref)vax' ~ "RTSS vs. SMC",
-      term == 'factor(arm_smcref)vaxsmc' ~ "Both vs. SMC",
-      term == 'factor(country)Mali' ~ 'Mali vs. BF',
-      term == 'factor(arm_smcref)none' ~ "None vs. SMC",
-      TRUE ~ term
-    ),
-    VE = 1 - estimate,              # VE = 1 - HR
-    VE_lower = 1 - conf.high,       # Lower CI for VE = 1 - Upper CI for HR
-    VE_upper = 1 - conf.low         # Upper CI for VE = 1 - Lower CI for HR
-  )
-
-# tidy_results_smcref_model
-
-# with rtss as comparator: 
-ag_model_rtssref_model <- coxph(Surv(start_time, 
-                                     end_time, 
-                                     event) ~ factor(arm_rtssref),# + factor(country), 
-                                data = model_output,
-                                cluster = child_id,
-                                ties = "efron")
-
-# Display results
-# summary(ag_model_rtssref_model)
-
-coxsumm2_model<-as.data.frame(summary(ag_model_rtssref_model)$coefficients)
-
-tidy_results_rtssref_model <- tidy(ag_model_rtssref_model,
-                                   exponentiate = TRUE,
-                                   conf.int = TRUE) %>%
-  # Calculate vaccine efficacy and its confidence intervals
-  mutate(
-    term = case_when(
-      term == 'factor(arm_rtssref)smc' ~ "SMC vs. RTSS",
-      term == 'factor(arm_rtssref)vaxsmc' ~ "Both vs. RTSS",
-      term == 'factor(country)Mali' ~ 'Mali vs. BF',
-      term == 'factor(arm_rtssref)none' ~ "None vs. RTSS",
-      TRUE ~ term
-    ),
-    VE = 1 - estimate,              # VE = 1 - HR
-    VE_lower = 1 - conf.high,       # Lower CI for VE = 1 - Upper CI for HR
-    VE_upper = 1 - conf.low         # Upper CI for VE = 1 - Lower CI for HR
-  ) 
-
-# tidy_results_rtssref_model
-
+#None comparator by year and overall ---- 
+nonerefresults <- get_cox_efficacy(df = model_output, 
+                                   ref = 'arm_noneref',
+                                   model = TRUE)
 
 # Plot the vaccine efficacies 
-tidy_results_model <- rbind(tidy_results_rtssref_model, tidy_results_smcref_model)
+tidy_results <- rbind(smcrefresults, 
+                      rtssrefresults, 
+                      nonerefresults)
 
-saveRDS(tidy_results_model, 'surv_analysis_model.rds')
+saveRDS(tidy_results, 'surv_analysis_model.rds')
+
 
 # Plot results from survival analysis 
-efficacy_plot <- ggplot(tidy_results_model %>% filter(term %in% c("Both vs. RTSS",'RTSS vs. SMC','Both vs. SMC')))+
+survresults <- tidy_results_model %>%
+  filter(term %in% c("Both vs. RTSS",'RTSS vs. SMC','Both vs. SMC'))
+
+efficacy_plot <- ggplot(survresults)+
   geom_point(aes(x = term, y = VE)) + 
   geom_errorbar(aes(x = term, ymin = VE_lower, ymax = VE_upper), width = 0.2) +
   geom_hline(aes(yintercept = 0)) + 
   labs(y = "Vaccine efficacy",
        x = NULL) +
-  scale_y_continuous(breaks = seq(0, 1, 0.1),
-                     limits = c(0,1))
+  scale_y_continuous(breaks = seq(min(floor(survresults$VE_lower * 10)/10), 1, 0.1),
+                     limits = c(min(floor(survresults$VE_lower * 10)/10),1))
 
 ggsave(filename = 'efficacy_plot.png', efficacy_plot, height = 6, width = 6)
 
@@ -230,16 +191,77 @@ incidence_plot <- monthly_inci_model  %>%
   theme_minimal(base_size = 16)
 
 
-ggsave(filename = 'monthly_incidence_model.png', incidence_plot, height = 6, width = 12)
+ggsave(filename = 'monthly_incidence_model.png', bg = 'white', incidence_plot, height = 6, width = 12)
+
+
+# Number of infections per day # incidence
+n_infections <- ggplot(infection_records %>%
+                         mutate(week = floor(detection_day/7)))+
+  geom_line(aes(x = week, color=intervention), stat = 'count') + 
+  geom_point(aes(x = week, color=intervention), stat = 'count') + 
+  facet_wrap(~intervention) + 
+  labs(y = 'Weekly number of infections',
+       x = 'Week since start of follow up period',
+       caption = 'Assuming that the liver stage lasts 8 days') + 
+  geom_line(aes(x = detection_day/7, y = prob_bite * 1000), alpha = 0.3) + 
+  theme(legend.position = 'none') + 
+  theme_bw(base_size = 15)
+
+ggsave(filename = 'n_infections_model.png', bg = 'white', n_infections, height = 6, width = 12)
+
+
+ggplot(parasitemia %>% filter(day1_BSinfection == 19 & intervention == 'smc')) + 
+  geom_line(aes(x=time_ext/7, y = prob_smckill))
+
+# Proportion detectable ---- 
+prop_det <- ggplot(infection_records ) + 
+  geom_bar(aes(x = intervention, group = as.factor(detectable), fill = as.factor(detectable)),
+           position = 'fill') + 
+  scale_fill_manual(values = c('darkmagenta','goldenrod')) +
+  labs(#title = 'Detectable infections in each intervention group',
+    fill = 'Detectable')
+
+ggsave(filename = 'prop_detectable_model.png', prop_det, height = 6, width = 6)
 
 
 
+# Cumulative incidence ---- 
+output <- output %>%
+  mutate(end_time = ifelse(start_time==end_time, end_time + 0.0001, end_time),
+         intervention = factor(intervention, levels = c('vaxsmc','vax','smc','none')))
+
+kmsurvobj <- survfit(Surv(start_time, 
+                          end_time, 
+                          event) ~ intervention,#+ strata(country), 
+                     data = output)
+
+cum_inci <- ggsurvplot(kmsurvobj, #group.by = "country",
+           # linetype = "strata",
+           # facet.by = 'country',
+           tables.theme = theme_cleantable(),
+           conf.int = TRUE,
+           fun = 'cumhaz',
+           # risk.table = TRUE,
+           # cumevents = TRUE,
+           ggtheme = theme_bw(base_size = 16),
+           palette = 'Dark2',
+           censor.size = 3)
+
+ggsave(filename = 'cum_inci_model.png', cum_inci$plot, height = 6, width = 10)
 
 
+survival <- ggsurvplot(kmsurvobj, #group.by = "country",
+                       # linetype = "strata",
+                       # facet.by = 'country',
+                       tables.theme = theme_cleantable(),
+                       conf.int = TRUE,
+                       # fun = 'cumhaz',
+                       # risk.table = TRUE,
+                       # cumevents = TRUE,
+                       ggtheme = theme_bw(base_size = 16),
+                       palette = 'Dark2',
+                       censor.size = 3)
 
-
-
-
-
+ggsave(filename = 'survival_model.png', survival$plot, height = 6, width = 10)
 
 

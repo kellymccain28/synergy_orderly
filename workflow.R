@@ -3,8 +3,9 @@
 library(orderly2)
 
 # Trial 
-# process data 
-# trial results 
+orderly_run(name = 'clean_trial_data')
+
+orderly_run(name = 'trial_results')
 
 # Model 
 orderly_run(name = 'run_smc_rtss',
@@ -23,19 +24,13 @@ orderly_run(name = 'run_smc_rtss',
             ))
 
 
-# # Run through the SMC pars 
-# SMCpars <- dataframe(
-#   max_SMC_kill_rate = c(10,11,12),
-#   SMC_decay = c(0.05,0.05,0.05)
-# )
-
 orderly_run(name = 'sim_cohort',
             parameters = list(N = 2000, # size of cohort population 
                               trial_ts = 365*3, # trial timesteps in cohort simulation 
                               burnin = 50, # number of days in cohort simulation to use for burnin
-                              max_SMC_kill_rate = 10,
+                              max_SMC_kill_rate = 8,
                               SMC_decay = 0.05,
-                              season_start_day = 213,
+                              season_start_day = 183,#213,
                               season_length = 120,
                               smc_interval = 30,
                               vax_day = -10 # day of vaccination relative to start of follow-up (- means before follow-up)
@@ -45,5 +40,5 @@ orderly_run(name = 'sim_cohort',
 orderly_run(name = 'process_model_output')
 
 
-# compare model_trial -- this will take output from trial results and process_model_output 
-  # to produce plots -- cum inci, inci by month, prop detectable, efficacy, etc.
+# compare model_trial 
+orderly_run(name = 'compare_model_trial')
