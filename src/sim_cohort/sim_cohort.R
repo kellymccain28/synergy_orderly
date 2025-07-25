@@ -18,28 +18,31 @@ orderly_parameters(N = NULL, # size of cohort population
                    SMC_decay = NULL,
                    season_start_day = NULL,
                    season_length = NULL,
-                   smc_interval = NULL,
-                   vax_day = NULL # day of vaccination relative to start of follow-up (- means before follow-up)
-                   )
+                   smc_interval = NULL)
 
-orderly_artefact(description = 'input and output datasets and diagnostic plots for cohort simulation',
-                 files = c(
-                   'inputs.rds',
-                   'outputs/metadata_children.rds',
-                   'outputs/parasitemia.rds',
-                   'outputs/infection_records.rds',
-                   "outputs/plots/parasitemia_random.png",
-                   'outputs/plots/smc_timings.png',
-                   'outputs/plots/proportion_detectable.png',
-                   "outputs/plots/incidence.png",
-                   'outputs/plots/cum_infections.png'
-                   ))
+# orderly_artefact(description = 'input and output datasets and diagnostic plots for cohort simulation',
+#                  files = c(
+#                    'inputs.rds',
+#                    'outputs/metadata_children.rds',
+#                    'outputs/parasitemia.rds',
+#                    'outputs/infection_records.rds',
+#                    "outputs/plots/parasitemia_random.png",
+#                    'outputs/plots/smc_timings.png',
+#                    'outputs/plots/proportion_detectable.png',
+#                    "outputs/plots/incidence.png",
+#                    'outputs/plots/cum_infections.png'
+#                    ))
 
 
 orderly_shared_resource("smc.R",
                         "rtss.R",
                         "smc_rtss.R",
                         "helper_functions.R")
+
+orderly_dependency(name = 'fit_rainfall',
+                   "latest()",
+                   c("prob_bite_BFA.rds",
+                     "prob_bite_MLI.rds"))
 
 # Source antibody function
 source("rtss.R")
@@ -55,15 +58,25 @@ if (!dir.exists('outputs/plots')) {dir.create("outputs/plots")}
 
 # Cohort information 
 # N <- 5000
-# trial_ts <- 365*3 # Total timesteps in the cohort simulation
+trial_ts <- 365*3 # Total timesteps in the cohort simulation
+burnin = 50 # number of simulation timesteps before the interventions are delivered and we start follow-up
+
 # fourier series for seasonality 
-rainfall_coefs <- c(0.285505,-0.325352,-0.0109352,0.0779865,-0.132815,0.104675,-0.013919) # seasonal
-rainfall <- umbrella:::fourier_predict(coef = rainfall_coefs,
-                            t = seq(1, 365),
-                            floor = 0.001)
-rainfall$profile <- rainfall$profile / 150
-p_bite <- rep(rainfall$profile, (trial_ts)/365 + 1)# 0.002 # probability of infectious bite over 1 day 
+# rainfall_coefs <- c(0.285505,-0.325352,-0.0109352,0.0779865,-0.132815,0.104675,-0.013919) # seasonal
+# rainfall <- umbrella:::fourier_predict(coef = rainfall_coefs,
+#                             t = seq(1, 365),
+#                             floor = 0.001)
+# rainfall$profile <- rainfall$profile / 150
+# p_bite <- rep(rainfall$profile, (trial_ts)/365 + 1)# 0.002 # probability of infectious bite over 1 day 
 # plot(p_bite[1:(365*3)])
+
+# Probability of infectious bite 
+prob_bite_BFA <- readRDS('prob_bite_BFA.rds')
+prob_bite_MLI <- readRDS('prob_bite_MLI.rds')
+# add in median value of probability of infectious bite at the beginning of the vector for the burnin period
+p_bite_bfa <- c(rep(median(prob_bite_BFA$prob_infectious_bite), burnin), prob_bite_BFA$prob_infectious_bite)
+p_bite_mli <- c(rep(median(prob_bite_MLI$prob_infectious_bite), burnin), prob_bite_MLI$prob_infectious_bite)
+
 # abline(v = 50, col = 'red')
 threshold <- 5000#100 # PB threshold per microL for when this is a detectable infection 
 
@@ -79,7 +92,6 @@ tt <- seq(0, ts/divide, by = tstep)# timesteps that the individual within-host m
 # max_SMC_kill_rate = 10#6
 # SMC_decay = 0.05
 t_liverstage <- 8 #/ (2 / tstep) # time in days spent in liver stage / length of each timetsep in days 
-# burnin = 50 # number of simulation timesteps before the interventions are delivered and we start follow-up
 
 # SMC parameters
 # season_start_day <- 213 # August 1 
@@ -89,6 +101,21 @@ t_liverstage <- 8 #/ (2 / tstep) # time in days spent in liver stage / length of
 weights <- rexp(N) # Generate random weights to sample children at different probabilities (could also use rpois(N) or rexp(N))
 weights <- weights / sum(weights) # normalize to sum to 1 
 # ggplot() + geom_density(aes(x = weights))
+
+# Make a matrix of potential values for each parameter 
+# max_SMC_kill_rate = c(4,6,8,10)
+# SMC_decay = c(0.05, 0.03)
+# season_start_day = c(50, 80, 110)
+# season_length = 30*5
+# smc_interval = 30
+
+# params <- expand.grid(
+#   max_SMC_kill_rate = max_SMC_kill_rate,
+#   SMC_decay = SMC_decay,
+#   season_start_day = season_start_day,
+#   season_length = season_length, 
+#   smc_interval
+# )
 
 # Make dataframe of the different inputs to the model 
 inputs <- data.frame(
@@ -129,7 +156,7 @@ infection_records <- data.frame(
 # Day of intervention (0 = start of follow-up; - values are before follow-up; + values after follow-up) - where 0 is also end of burnin
 # these get converted later to the correct directon - i.e. vaccine before follow-up will be +, smc before follow up will be -
 # vax_day is the 3rd primary dose (when we assume that efficacy begins)
-# vax_day = -10 # unlike hte model sim, this is in days (not timesteps)
+vax_day = -10 # unlike hte model sim, this is in days (not timesteps)
 
 metadata_child <- data.frame(
   child_id = 1:N,
@@ -148,8 +175,10 @@ saveRDS(metadata_child, 'outputs/metadata_children.rds')#'smctime_',smc_day,
 
 # Initialize list to store parasitaemia trajectories per child
 parasitemia_storage <- vector("list", length = trial_ts + burnin)
-
+country = 'BF'
 for (t in 1:(trial_ts + burnin)){
+  
+  p_bite <- if(country == 'BF') p_bite_bfa else p_bite_mli
   
   # Determine number of new infectious bites on time t
   n_infectious_bites <- rpois(1, lambda = N * p_bite[t]) # or could do rbinom(1, N, p_bite)
