@@ -19,13 +19,15 @@ source('format_model_output.R')
 orderly_shared_resource('get_cox_efficacy.R')
 source('get_cox_efficacy.R')
 
+dir.create("outputs/plots/")
+
 orderly_artefact(description = 'plots and formatted model and analysis output',
                  files = c(
-                   'efficacy_plot.png',
-                   'model_output_formatted.rds',
-                   'monthly_incidence_model.png',
-                   'surv_analysis_model.rds', 
-                   'monthly_incidence_model.rds'
+                   'outputs/plots/efficacy_plot.png',
+                   'outputs/model_output_formatted.rds',
+                   'outputs/plots/monthly_incidence_model.png',
+                   'outputs/surv_analysis_model.rds', 
+                   'outputs/monthly_incidence_model.rds'
                  ))
 
 infection_records <- readRDS("outputs/infection_records.rds")
@@ -36,7 +38,7 @@ inputs <- readRDS("inputs.rds") # this is just to carry over the inputs
 
 # Format model output 
 output <- format_model_output(infection_records)
-saveRDS(output, 'model_output_formatted.rds')
+saveRDS(output, 'outputs/model_output_formatted.rds')
 
 
 # Do the same analysis as we do on trial data in trial_results.R
@@ -69,7 +71,7 @@ tidy_results <- rbind(smcrefresults,
                       rtssrefresults, 
                       nonerefresults)
 
-saveRDS(tidy_results, 'surv_analysis_model.rds')
+saveRDS(tidy_results, 'outputs/surv_analysis_model.rds')
 
 
 # Plot results from survival analysis 
@@ -85,7 +87,7 @@ efficacy_plot <- ggplot(survresults)+
   scale_y_continuous(breaks = seq(min(floor(survresults$VE_lower * 10)/10), 1, 0.1),
                      limits = c(min(floor(survresults$VE_lower * 10)/10),1))
 
-ggsave(filename = 'efficacy_plot.png', efficacy_plot, height = 6, width = 6)
+ggsave(filename = 'outputs/plots/efficacy_plot.png', efficacy_plot, height = 6, width = 6)
 
 
 
@@ -167,7 +169,7 @@ monthly_inci_model <- persontime_bymonth_model %>%
   mutate(monthyear = paste0(month_num,'-',year))%>%
   mutate(date = make_date(year, month_num, 1))
 
-saveRDS(monthly_inci_model, 'monthly_incidence_model.rds')
+saveRDS(monthly_inci_model, 'outputs/monthly_incidence_model.rds')
 
 incidence_plot <- monthly_inci_model  %>%
   # filter(intervention != 'none') %>%
@@ -191,23 +193,33 @@ incidence_plot <- monthly_inci_model  %>%
   theme_minimal(base_size = 16)
 
 
-ggsave(filename = 'monthly_incidence_model.png', bg = 'white', incidence_plot, height = 6, width = 12)
+ggsave(filename = 'outputs/plots/monthly_incidence_model.png', bg = 'white', incidence_plot, height = 6, width = 12)
 
 
 # Number of infections per day # incidence
-n_infections <- ggplot(infection_records %>%
-                         mutate(week = floor(detection_day/7)))+
-  geom_line(aes(x = week, color=intervention), stat = 'count') + 
-  geom_point(aes(x = week, color=intervention), stat = 'count') + 
-  facet_wrap(~intervention) + 
+ints <- c('smc','vax','vaxsmc','none')
+weeks <- seq.Date(as.Date('2017-04-02'), as.Date('2020-03-31'), 7)
+allweeks <- expand.grid(intervention = ints, 
+                        week = weeks)# %>%
+  # mutate(week = rep(1:length(weeks), each = length(ints)))
+
+weeklyinf <- infection_records %>%
+  mutate(week = floor_date(as.Date(detection_day, origin = '2017-04-01'), unit = 'week')) %>%
+  merge( allweeks, all.y = TRUE) %>%
+  group_by(intervention, week) %>%
+  count()
+
+n_infections <- ggplot(weeklyinf) + 
+  geom_line(aes(x = week, y = n, color = intervention)) +
+  geom_line(aes(x = week, y = n, color = intervention)) +
+  facet_wrap(~ intervention) +
   labs(y = 'Weekly number of infections',
        x = 'Week since start of follow up period',
-       caption = 'Assuming that the liver stage lasts 8 days') + 
-  geom_line(aes(x = detection_day/7, y = prob_bite * 1000), alpha = 0.3) + 
+       caption = 'Assuming that the liver stage lasts 8 days') +
   theme(legend.position = 'none') + 
   theme_bw(base_size = 15)
 
-ggsave(filename = 'n_infections_model.png', bg = 'white', n_infections, height = 6, width = 12)
+ggsave(filename = 'outputs/plots/n_infections_model.png', bg = 'white', n_infections, height = 6, width = 12)
 
 
 ggplot(parasitemia %>% filter(day1_BSinfection == 19 & intervention == 'smc')) + 
@@ -221,7 +233,7 @@ prop_det <- ggplot(infection_records ) +
   labs(#title = 'Detectable infections in each intervention group',
     fill = 'Detectable')
 
-ggsave(filename = 'prop_detectable_model.png', prop_det, height = 6, width = 6)
+ggsave(filename = 'outputs/plots/prop_detectable_model.png', prop_det, height = 6, width = 6)
 
 
 
@@ -247,7 +259,7 @@ cum_inci <- ggsurvplot(kmsurvobj, #group.by = "country",
            palette = 'Dark2',
            censor.size = 3)
 
-ggsave(filename = 'cum_inci_model.png', cum_inci$plot, height = 6, width = 10)
+ggsave(filename = 'outputs/plots/cum_inci_model.png', cum_inci$plot, height = 6, width = 10)
 
 
 survival <- ggsurvplot(kmsurvobj, #group.by = "country",
@@ -262,6 +274,6 @@ survival <- ggsurvplot(kmsurvobj, #group.by = "country",
                        palette = 'Dark2',
                        censor.size = 3)
 
-ggsave(filename = 'survival_model.png', survival$plot, height = 6, width = 10)
+ggsave(filename = 'outputs/plots/survival_model.png', survival$plot, height = 6, width = 10)
 
 
