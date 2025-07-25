@@ -85,11 +85,30 @@ efficacy_plot <- ggplot(survresults)+
   labs(y = "Vaccine efficacy",
        x = NULL) +
   scale_y_continuous(breaks = seq(min(floor(survresults$VE_lower * 10)/10), 1, 0.1),
-                     limits = c(min(floor(survresults$VE_lower * 10)/10),1))
+                     limits = c(min(floor(survresults$VE_lower * 10)/10),1)) + 
+  facet_wrap(~ year)
 
 ggsave(filename = 'outputs/plots/efficacy_plot.png', efficacy_plot, height = 6, width = 6)
 
+# Get expected efficacy of combination for each year ----
+# Calculate expected vs observed
+ve_comparison <- tidy_results %>%
+  group_by(year) %>%
+  filter(term %in% c("SMC vs None", "RTSS vs None", "Both vs None")) %>%
+  select(term, VE) %>%
+  pivot_wider(names_from = term, values_from = VE) %>%
+  mutate(
+    expected_both = 1 - (1 - `SMC vs None`) * (1 - `RTSS vs None`),
+    observed_both = `Both vs None`,
+    difference = observed_both - expected_both,
+    interaction_type = case_when(
+      difference > 0 ~ "Synergistic",
+      difference < 0 ~ "Antagonistic", 
+      TRUE ~ "Independent"
+    )
+  )
 
+saveRDS(ve_comparison, file = 'outputs/expected_efficacies.rds')
 
 # Find the monthly incidence ---- 
 
@@ -150,7 +169,8 @@ cases_by_month_model <- model_output %>%
          year = lubridate::year(end_date)) %>%
   group_by(intervention, month, year) %>%
   summarize(n_cases = sum(poutcome), .groups = 'drop') %>%
-  rename(month_num = month) 
+  mutate(month_num = month,
+         monthyear = make_date(year, month_num, 1)) 
 
 # join t person time data 
 monthly_inci_model <- persontime_bymonth_model %>%
@@ -209,18 +229,29 @@ weeklyinf <- infection_records %>%
   group_by(intervention, week) %>%
   count()
 
-n_infections <- ggplot(weeklyinf) + 
-  geom_line(aes(x = week, y = n, color = intervention)) +
-  geom_line(aes(x = week, y = n, color = intervention)) +
+n_infections_weekly <- ggplot(weeklyinf) + 
+  geom_line(aes(x = week, y = n, color = intervention, group = intervention)) +
+  geom_point(aes(x = week, y = n, color = intervention, group = intervention)) +
   facet_wrap(~ intervention) +
   labs(y = 'Weekly number of infections',
-       x = 'Week since start of follow up period',
+       x = 'Year since start of follow up period',
        caption = 'Assuming that the liver stage lasts 8 days') +
   theme(legend.position = 'none') + 
   theme_bw(base_size = 15)
 
-ggsave(filename = 'outputs/plots/n_infections_model.png', bg = 'white', n_infections, height = 6, width = 12)
+ggsave(filename = 'outputs/plots/n_infections_weekly_model.png', bg = 'white', n_infections, height = 6, width = 12)
 
+n_infections_monthly <- ggplot(cases_by_month_model) + 
+  geom_point(aes(x = monthyear, y = n_cases, color = intervention, group = intervention)) +
+  geom_line(aes(x = monthyear, y = n_cases, color = intervention, group = intervention)) +
+  facet_wrap(~ intervention) +
+  labs(y = 'Monthly number of infections',
+       x = 'Year since start of follow up period',
+       caption = 'Assuming that the liver stage lasts 8 days') +
+  theme(legend.position = 'none') + 
+  theme_bw(base_size = 15)
+
+ggsave(filename = 'outputs/plots/n_infections_monthly_model.png', bg = 'white', n_infections, height = 6, width = 12)
 
 ggplot(parasitemia %>% filter(day1_BSinfection == 19 & intervention == 'smc')) + 
   geom_line(aes(x=time_ext/7, y = prob_smckill))
