@@ -21,6 +21,8 @@ orderly_dependency(name = 'clean_trial_data',
                              'data/children.rds',
                              'data/mitt.rds'))
 
+orderly_artefact(files = 'surv_analysis_trial.rds')
+
 orderly_shared_resource('get_cox_efficacy.R')
 source('get_cox_efficacy.R')
 
