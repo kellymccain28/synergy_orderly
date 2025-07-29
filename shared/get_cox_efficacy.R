@@ -56,8 +56,8 @@ get_cox_efficacy <- function(df,
         VE_upper = 1 - conf.low ,        # Upper CI for VE = 1 - Lower CI for HR
         year = ifelse(i == 4, 'overall',as.character(i))
       ) %>% mutate(
-        n_events = ag_model_rtssref_year$nevent,
-        n_obs = ag_model_rtssref_year$n
+        n_events = coxmodel$nevent,
+        n_obs = coxmodel$n
       )
     
     tidy_results[[i]] <- results
