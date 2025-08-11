@@ -1,0 +1,106 @@
+# Functions to get incidnece per 1000 person months 
+# output will have cases per month, person months per month, and cases/1000 person months
+# can be run on model output or on trial data
+
+get_incidence <- function(model = TRUE, 
+                          df_children, #if model, then `metadata_child`, if trial then `children`
+                          casedata #if model, then `model_output`, if trial then `mitt`
+                          
+){
+  # Define function to expand to get all the different months in the dataset
+  make_child_months <- function(rid, arm, start_date, fu_end_date) {
+    month_seq <- seq(floor_date(start_date, "month"), floor_date(fu_end_date, "month"), by = "month")
+    tibble(
+      rid = rid,
+      arm = arm,
+      month = floor_date(month_seq, "month")
+    )
+  }
+  
+  # expand all children 
+  person_months_df <- df_children %>%
+    mutate(fu_end_date = ymd('2020-03-31'))
+  
+  if(model){
+    person_months_df$start_date = ymd('2017-04-01')
+  } else {
+    person_months_df$start_date <- df_children$v1_date
+  }
+  
+  person_months_df <- person_months_df %>%
+    select(child_id, intervention, start_date, fu_end_date) %>%
+    pmap_dfr( ~ make_child_months(..1, ..2, ..3, ..4))
+  
+  if(model){
+    # get back start and end date 
+    person_months_df2 <- person_months_df %>%
+      mutate(v1_date = ymd('2017-04-01'), # later, this should change to when the children were actually vaccinated 
+             fu_end_date = ymd('2020-03-31'))
+    
+    casedata <- casedata %>%
+      mutate(fu_end_date = ymd('2020-03-31'))
+  } else{
+    # join back v1date and end date 
+    person_months_df2 <- person_months_df %>%
+      left_join(children %>% 
+                  mutate(fu_end_date = ymd('2020-03-31')) %>%# this should change to when the follow up actually ended
+                  select(rid, v1_date, fu_end_date), by = 'rid')
+  }
+  
+  # Calculate actual person-time per child-month
+  # for each month, we need to find max an dmin -- so if the start date is=or > the floor date of the month and < last day of that month, 
+  # then we take either the first day of the month or the start date. if the start date is > last da of taht month, then we take the 
+  # last day of that month (I think????)
+  # for the end date, i think it's fine 
+  person_months_df3 <- person_months_df2 %>%
+    mutate(
+      month_start = pmax(floor_date(month, "month"), v1_date),
+      month_end = pmin(ceiling_date(month, "month") - days(1), fu_end_date),
+      days_at_risk = time_length(interval(month_start, month_end), unit = 'days'),
+      person_months = time_length(interval(month_start, month_end), unit = 'months'),
+      person_years = time_length(interval(month_start, month_end), unit = 'years'),
+    )
+  
+  # Summarize by calendar month and arm
+  persontime_bymonth <- person_months_df3 %>%
+    mutate(year = lubridate::year(month), 
+           month_num = month(month),
+           yearmonth = zoo::as.yearmon(month)) %>%
+    group_by(year, month, yearmonth, arm) %>%
+    summarise(
+      person_months = sum(person_months),
+      person_years = sum(person_years),
+      .groups = "drop"
+    )
+  
+  # Calculate incidence per month ----
+  cases_by_month_model <- casedata %>%
+    filter(poutcome == 1) %>%
+    mutate(month = floor_date(detection_day, "month"), 
+           month_num = lubridate::month(detection_day),
+           year = lubridate::year(fu_end_date),
+           yearmonth = zoo::as.yearmon(month)) %>%
+    group_by(arm, month, year, yearmonth) %>%
+    summarize(n_cases = sum(poutcome), .groups = 'drop') %>%
+    mutate(monthyear = make_date(year, month_num, 1)) 
+  
+  # join t person time data 
+  monthly_inci <- persontime_bymonth %>%
+    left_join(cases_by_month, by = c('year','month_num','month','yearmonth','arm')) %>%
+    mutate(
+      n_cases = replace_na(n_cases, 0),
+      incidence_per_1000pm = (n_cases / person_months) * 1000,
+      rate = n_cases / person_months, 
+      se = sqrt(n_cases) / person_months,
+      lower = (qchisq(0.025, 2 * n_cases) / 2) / person_months, 
+      upper = (qchisq(0.975, 2 * n_cases + 1) / 2) / person_months,
+      incidence_per_1000pm = rate * 1000,
+      lower_per_1000 = lower * 1000,
+      upper_per_1000 = upper * 1000,
+    ) %>%
+    mutate(date = make_date(year, month_num, 1))
+  
+  return(monthly_inci)
+  
+}
+
