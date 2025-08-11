@@ -26,11 +26,14 @@ orderly_artefact(files = 'surv_analysis_trial.rds')
 orderly_shared_resource('get_cox_efficacy.R')
 source('get_cox_efficacy.R')
 
+orderly_shared_resource('get_incidence.R')
+source('get_incidence.R')
+
 # Read in the data ----
 primary_pt <- cyphr::decrypt(readRDS('data/primary_persontime.rds'), key)
 children <- cyphr::decrypt(readRDS('data/children.rds'), key)
 mitt <- cyphr::decrypt(readRDS('data/mitt.rds'), key) %>%
-  remove_labels(mitt)
+  labelled:::remove_labels(mitt)
 
 
 # Survival analysis to reproduce results from trial
@@ -85,13 +88,32 @@ km_plot <- ggsurvplot(kmsurvobj, #group.by = "country",
 ggsave(filename = 'km_trial.png', km_plot)
 
 
+# Get monthly incidence 
+monthly_inci <- get_incidence(model = FALSE, 
+                              df_children = children, 
+                              casedata = mitt)
 
 
+monthlyincidenceplot <- monthly_inci %>%
+  ggplot(aes(x = date, y = incidence_per_1000pm, color = arm)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = lower_per_1000, ymax = upper_per_1000, color = arm),
+                alpha = 0.9, width = 10, linewidth = 1) +
+  geom_line(aes(x = date, y = incidence_per_1000pm, color = arm), linewidth = 1) +
+  # facet_wrap(~arm, nrow = 3) +
+  scale_y_continuous(breaks = seq(0,150,25)) +
+  scale_x_date(breaks = '3 months',
+               labels = scales::label_date_short()) + 
+  labs(
+    title = "Monthly malaria incidence per 1000 person-months",
+    x = "Month",
+    y = "Incidence (per 1000 person-months)",
+    color = "Study Arm",
+    fill = "Study Arm"
+  ) +
+  theme_minimal(base_size = 16)
 
-
-## Bayesian survival analysis ----
-
-
+ggsave("trial_monthlyincidence.png", plot = monthlyincidenceplot)
 
 
 
