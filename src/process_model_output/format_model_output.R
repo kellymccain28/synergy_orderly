@@ -1,8 +1,11 @@
 format_model_output <- function(model_data, 
-                                start_fu = as.Date('2017-04-01')){
+                                start_fu = as.Date('2017-04-01'),
+                                simulation){
   
   # First, convert to date format adnd get vaccination date 
   model_data <- model_data %>%
+    
+    filter(sim_id == simulation) %>%
     
     # make date vars be Date format 
     mutate(across(c(time_ext, infectious_bite_day, BSinfection_day, detection_day),
@@ -36,8 +39,8 @@ format_model_output <- function(model_data,
       ) %>%
       
       # Group by child and arrange by infection time
-      group_by(child_id) %>%
-      arrange(child_id, detection_day) %>%
+      group_by(rid) %>%
+      arrange(rid, detection_day) %>%
       
       # Create recurrent event structure
       mutate(
@@ -68,7 +71,7 @@ format_model_output <- function(model_data,
       
       # Add censoring intervals for people who had infections
       # (interval from last infection to end of follow-up) -- so during this interval there is no infection so all infection-related values should be 0 
-      group_by(child_id) %>%
+      group_by(rid) %>%
       group_modify(~{
         last_infection <- .x[nrow(.x), ]
         
@@ -96,18 +99,22 @@ format_model_output <- function(model_data,
   
   # Format cases by year 
   cases_yr1 <- format_cases(year = 1)
-  cases_yr2 <- format_cases(year = 2)  
+  cases_yr2 <- format_cases(year = 2)
   cases_yr3 <- format_cases(year = 3)
   
   # Bind all cases together
   all_cases <- bind_rows(cases_yr1, cases_yr2, cases_yr3)
   
+  # Filter metadata_child to be only for simulation sim
+  metadata_child <- metadata_child %>%
+    filter(sim_id == simulation)
+  
   # Get all unique child ids 
-  all_children <- unique(metadata_child$child_id)
+  all_children <- unique(metadata_child$rid)
   
   # Year framework 
   year_framework <- tibble(
-    child_id = rep(all_children, each = 3),
+    rid = rep(all_children, each = 3),
     year = rep(1:3, times = length(all_children))
   ) %>%
     mutate(year_start = start_fu + 365 * (year - 1),
@@ -116,11 +123,11 @@ format_model_output <- function(model_data,
   
   # Join with exsiting combinations 
   existing_combinations <- all_cases %>%
-    distinct(child_id, year)
+    distinct(rid, year)
   
   # Find the missing ones 
   missing_combinations <- year_framework %>%
-    anti_join(existing_combinations, by = c('child_id','year'))
+    anti_join(existing_combinations, by = c('rid','year'))
   
   # Create censoring intervals for missing combinations 
   censoring_intervals <- missing_combinations %>%
@@ -142,11 +149,11 @@ format_model_output <- function(model_data,
     ) %>% 
     select(-year_start, -year_end) %>%
     # add children_in_group var
-    left_join(model_data %>% distinct(intervention, children_in_group))
+    left_join(model_data %>% distinct(arm, children_in_group))
   
   # Bind all datasets together 
   person_time <- rbind(all_cases, censoring_intervals) %>%
-    arrange(child_id) %>%
+    arrange(rid) %>%
     # Get start and end times in years since origin
     mutate(origin = start_fu, 
            start_time = time_length(interval(origin, start_date), unit = 'years'),
