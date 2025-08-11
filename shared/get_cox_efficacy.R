@@ -17,7 +17,7 @@ get_cox_efficacy <- function(df,
       formula_str <- paste("Surv(start_time, end_time, event) ~ factor(", ref, ")")
       cox_formula <- as.formula(formula_str)
       
-      clustervar = d$child_id
+      clustervar = d$rid
     } else {
       formula_str <- paste("Surv(start_time, end_time, event) ~ factor(", ref, ") + factor(country)")
       cox_formula <- as.formula(formula_str)

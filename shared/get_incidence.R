@@ -28,7 +28,7 @@ get_incidence <- function(model = TRUE,
   }
   
   person_months_df <- person_months_df %>%
-    select(child_id, intervention, start_date, fu_end_date) %>%
+    select(rid, arm, start_date, fu_end_date) %>%
     pmap_dfr( ~ make_child_months(..1, ..2, ..3, ..4))
   
   if(model){
@@ -72,21 +72,33 @@ get_incidence <- function(model = TRUE,
       person_years = sum(person_years),
       .groups = "drop"
     )
-  
-  # Calculate incidence per month ----
-  cases_by_month_model <- casedata %>%
-    filter(poutcome == 1) %>%
-    mutate(month = floor_date(detection_day, "month"), 
-           month_num = lubridate::month(detection_day),
-           year = lubridate::year(fu_end_date),
-           yearmonth = zoo::as.yearmon(month)) %>%
-    group_by(arm, month, year, yearmonth) %>%
-    summarize(n_cases = sum(poutcome), .groups = 'drop') %>%
-    mutate(monthyear = make_date(year, month_num, 1)) 
+
+  if(model){
+    # Calculate incidence per month ----
+    cases_by_month_model <- casedata %>%
+      filter(poutcome == 1) %>%
+      mutate(month = floor_date(detection_day, "month"), 
+             month_num = lubridate::month(detection_day),
+             year = lubridate::year(fu_end_date),
+             yearmonth = zoo::as.yearmon(month)) %>%
+      group_by(arm, month, year, yearmonth) %>%
+      summarize(n_cases = sum(poutcome), .groups = 'drop') %>%
+      mutate(monthyear = make_date(year, month_num, 1))
+  } else {
+    # Calculate incidence per month ----
+    cases_by_month <- casedata %>%
+      filter(poutcome == 1 )%>%
+      mutate(month_num = month, 
+             yearmonth = zoo::as.yearmon(dcontact),
+             month = floor_date(dcontact, "month"),
+             year = lubridate::year(dcontact)) %>%
+      group_by(arm, month_num, month, year, yearmonth) %>%
+      summarize(n_cases = sum(poutcome), .groups = 'drop')
+  }
   
   # join t person time data 
   monthly_inci <- persontime_bymonth %>%
-    left_join(cases_by_month, by = c('year','month_num','month','yearmonth','arm')) %>%
+    left_join(cases_by_month, by = c('year','month','yearmonth','arm')) %>%
     mutate(
       n_cases = replace_na(n_cases, 0),
       incidence_per_1000pm = (n_cases / person_months) * 1000,
