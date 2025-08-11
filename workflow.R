@@ -25,19 +25,23 @@ orderly_run(name = 'run_smc_rtss',
               inf_start = 0
             ))
 
-
+# to run cohort with one set of parametes (this no longer works with process_model_output and compare as of 28 July)
 orderly_run(name = 'sim_cohort',
-            parameters = list(N = 2000#, # size of cohort population 
-                              # max_SMC_kill_rate = 8,
-                              # SMC_decay = 0.05,
-                              # season_start_day = 50,#213,
-                              # season_length = 30*5,
-                              # smc_interval = 30
+            parameters = list(N = 2000, # size of cohort population 
+                              max_SMC_kill_rate = 8,
+                              SMC_decay = 0.05,
+                              season_start_day = 50,#213,
+                              season_length = 30*5,
+                              smc_interval = 30
             ))
+
+
+orderly_run(name = 'sim_cohort_grid',
+            parameters = list(N = 2000,
+                              trial_ts = 365*3))
 
 # process_model_output - formatting the data to match the output from the trial 
 orderly_run(name = 'process_model_output')
-
 
 # compare model_trial 
 orderly_run(name = 'compare_model_trial')
