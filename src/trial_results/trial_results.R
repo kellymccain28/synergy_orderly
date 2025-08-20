@@ -93,6 +93,8 @@ monthly_inci <- get_incidence(model = FALSE,
                               df_children = children, 
                               casedata = mitt)
 
+saveRDS(monthly_inci, 'monthly_incidence_trial.rds')
+
 
 monthlyincidenceplot <- monthly_inci %>%
   ggplot(aes(x = date, y = incidence_per_1000pm, color = arm)) +
@@ -111,9 +113,9 @@ monthlyincidenceplot <- monthly_inci %>%
     color = "Study Arm",
     fill = "Study Arm"
   ) +
-  theme_minimal(base_size = 16)
+  theme_minimal(base_size = 14)
 
-ggsave("trial_monthlyincidence.png", plot = monthlyincidenceplot)
+ggsave("trial_monthlyincidence.png", plot = monthlyincidenceplot, bg = 'white', width = 8, height = 6)
 
 
 
