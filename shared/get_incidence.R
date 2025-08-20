@@ -75,15 +75,14 @@ get_incidence <- function(model = TRUE,
 
   if(model){
     # Calculate incidence per month ----
-    cases_by_month_model <- casedata %>%
+    cases_by_month <- casedata %>%
       filter(poutcome == 1) %>%
       mutate(month = floor_date(detection_day, "month"), 
              month_num = lubridate::month(detection_day),
-             year = lubridate::year(fu_end_date),
+             year = lubridate::year(detection_day),
              yearmonth = zoo::as.yearmon(month)) %>%
-      group_by(arm, month, year, yearmonth) %>%
-      summarize(n_cases = sum(poutcome), .groups = 'drop') %>%
-      mutate(monthyear = make_date(year, month_num, 1))
+      group_by(arm, month, month_num, year, yearmonth) %>%
+      summarize(n_cases = sum(poutcome), .groups = 'drop') 
   } else {
     # Calculate incidence per month ----
     cases_by_month <- casedata %>%

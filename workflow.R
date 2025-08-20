@@ -1,6 +1,7 @@
 # Workflow to remember the order of tasks, when there is an order, and to easily run them all 
 
 library(orderly2)
+library(hipercow)
 
 # Trial 
 orderly_run(name = 'clean_trial_data')
@@ -8,7 +9,8 @@ orderly_run(name = 'clean_trial_data')
 orderly_run(name = 'trial_results')
 
 # Model 
-orderly_run(name = 'fit_rainfall')
+rainfall_task <- task_create_expr(orderly2::orderly_run(name = 'fit_rainfall'))
+task_log_show(rainfall_task)
 
 orderly_run(name = 'run_smc_rtss',
             parameters = list(
@@ -36,12 +38,16 @@ orderly_run(name = 'sim_cohort',
             ))
 
 
-orderly_run(name = 'sim_cohort_grid',
-            parameters = list(N = 2000,
-                              trial_ts = 365*3))
+grid_task <- task_create_expr(orderly2::orderly_run(name = 'sim_cohort_grid',
+                             parameters = list(N = 2000,
+                                               trial_ts = 365*3)))
+task_log_show(grid_task) # 21 hours to run 20 different parameter sets with N=2000 and 3 years 
 
 # process_model_output - formatting the data to match the output from the trial 
-orderly_run(name = 'process_model_output')
+# process_task <- task_create_expr(orderly2::orderly_run(name = 'process_model_output'))
+# task_log_show(process_task)
+orderly2::orderly_run(name = 'process_model_output')
 
 # compare model_trial 
-orderly_run(name = 'compare_model_trial')
+compare_task <- task_create_expr(orderly2::orderly_run(name = 'compare_model_trial'))
+task_log_show(compare_task)
