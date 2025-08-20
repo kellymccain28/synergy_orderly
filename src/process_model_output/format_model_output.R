@@ -159,6 +159,6 @@ format_model_output <- function(model_data,
            start_time = time_length(interval(origin, start_date), unit = 'years'),
            end_time = time_length(interval(origin, end_date), unit = 'years'),
            person_years = end_time - start_time)
-  
+  message('finished ', simulation)
   return(person_time)
 }
