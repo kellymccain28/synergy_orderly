@@ -1,0 +1,40 @@
+# Also use the ncov-ic universe
+repo::https://ncov-ic.r-universe.dev
+
+# Package from CRAN
+dplyr
+data.table
+janitor
+purrr
+tidyr
+retry
+zoo
+ggplot2
+cowplot
+ggrepel
+stringr
+tidyverse
+viridis
+png
+grid
+lhs
+future
+future.apply
+mgcv
+decor
+pkgload
+brio
+cyphr
+grates
+survminer
+survival
+broom
+countrycode
+terra
+
+# Github
+github::mrc-ide/umbrella
+github::mrc-ide/odin2
+github::mrc-ide/dust2
+github::mrc-ide/orderly2
+github::mrc-ide/site
