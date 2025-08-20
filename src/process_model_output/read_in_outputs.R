@@ -35,15 +35,15 @@ read_in_outputs <- function(output_dir = 'simulation_outputs') {
   })
   
   # Parasitemia data
-  results$parasitemia_data <- map_dfr(sim_dirs, function(sim_dir) {
-    file_path <- file.path(sim_dir, "parasitemia_data.rds")
-    if (file.exists(file_path)) {
-      data <- readRDS(file_path)
-      data$sim_id <- basename(sim_dir)
-      return(data)
-    }
-    return(NULL)
-  })
+  # results$parasitemia_data <- map_dfr(sim_dirs, function(sim_dir) {
+  #   file_path <- file.path(sim_dir, "parasitemia_data.rds")
+  #   if (file.exists(file_path)) {
+  #     data <- readRDS(file_path)
+  #     data$sim_id <- basename(sim_dir)
+  #     return(data)
+  #   }
+  #   return(NULL)
+  # })
   
   # Parameters (as a lookup table)
   results$parameters <- map_dfr(sim_dirs, function(sim_dir) {
@@ -55,6 +55,17 @@ read_in_outputs <- function(output_dir = 'simulation_outputs') {
     }
     return(NULL)
   })
+  
+  # # All expected efficacies ((this is for compare task))
+  # results$model_outputs <- map_dfr(sim_dirs, function(sim_dir) {
+  #   file_path <- file.path(sim_dir, "parameters.rds")
+  #   if (file.exists(file_path)) {
+  #     params <- readRDS(file_path)
+  #     params$sim_id <- basename(sim_dir)
+  #     return(as.data.frame(params))
+  #   }
+  #   return(NULL)
+  # })
   
   return(list(baseline_inputs, results))
 }
