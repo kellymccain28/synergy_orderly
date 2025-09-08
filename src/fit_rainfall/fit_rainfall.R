@@ -5,6 +5,7 @@ library(tidyr)
 library(terra)
 library(tidyverse)
 library(malariasimulation)
+library(orderly2)
 
 orderly_strict_mode()
 
@@ -46,7 +47,7 @@ bougouni <- subset_site(
     name_1 = "Sikasso")
 )
 
-# test umbrella
+# umbrella
 # devtools::install_github("mrc-ide/umbrella")
 library(umbrella)
 
@@ -55,13 +56,14 @@ library(umbrella)
 # urls_2019 <- get_urls(2019)
 # urls_2020 <- get_urls(2020)
 # urls <- c(urls_2017, urls_2018, urls_2019, urls_2020)
-# urls <- urls[1187:1461] #1186
-# Create a vector of properly formatted dates
-start_date <- as.Date("2020-04-01")  # April 1st, 2017
-end_date <- as.Date("2020-12-31")    # December 31st, 2017
-dates <- seq(start_date, end_date, by = "day")
-date_strings <- format(dates, "%Y.%m.%d")
+# # Create a vector of properly formatted dates
+# start_date <- as.Date("2017-01-01")  # April 1st, 2017
+# end_date <- as.Date("2020-12-31")    # December 31st, 2017
+# dates <- seq(start_date, end_date, by = "day")
+# date_strings <- format(dates, "%Y.%m.%d")
+# date_strings <- date_strings[date_strings!='2020.02.29']
 
+# Code below only needs to be run once -- it is to download the chirps files 
 # daily_rainfall <- mapply(urls,
 #                          FUN = download_raster,
 #                          destination_file = paste0('chirps/chirps', date_strings, '.tif.gz'))
@@ -94,7 +96,8 @@ raindata_bf <- extract_data_bf %>%
     country = 'Mali',
     year = lubridate::year(date),
     day = row_number())
-# plot(raindata_bf$date, raindata_bf$rainfall)
+# ggplot(raindata_bf) + geom_point(aes(x = date, rainfall)) + scale_x_date(breaks = '1 month') + 
+#   theme(axis.text.x = element_text(angle = 90))
 
 raindata_mali <- extract_data_mali %>%
   pivot_longer(cols = starts_with('chirp'), 
@@ -160,6 +163,9 @@ bf_fits_p <- ggplot() +
 ggsave('BFA_rainfallfits.png', bf_fits_p)
 
 bffits <- list(fit1bf, fit2bf, fit3bf, fit4bf)
+bfpredicts <- bind_rows(list(predictb_1, predictb_2, predictb_3, predictb_4))%>%
+  mutate(day = 1:(365*4))
+saveRDS(bfpredicts, 'bf_predictions.rds')
 
 allcoefsbf <- lapply(bffits, convert_coefs, 
                      country = 'Burkina Faso',
@@ -208,6 +214,9 @@ mali_fits_p <- ggplot() +
 ggsave('MLI_rainfallfits.png', bf_fits_p)
 
 malifits <- list(fit1mali, fit2mali, fit3mali, fit4mali)
+malipredicts <- bind_rows(list(predictm_1, predictm_2, predictm_3, predictm_4)) %>%
+  mutate(day = 1:(365*4))
+saveRDS(malipredicts, 'mali_predictions.rds')
 
 allcoefsmali <- lapply(malifits, convert_coefs, 
                        country = 'Mali',
@@ -219,18 +228,23 @@ allcoefsmali <- lapply(malifits, convert_coefs,
 # First, specify site parameters along with year-specific rainfall parameters for each of the years
 bf_pars <- lapply(allcoefsbf, 
                   function(x) {
-                    site_parameters(
-                      interventions = hounde$interventions,
-                      demography = hounde$demography,
-                      vectors = hounde$vectors$vector_species,
+                    pars <- site_parameters(
+                      interventions = bougouni$interventions,
+                      demography = bougouni$demography,
+                      vectors = bougouni$vectors$vector_species,
                       seasonality = x,
-                      eir = hounde$eir$eir,
+                      eir = bougouni$eir$eir,
                       overrides = list(
                         human_population = 10000
-                      ))} )
+                      ))
+                    
+                    pars <- set_equilibrium(pars, 
+                                            init_EIR = pars$init_EIR)
+                    
+                    return(pars)} )
 mali_pars <- lapply(allcoefsmali, 
                     function(x) {
-                      site_parameters(
+                      pars <- site_parameters(
                         interventions = bougouni$interventions,
                         demography = bougouni$demography,
                         vectors = bougouni$vectors$vector_species,
@@ -238,7 +252,10 @@ mali_pars <- lapply(allcoefsmali,
                         eir = bougouni$eir$eir,
                         overrides = list(
                           human_population = 10000
-                        ))} )
+                        ))
+                      
+                      pars <- set_equilibrium(pars, 
+                                              init_EIR = pars$init_EIR)} )
 
 # now, run the simulation for each of these parameter sets 
 outputs_bf <- lapply(bf_pars, 
@@ -272,8 +289,8 @@ outputs_bf_all <- lapply(seq_along(outputs_bf), function(i) {
            date = as.Date(timestep - (365*17) + 1, origin = '2017-01-01')) 
 }) %>%
   bind_rows() %>%
-  filter(year == rainfall_year & # keep only the years for which the rainfall from that year was used to predict
-           (date >= '2017-04-01' & date < '2020-04-01') # filter to study period 
+  filter(year == rainfall_year# & # keep only the years for which the rainfall from that year was used to predict
+           # (date >= '2017-04-01' & date < '2020-04-01') # filter to study period 
   ) %>%
   # calculate probability of bite per day per person 
   mutate(prob_infectious_bite = ifelse(!is.na(n_bitten), 
@@ -287,8 +304,9 @@ outputs_mali_all <- lapply(seq_along(outputs_mali), function(i) {
            date = as.Date(timestep - (365*17) + 1, origin = '2017-01-01')) 
 }) %>%
   bind_rows() %>%
-  filter(year == rainfall_year &
-           (date >= '2017-04-01' & date < '2020-04-01')) %>%
+  filter(year == rainfall_year #&
+           # (date >= '2017-04-01' & date < '2020-04-01')
+         ) %>%
   # calculate probability of bite per day per person 
   mutate(prob_infectious_bite = ifelse(!is.na(n_bitten), 
                                        n_bitten/(n_age_0_1824 + n_age_1825_5474 + n_age_5475_36499), 0))
@@ -308,9 +326,9 @@ outputs_mali_all <- lapply(seq_along(outputs_mali), function(i) {
 #        x = "Year") 
 
 # output these proabilities to save for the cohort simulation 
-saveRDS(outputs_bf_all %>% select(prob_infectious_bite, timestep, date, year, rainfall_year), 
+saveRDS(outputs_bf_all %>% select(prob_infectious_bite, date, year, rainfall_year), 
         file = 'prob_bite_BFA.rds')
-saveRDS(outputs_mali_all %>% select(prob_infectious_bite, timestep, date, year, rainfall_year), 
+saveRDS(outputs_mali_all %>% select(prob_infectious_bite, date, year, rainfall_year), 
         file = 'prob_bite_MLI.rds')
 
 # then can add in the interventions and see how the seasonality matches those cases 
