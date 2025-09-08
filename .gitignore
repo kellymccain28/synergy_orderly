@@ -2,6 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
+src/fit_rainfall/chirps/*
+
 
 # ---VVV--- added by orderly ---VVV----------------
 # Don't manually edit content between these markers
