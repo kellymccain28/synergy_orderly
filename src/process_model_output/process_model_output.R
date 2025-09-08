@@ -65,10 +65,11 @@ infection_records <- results[[2]]$infection_records
 # parasitemia <- results[[2]]$parasitemia_data
 # parameters for each model run -- all are different
 parameters <- results[[2]]$parameters
+# parameters <- readRDS('simulation_outputs/parameter_grid.rds')
 # information about interventions, etc for children in model 
 metadata_child <- results[[2]]$child_metadata
 
-sim_ids <- parameters$sim_id
+sim_ids <- unique(parameters$sim_id)
 
 
 # Format model output 
@@ -99,6 +100,6 @@ saveRDS(parameters, 'outputs/parameters_ll.rds')
 # ggplot(parameters) +
 #   geom_point(aes(x = SMC_decay, y = ll, size = max_SMC_kill_rate, color = season_start_day))
 llplot <- ggplot(parameters) + 
-  geom_point(aes(x = season_start_day, y = ll, size = SMC_decay, color = max_SMC_kill_rate)) + 
+  geom_point(aes(x = lag_p_bite, y = ll, size = SMC_decay, color = max_SMC_kill_rate)) + 
   theme_bw()
 ggsave('ll_plot.png', llplot)
