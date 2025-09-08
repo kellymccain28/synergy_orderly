@@ -40,8 +40,9 @@ orderly_run(name = 'sim_cohort',
 
 grid_task <- task_create_expr(orderly2::orderly_run(name = 'sim_cohort_grid',
                              parameters = list(N = 2000,
-                                               trial_ts = 365*3)))
-task_log_show(grid_task) # 21 hours to run 20 different parameter sets with N=2000 and 3 years 
+                                               trial_ts = 365*3,
+                                               sim_allow_superinfections = TRUE)))
+task_log_show(grid_task) 
 
 # process_model_output - formatting the data to match the output from the trial 
 # process_task <- task_create_expr(orderly2::orderly_run(name = 'process_model_output'))

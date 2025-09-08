@@ -146,7 +146,12 @@ p_spz_surv <- function(ab, beta_ab = 6.62,
 #   scale_y_log10()
 
 # function modified from Nora Schmit https://github.com/mrc-ide/r21_vacc_antibody_model/blob/main/ab_model/R/antibody_model.R to include uncertainty
-antibody_titre <- function(t, phase, peak1, peak2, peak3, duration1, duration2, rho1, rho2, rho3, t_boost1 = 364, t_boost2 = 729){
+antibody_titre <- function(t, 
+                           phase, 
+                           peak1, peak2, peak3, 
+                           duration1, duration2, 
+                           rho1, rho2, rho3, 
+                           t_boost1 = 364, t_boost2 = 729){
   # rho3 is same as rho2 unless we get more information that it is different 
   # duration1 and duration2 are mean, sd for short- and long-lived components 
   ds_draw = rlnorm2(1, mean=duration1[1], sd=duration1[2])

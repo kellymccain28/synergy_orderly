@@ -78,7 +78,7 @@ days_in_season <- max(1, days_in_season_raw)
 smc_dose_day <- floor((days_in_season - 1) / (smc_interval))
 time_since_smc <- (days_in_season - 1) - smc_dose_day * (smc_interval)
 
-# SMC kill rate (no cutoff at season end)
+# SMC kill rate
 SMC_kill_rate <- if (SMC_on == 1) in_season * max_SMC_kill_rate * exp(-(time_since_smc / lambda)^kappa) else 0
 
 # probability of parasite being killed by SMC
