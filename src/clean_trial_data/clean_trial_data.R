@@ -63,7 +63,8 @@ primary_persontime <- as.data.frame(data[3])
 primary_raw <- as.data.frame(data[4]) 
 
 delivery_raw <- as.data.frame(data[5])%>%
-  cleandata()
+  cleandata()%>%
+  mutate(last_primary_vac = coalesce(v3_date, v2_date, v1_date))
 
 delivery_detail_raw <- as.data.frame(data[6])%>%
   cleandata() %>%
@@ -78,12 +79,17 @@ weekly2_raw <- as.data.frame(data[9])
 weekly3_raw <- as.data.frame(data[10]) 
 
 children <- children_raw %>% 
-  left_join(delivery_detail_raw %>% select(rid, arm, sex, v1_date, v2_date, v3_date, last_primary_vac, y1p1d1_date_received)) %>%
+  left_join(delivery_raw %>% 
+              select(rid, arm, sex, 
+                     v1_date, v2_date, v3_date, last_primary_vac, boost1_date, boost2_date, 
+                     ends_with('date_received'), -contains('d2'), -contains('d3'), # d2 and d3 are the 2nd and third doses per month
+                     nprimary, nsmc_received)) %>%
   mutate(dob = v1_date - age_months_v1 * 30)%>%
   mutate(ageatV3 = (v3_date - dob),
          ageatlastvac = last_primary_vac - dob) %>%
   # add same end date for now (should be updated from Paul)
-  mutate(fu_end_date = ymd('2020-03-31')) 
+  mutate(fu_end_date = ymd('2020-03-31'))  
+
 
 # Get total children per arm
 total_children <- children_raw %>%
