@@ -134,19 +134,19 @@ parameters_df <- params_df %>%
   )
 
 # Create a metadata child data frame from trial data 
-
 metadata_df <- children %>%
-  mutate(start_of_fu = v1_date, 
-         start_to_v3 = v3_date - start_of_fu, # then the negative version of this is what we need to go into the vax_day var (or could change it to be pos always)
-         # vaccination day is the day of vaccination relative to the start of follow-up 
-         vaccination_day = as.numeric(-start_to_v3),
+  mutate(start_of_fu = as.Date('2017-04-01'),  # this is the start of the cohort simulation. 
+         start_to_v3 = v3_date - start_of_fu, # 
+         # vaccination day is the day of vaccination relative to the start of follow-up of cohort which is april 1, 2017
+         # so a + value means that the vaccine was given x days after april 1, 2017
+         # then we use this to find the number of days since vaccination within the cohrot sim loop
+         vaccination_day = as.numeric(start_to_v3),
          PEV = ifelse(arm == 'smc', 0, 1),
          SMC = ifelse(arm == 'rtss', 0, 1),
          t_to_boost1 = as.numeric(boost1_date - v3_date),
          t_to_boost2 = as.numeric(boost2_date - v3_date)) %>%
   # Calculate timings of smc for each year
   mutate() %>%
-  select(-v3_date, -v1_date) %>%
   filter(!is.na(vaccination_day)) %>%
   # for second booster, say if it is missing then second booster is much later so that it is after the follow-up time is over
   mutate(t_to_boost2 = ifelse(is.na(t_to_boost2), 1400, t_to_boost2),

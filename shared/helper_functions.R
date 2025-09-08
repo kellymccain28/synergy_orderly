@@ -53,7 +53,8 @@ run_process_model <- function(n_particles = 1L,
 #' @param n_threads number of threads to use in parallelisable calculations
 #' @param PEV_on 0 for no PEV, 1 if PEV is delivered
 #' @param SMC_on 0 for no SMC, 1 if SMC is delivered
-#' @param t_inf time of infection relative to vaccination (i.e. 20 means the vaccine was given 20 days prior to infectious bite); should be >=0 if vaccination will protect from infection; (this influences ab titre at time of infection)
+#' @param t_inf time of infection relative to vaccination (i.e. 20 means the vaccine was given 20 days prior to infectious bite); 
+                # should be >=0 if vaccination will protect from infection; (this influences ab titre at time of infection)
 #' @param tt sequence of timesteps in 2-day increments 
 #' @param VB volume of blood in microL; 1e6 is for a small child (1L); adult male is 5L
 #' @param det_mode logical, if model should be run in deterministic mode

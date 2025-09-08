@@ -162,7 +162,10 @@ run_cohort_simulation <- function(metadata_df,
         # Map to bit_kids order
         PEV_vec <- pev_lookup[as.character(bit_kids)]
         SMC_vec <- smc_lookup[as.character(bit_kids)]
-        t_since_vax_vec <- (t - burnin) - vax_day_lookup[as.character(bit_kids)] # here, a - value of vaxdaylookup indicates vaccination before the follow-up  
+        # Find the time since vaccination -- time between 3rd dose (vax day) and infectious bite
+        t_since_vax_vec <- (t - burnin) - vax_day_lookup[as.character(bit_kids)] # here, a (-) value of vaxdaylookup indicates 
+                                                                                  # vaccination before the infection begins 
+        # booster doses -- these are the timings of boosters 1 and 2 relative to the 3rd dose - used in ab calculation
         t_toboost1_vec <- t_toboost1_lookup[as.character(bit_kids)]
         t_toboost2_vec <- t_toboost2_lookup[as.character(bit_kids)]
         
@@ -185,7 +188,8 @@ run_cohort_simulation <- function(metadata_df,
         t_toboost2 = t_toboost2_vec
       )
       
-      # Find time length until end of follow-up to run infection sim  
+      ## Find time length until end of follow-up to run infection sim 
+      # now, just do 100 days for each infection, which is plenty of time 
       tt_until_end_cohort <- seq(0, 100, by = tstep)#seq(0, ((trial_ts + burnin) - t)/divide, by = tstep)
       
       outputs <- pmap(params_df, 
