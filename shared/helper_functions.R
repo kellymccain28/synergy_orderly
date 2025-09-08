@@ -10,47 +10,47 @@ run_process_model <- function(n_particles = 1L,
                               tt , # sequence of timesteps (2 days for each 1 step)
                               VB = 1e6,
                               det_mode = FALSE,
-                              max_SMC_kill_rate = max_SMC_kill_rate,
-                              SMC_decay = SMC_decay,
-                              # smc_timing = 0# smc timing is relative to 0 which is infectious bite; 
-                              infection_start_day, # external time that infection begins 
-                              season_start_day = 10, # day of season start relative to Jan 1 of external year 
+                              max_SMC_kill_rate,
+                              SMC_decay,
+                              infection_start_day, # external time that infection begins
+                              season_start_day = 10, # day of season start relative to Jan 1 of external year
                               season_length = 120, # ~4 months (120 days)
-                              smc_interval= 30 # how often are SMC rounds (days)
+                              smc_interval= 30, # how often are SMC rounds (days)
+                              tboost1 = 364,
+                              tboost2 = 729
                               ){ 
-  # Run model
+
+  # Run model  out <- run_model(args)
   out <- run_model(n_particles = n_particles,
                    n_threads = n_threads,
                    PEV_on = PEV_on,
                    SMC_on = SMC_on,
-                   t_inf = t_inf, 
+                   t_inf = t_inf,
                    tt = tt,
                    VB = VB,
                    det_mode = det_mode,
                    max_SMC_kill_rate = max_SMC_kill_rate,
-                   # smc_timing = smc_timing
-                   infection_start_day = infection_start_day, # external time that infection begins 
-                   season_start_day = season_start_day, # day of season start relative to Jan 1 of external year 
+                   infection_start_day = infection_start_day, # external time that infection begins
+                   season_start_day = season_start_day, # day of season start relative to Jan 1 of external year
                    season_length = season_length, # ~4 months (120 days)
-                   smc_interval= smc_interval # how often are SMC rounds (days)
-                   )
+                   smc_interval= smc_interval, # how often are SMC rounds (days)
+                   tboost1 = tboost1,
+                   tboost2 = tboost2)
   
   # Format data 
   out_formatted <- format_data(out,
-                               tt,
-                               infection_start_day = infection_start_day)# %>%
-    # mutate(scen = ifelse(PEV_on == 1 & SMC_on == 1, 'vaxsmc',
-    #                      ifelse(PEV_on == 1 & SMC_on == 0, 'vax',
-    #                             ifelse(PEV_on == 0 & SMC_on == 1, 'smc', 'none'))))
+                               tt = tt,
+                               infection_start_day = infection_start_day)
   
   # Find first day threshold is reached 
   threshold_day <- get_ttoinf(out_formatted) %>% pull(time)
   
-  return(list(trajectory = out_formatted, threshold_day = threshold_day))#raw = out, 
+  return(list(trajectory = out_formatted, 
+              threshold_day = threshold_day))
 }
 
 #' @param n_particles number of particles to create
-#' @param n_threads number of threads to use in parallisable calcs
+#' @param n_threads number of threads to use in parallelisable calculations
 #' @param PEV_on 0 for no PEV, 1 if PEV is delivered
 #' @param SMC_on 0 for no SMC, 1 if SMC is delivered
 #' @param t_inf time of infection relative to vaccination (i.e. 20 means the vaccine was given 20 days prior to infectious bite); should be >=0 if vaccination will protect from infection; (this influences ab titre at time of infection)
@@ -66,18 +66,19 @@ run_model <- function(n_particles = 1L,
                       VB,
                       det_mode = FALSE,
                       max_SMC_kill_rate = 0,
-                      # smc_timing = 0
+                      SMC_decay = 0,
                       infection_start_day = 0, # external time that infection begins 
-                      season_start_day = 10, # day of season start relative to Jan 1 of external year 
+                      season_start_day = 122, # day of season start relative to April 1 of external year  (start of FU) - 122 is August 1
                       season_length = 120, # ~4 months (120 days)
-                      smc_interval= 30 # how often are SMC rounds (days)
+                      smc_interval= 30, # how often are SMC rounds (days)
+                      tboost1 = 364, # timesteps after 3rd dose that the first booster is delivered
+                      tboost2 = 729# timesteps after 1st booster that the second booster is delivered 
 ){
-  # cat("SMC_on in run_model:", SMC_on, "\n")
   
   # Get antibody curve over 3 years of cohort study 
   ts <- seq(0,365*5)
-  phases <- ifelse(ts < 365, 1,
-                  ifelse(ts < 729, 2, 3))
+  phases <- ifelse(ts < tboost1, 1,
+                  ifelse(ts < tboost2, 2, 3))
   ab <- antibody_titre(t = ts,
                        phase = phases,
                        peak1 = c(621,0.35) ,
@@ -88,8 +89,8 @@ run_model <- function(n_particles = 1L,
                        rho1 = c(2.37832, 1.00813),
                        rho2 = c(1.034, 1.027),
                        rho3 = c(1.034, 1.027),
-                       t_boost1 = 364,
-                       t_boost2 = 729)
+                       t_boost1 = tboost1,
+                       t_boost2 = tboost2)
   ab_user <- if(PEV_on == 1 & t_inf != 0) ab[t_inf] else 0 # on day 0, the ab haven't started yet 
   
   # Set parameters
@@ -98,15 +99,11 @@ run_model <- function(n_particles = 1L,
                ab_user = ab_user,
                VB = VB,
                max_SMC_kill_rate= max_SMC_kill_rate,
-               # smc_timing = smc_timing,
                infection_start_day = infection_start_day, # external time that infection begins 
-               season_start_day = season_start_day, # day of season start relative to Jan 1 of external year 
+               season_start_day = season_start_day, # day of season start relative to April 1 of external year  (start of FU)
                season_length = season_length, # ~4 months (120 days)
                smc_interval= smc_interval # how often are SMC rounds (days)
   )
-  
-  # Debug: Print the pars list
-  # cat("SMC_on in pars:", pars$SMC_on, "\n")
   
   sys <- dust_system_create(gen_bs, 
                             pars, 
@@ -124,7 +121,6 @@ run_model <- function(n_particles = 1L,
   # sum(init_states$PB == 0)
   
   # Run model 
-  # tt <- seq(1, ts, by = 1)#2
   bs_model <- dust_system_simulate(sys, tt)
   
   out <- dust_unpack_state(sys, bs_model)
