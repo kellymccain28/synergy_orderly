@@ -19,7 +19,8 @@ orderly_dependency(name = 'clean_trial_data',
                    "latest()",
                    files = c('data/primary_persontime.rds',
                              'data/children.rds',
-                             'data/mitt.rds'))
+                             'data/mitt.rds',
+                             'data/delivery_detail.rds'))
 
 orderly_artefact(files = 'surv_analysis_trial.rds')
 
@@ -34,7 +35,10 @@ primary_pt <- cyphr::decrypt(readRDS('data/primary_persontime.rds'), key)
 children <- cyphr::decrypt(readRDS('data/children.rds'), key)
 mitt <- cyphr::decrypt(readRDS('data/mitt.rds'), key) %>%
   labelled:::remove_labels(mitt)
+delivery <- cyphr::decrypt(readRDS('data/delivery_detail.rds'), key)
 
+primary <- primary_pt %>%
+  left_join(delivery)
 
 # Survival analysis to reproduce results from trial
 ## SMC comparator by year and overall ---- 
@@ -52,6 +56,26 @@ tidy_results <- rbind(smcrefresults, rtssrefresults)
 
 saveRDS(tidy_results, 'surv_analysis_trial.rds')
 
+# Get efficacy for 3 versus 2 doses 
+# df <- primary %>% 
+#   filter(nprimary %in% c(3,2)) %>% 
+#   mutate(nprimary = factor(nprimary, levels = c(3, 2, 1))) %>%
+#   filter(arm == 'both' & year == 1)
+# coxdoses <- coxph(Surv(start_time, end_time, event) ~ factor(nprimary),# + factor(country), 
+#                   data = df,
+#                   cluster = rid,
+#                   ties = "efron")
+# results <- tidy(coxdoses,
+#                 exponentiate = TRUE,
+#                 conf.int = TRUE) %>%
+#   # Calculate vaccine efficacy and its confidence intervals
+#   mutate(VE = (1 - estimate) * 100,              # VE = 1 - HR
+#     VE_lower = (1 - conf.high) * 100,       # Lower CI for VE = 1 - Upper CI for HR
+#     VE_upper = (1 - conf.low) * 100        # Upper CI for VE = 1 - Lower CI for HR
+#   ) %>% mutate(
+#     n_events = coxdoses$nevent,
+#     n_obs = coxdoses$n
+#   )
 
 # Plot efficacy
 efficacies <- ggplot(tidy_results %>% filter(term %in% c("Both vs. RTSS",'RTSS vs. SMC','Both vs. SMC')))+
