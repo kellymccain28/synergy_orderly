@@ -19,6 +19,8 @@ orderly_dependency(name = 'process_model_output',
 all_model_outputs <- readRDS('outputs/model_outputs_formatted.rds')
 
 parameters_ll <- readRDS('outputs/parameters_ll.rds')
+parameters_ll <- parameters_ll %>%
+  distinct(max_SMC_kill_rate, SMC_decay, season_start_day, lag_p_bite, sim_id, .keep_all = TRUE)
 
 # Get Sim_id with highest likelihood value 
 ml <- parameters_ll[parameters_ll$ll == max(parameters_ll$ll),] 
@@ -28,7 +30,7 @@ ml <- parameters_ll[parameters_ll$ll == max(parameters_ll$ll),]
 output_dir <- 'outputs'
 sim_dirs <- list.dirs(output_dir, recursive = FALSE, full.names = TRUE)
 sim_dirs <- sim_dirs[grepl("^sim_", basename(sim_dirs))]
-sim_dir <- sim_dirs[sim_dirs==paste0('outputs/',ml$ll)]
+sim_dir <- sim_dirs[sim_dirs==paste0('outputs/',ml$sim_id)]
 
 
 tidy_results_trial <- readRDS("surv_analysis_trial.rds")
@@ -131,7 +133,7 @@ monthlyincidenceplot <- ggplot(data = monthlyincidence) +
     caption = str_glue("Model parameters: \n,
                         SMC max: {ml$max_SMC_kill_rate},\n
                         SMC decay: {ml$SMC_decay},\n
-                        season start day: {ml$season_start_day}")
+                        lag: {ml$lag_p_bite}")
   ) +
   theme_minimal(base_size = 16)
 
