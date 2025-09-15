@@ -13,9 +13,13 @@ run_process_model <- function(n_particles = 1L,
                               max_SMC_kill_rate,
                               SMC_decay,
                               infection_start_day, # external time that infection begins
-                              season_start_day = 10, # day of season start relative to Jan 1 of external year
-                              season_length = 120, # ~4 months (120 days)
-                              smc_interval= 30, # how often are SMC rounds (days)
+                              n_smc_doses,  # number of SMC doses delivered over 3 year study
+                              smc_dose_timing, # timing of SMC doses with length of n_smc_doses, integer values in days from april 1, 2017
+                              # season_start_day = 10, # day of season start relative to Jan 1 of external year
+                              # season_length = 120, # ~4 months (120 days)
+                              # smc_interval= 30, # how often are SMC rounds (days)
+                              SMC_time,
+                              SMC_kill_vec,
                               tboost1 = 364,
                               tboost2 = 729
                               ){ 
@@ -31,9 +35,13 @@ run_process_model <- function(n_particles = 1L,
                    det_mode = det_mode,
                    max_SMC_kill_rate = max_SMC_kill_rate,
                    infection_start_day = infection_start_day, # external time that infection begins
-                   season_start_day = season_start_day, # day of season start relative to Jan 1 of external year
-                   season_length = season_length, # ~4 months (120 days)
-                   smc_interval= smc_interval, # how often are SMC rounds (days)
+                   # season_start_day = season_start_day, # day of season start relative to Jan 1 of external year
+                   # season_length = season_length, # ~4 months (120 days)
+                   # smc_interval= smc_interval, # how often are SMC rounds (days)
+                   # n_smc_doses = n_smc_doses,  # number of SMC doses delivered over 3 year study
+                   # smc_dose_timing = smc_dose_timing, # timing of SMC doses with length of n_smc_doses, integer values in days from april 1, 2017
+                   SMC_time = SMC_time,
+                   SMC_kill_vec = SMC_kill_vec, 
                    tboost1 = tboost1,
                    tboost2 = tboost2)
   
@@ -69,9 +77,11 @@ run_model <- function(n_particles = 1L,
                       max_SMC_kill_rate = 0,
                       SMC_decay = 0,
                       infection_start_day = 0, # external time that infection begins 
-                      season_start_day = 122, # day of season start relative to April 1 of external year  (start of FU) - 122 is August 1
-                      season_length = 120, # ~4 months (120 days)
-                      smc_interval= 30, # how often are SMC rounds (days)
+                      SMC_time, # season_start_day = 122, # day of season start relative to April 1 of external year  (start of FU) - 122 is August 1
+                      SMC_kill_vec,# season_length = 120, # ~4 months (120 days)
+                      # smc_interval= 30, # how often are SMC rounds (days)
+                      # n_smc_doses,  # number of SMC doses delivered over 3 year study
+                      # smc_dose_timing, # timing of SMC doses with length of n_smc_doses, integer values in days from april 1, 2017
                       tboost1 = 364, # timesteps after 3rd dose that the first booster is delivered
                       tboost2 = 729# timesteps after 1st booster that the second booster is delivered 
 ){
@@ -101,9 +111,12 @@ run_model <- function(n_particles = 1L,
                VB = VB,
                max_SMC_kill_rate= max_SMC_kill_rate,
                infection_start_day = infection_start_day, # external time that infection begins 
-               season_start_day = season_start_day, # day of season start relative to April 1 of external year  (start of FU)
-               season_length = season_length, # ~4 months (120 days)
-               smc_interval= smc_interval # how often are SMC rounds (days)
+               SMC_time = unlist(SMC_time),
+               SMC_kill_vec = unlist(SMC_kill_vec)
+               # smc_dose_timing = smc_dose_timing # timing of SMC doses with length of n_smc_doses, integer values in days from april 1, 2017
+               # season_start_day = season_start_day, # day of season start relative to April 1 of external year  (start of FU)
+               # season_length = season_length, # ~4 months (120 days)
+               # smc_interval= smc_interval # how often are SMC rounds (days)
   )
   
   sys <- dust_system_create(gen_bs, 
@@ -366,10 +379,30 @@ get_ttoinf <- function(df){
     ungroup() %>%
     mutate(time = ifelse(!threshold_reached, NA, time))
   
-  # If timestep in model is 1, then need to multiply by 2 to get the days since each is by day 
+  # If timestep in model is 1, then need to multiply by 2 to get the external days, since each is by day 
   if(tstep == 1){
     df$time <- df$time * 2
   }
   
   return(df)
+}
+
+# Function to calculate time since SMC dose 
+# where timings is the vector of days since April 1, 2017 that SMC was delievered for an individual child
+# and days is a vector of days (0:end of cohort sim) 
+# outputs at each day how long it has been since the last dose which can be used to calculate the kill rate due to SMC per day 
+calc_time_since_dose <- function(timings, days, burnin) {
+  suppressWarnings(sapply(tt, function(d) {
+    last_dose <- max(smc_timing[smc_timing <= d])
+    ifelse(is.finite(last_dose), d - last_dose, NA)
+  }))
+  # sapply(days, function(d) {
+  #   eligible_timings <- timings[timings <= d]
+  #   if (length(eligible_timings) > 0) {
+  #     last_dose <- max(eligible_timings)
+  #     d - last_dose
+  #   } else {
+  #     NA
+  #   }
+  # })
 }
