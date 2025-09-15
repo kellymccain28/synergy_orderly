@@ -16,10 +16,6 @@ initial(sm) <- 1
 # make variable to use what the value of PB will be at current timestep
 PB_next <- (PB - n_killSMC) * growth #PB + n_grow - n_killSMC ##
 
-# make variable to use what the value of PB will be at current timestep
-# growthrate <- 1 - exp(-growth) * dt
-# n_grow <- Poisson(((PB * VB) - n_killSMC) * growth) / VB
-
 # Draw growth rate for each timestep (2 days) -- parameters from Challenger et al.
 corr_m <- 0.63
 mean_m <- 16
@@ -51,45 +47,48 @@ update(PBsum) <- if(time > 3) PC - sum(buffer) else 0
 
 
 # SMC 
-# Calculate day of year in cohort time to determine SMC curve
-external_day <- if (SMC_on == 1) infection_start_day + time * 2 else 0 #infection_start_day/2 + time # this is the day of the infection in external time (not infection time)
-day_of_year <- if (SMC_on == 1) ((external_day - 1) %% 365) + 1 else 0
-season_end_day <- if (SMC_on == 1) season_start_day + season_length - 1 else 0 # season length is in days, but the timesteps are 2 days long
-# Check if in season
-in_season <- if (season_end_day <= 365) (
-  if (day_of_year >= season_start_day && day_of_year <= season_end_day) 1 else 0
-) else (
-  if (day_of_year >= season_start_day || day_of_year <= (season_end_day - 365)) 1 else 0
-)
-initial(in_season_out) <- 0
-update(in_season_out) <- in_season
-# Days since season started (accounting for year wrap)
-days_in_season_raw <- if (season_end_day <= 365) (
-  day_of_year - season_start_day + 1
-) else (
-  if (day_of_year >= season_start_day) (
-    day_of_year - season_start_day + 1
-  ) else (
-    day_of_year + (365 - season_start_day + 1)
-  )
-)
-days_in_season <- max(1, days_in_season_raw)
-# Time since last SMC dose
-smc_dose_day <- floor((days_in_season - 1) / (smc_interval))
-time_since_smc <- (days_in_season - 1) - smc_dose_day * (smc_interval)
+# # If we want to run the model in generic SMC mode (not specific to individuals): 
+# # Calculate day of year in cohort time to determine SMC curve
+# external_day <- if (SMC_on == 1) infection_start_day + time * 2 else 0 #infection_start_day/2 + time # this is the day of the infection in external time (not infection time)
+# day_of_year <- if (SMC_on == 1) ((external_day - 1) %% 365) + 1 else 0
+# season_end_day <- if (SMC_on == 1) season_start_day + season_length - 1 else 0 # season length is in days, but the timesteps are 2 days long
+# # Check if in season
+# in_season <- if (season_end_day <= 365) (
+#   if (day_of_year >= season_start_day && day_of_year <= season_end_day) 1 else 0
+# ) else (
+#   if (day_of_year >= season_start_day || day_of_year <= (season_end_day - 365)) 1 else 0
+# )
+# initial(in_season_out) <- 0
+# update(in_season_out) <- in_season
+# # Days since season started (accounting for year wrap)
+# days_in_season_raw <- if (season_end_day <= 365) (
+#   day_of_year - season_start_day + 1
+# ) else (
+#   if (day_of_year >= season_start_day) (
+#     day_of_year - season_start_day + 1
+#   ) else (
+#     day_of_year + (365 - season_start_day + 1)
+#   )
+# )
+# days_in_season <- max(1, days_in_season_raw)
+# # Time since last SMC dose
+# smc_dose_day <- floor((days_in_season - 1) / (smc_interval))
+# time_since_smc <- (days_in_season - 1) - smc_dose_day * (smc_interval)
+# 
 
-# SMC kill rate
-SMC_kill_rate <- if (SMC_on == 1) in_season * max_SMC_kill_rate * exp(-(time_since_smc / lambda)^kappa) else 0
+# Individual-specific SMC dates as defined by metadata_df 
+
+# # SMC kill rate
+# SMC_kill_rate <- if (SMC_on == 1) max_SMC_kill_rate * exp(-(time_since_smc / lambda)^kappa) else 0
 
 # probability of parasite being killed by SMC
-lambda <- parameter(17) #(scale)
-kappa <- parameter(0.28) #(shape)
+# lambda <- parameter(17) #(scale)
+# kappa <- parameter(0.28) #(shape)
 # SMC_kill_rate <- if (time >= smc_timing) max_SMC_kill_rate * exp(-((time - smc_timing) / lambda)^kappa) else 0 # hill
 # SMC_kill_rate <- if (time >= smc_timing) max_SMC_kill_rate * exp(-SMC_decay * (time - smc_timing)) else 0#max_SMC_kill_rate * exp(-SMC_decay * dt) # ## time-varying SMC kill rate (exponential decay) # exp
-p_killSMC <-  if (SMC_on == 1) 1 - exp(-SMC_kill_rate * dt) else 0
-n_killSMC <- if (SMC_on == 1) Binomial(PB * VB, p_killSMC) / VB else 0
+p_killSMC <-  if(SMC_on == 1) 1 - exp(-SMC_kill_rate * dt) else 0
+n_killSMC <- Binomial(PB * VB, p_killSMC) / VB 
 
-# print("external_day: {external_day}, day_of_year: {day_of_year}, in_season: {in_season}, days_in_season: {days_in_season}, smc_dose_day: {smc_dose_day}, time_since_smc: {time_since_smc}, SMC_kill_rate: {SMC_kill_rate}")
 
 initial(SMC_kill_rateout) <- 0
 update(SMC_kill_rateout) <- SMC_kill_rate
@@ -159,13 +158,18 @@ PEV_on <- parameter()
 SMC_on <- parameter()
 ab_user <- parameter()
 VB <- parameter()
-max_SMC_kill_rate <- parameter(1.5)
+# max_SMC_kill_rate <- parameter(1.5)
 # SMC_decay <- parameter(0.05) # decay of SMC kill rate
 # smc_timing <- parameter(0) # timing of receipt of last dose of SMC relative to start of simulation
 
 # SMC parameters
-infection_start_day <- parameter(0) # external time that the infection began -- default is 0 (if running outside of cohort )
-season_start_day <- parameter(10)    # Day 180 = ~July 1st
-season_length <- parameter(120)       # 4 months (120 days)
-smc_interval <- parameter(30)         # SMC every 30 days
+# infection_start_day <- parameter(0) # external time that the infection began -- default is 0 (if running outside of cohort )
+SMC_time <- parameter(constant = TRUE) # timesteps over which the SMC kill rate should be interpolated
+SMC_kill_vec <- parameter(constant = TRUE) # kill rate vector for individual child 
+dim(SMC_time, SMC_kill_vec) <- parameter(rank = 1) # this means that both of the above 2 parameters are vectors 
+
+SMC_kill_rate <- interpolate(SMC_time, SMC_kill_vec, 'constant')
+# season_start_day <- parameter(122)    # Day 122 = ~August 1
+# season_length <- parameter(120)       # 4 months (120 days)
+# smc_interval <- parameter(30)         # SMC every 30 days
 
