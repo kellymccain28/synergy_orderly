@@ -392,17 +392,8 @@ get_ttoinf <- function(df){
 # and days is a vector of days (0:end of cohort sim) 
 # outputs at each day how long it has been since the last dose which can be used to calculate the kill rate due to SMC per day 
 calc_time_since_dose <- function(timings, days, burnin) {
-  suppressWarnings(sapply(tt, function(d) {
-    last_dose <- max(smc_timing[smc_timing <= d])
+  suppressWarnings(sapply(days, function(d) {
+    last_dose <- max(timings[timings <= d])
     ifelse(is.finite(last_dose), d - last_dose, NA)
   }))
-  # sapply(days, function(d) {
-  #   eligible_timings <- timings[timings <= d]
-  #   if (length(eligible_timings) > 0) {
-  #     last_dose <- max(eligible_timings)
-  #     d - last_dose
-  #   } else {
-  #     NA
-  #   }
-  # })
 }
