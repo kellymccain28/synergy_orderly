@@ -27,9 +27,9 @@ analyse_model_output <- function(outputs, simulation, parameters){
   
   # Do the same analysis as we do on trial data in trial_results.R
   model_output <- output %>%
-    mutate(arm_smcref = factor(arm, levels = c('smc','vax','vaxsmc','none')),
-           arm_rtssref = factor(arm, levels = c('vax','smc','vaxsmc','none')),
-           arm_noneref = factor(arm, levels = c('none','vax','smc','vaxsmc')),
+    mutate(arm_smcref = factor(arm, levels = c('smc','rtss','both','none')),
+           arm_rtssref = factor(arm, levels = c('rtss','smc','both','none')),
+           arm_noneref = factor(arm, levels = c('none','rtss','smc','both')),
            country = 'BF',
            end_time = ifelse(start_time==end_time, end_time + 0.00001, end_time)) %>%
     filter(start_time != end_time) %>% ungroup()
