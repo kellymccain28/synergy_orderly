@@ -13,15 +13,13 @@ library(cyphr)
 key <- cyphr::data_key()
 
 orderly_strict_mode()
-orderlyparams <- orderly_parameters(N = NULL, # size of cohort population 
-                   trial_ts = NULL,
-                   sim_allow_superinfections = NULL)#, # trial timesteps in cohort simulation
-                   # burnin = NULL, # number of days in cohort simulation to use for burnin
-                   # max_SMC_kill_rate = NULL,
-                   # SMC_decay = NULL,
-                   # season_start_day = NULL,
-                   # season_length = NULL,
-                   # smc_interval = NULL)
+orderlyparams <- orderly_parameters(#N = NULL, # size of cohort population 
+                   trial_ts = NULL,# trial timesteps in cohort simulation (inte)
+                   sim_allow_superinfections = NULL, # TRUE or FALSE 
+                   country_to_run = NULL, # BF or Mali, or if generic, then 'generic'
+                   n_param_sets = NULL)
+
+                   
 
 orderly_shared_resource("smc.R",
                         "rtss.R",
@@ -50,10 +48,6 @@ gen_bs <- odin2::odin("smc_rtss.R")
 # Source the utils functions 
 source("cohort_sim_utils.R")
 
-# Make weights to prevent homogenoeous transmission 
-weights <- rexp(orderlyparams$N) # Generate random weights to sample children at different probabilities (could also use rpois(N) or rexp(N))
-weights <- weights / sum(weights) # normalize to sum to 1 
-
 # set base parameters 
 n_particles = 1L
 n_threads = 1L
@@ -61,16 +55,13 @@ burnints = 50
 threshold = 5000
 tstep = 1
 t_liverstage = 8
-vax_day = -10
-country_to_run = 'BF'
-smc_interval = 30
+country_to_run = orderlyparams$country_to_run
 VB = 1e6
 divide = if(tstep == 1) 2 else 1
 
-
 # Set up base inputs (these don't vary across parameter sweep)
 base_inputs <- list(
-  N_children = orderlyparams$N,
+  # N_children = nrow(children),
   trial_timesteps = orderlyparams$trial_ts,#365*3,
   burnin = burnints,
   threshold = threshold,
@@ -78,31 +69,31 @@ base_inputs <- list(
   tstep = tstep,
   t_liverstage = t_liverstage,
   weights = weights,        
-  vax_day = vax_day,
-  country = country_to_run,
-  smc_interval = smc_interval
+  country = country_to_run
 )
 
 # Create parameter grid
 set.seed(123)
 
-A <- randomLHS(n = 20, k = 4) # n different sets of parameters, with k parameters to change
+A <- randomLHS(n = orderlyparams$n_param_sets, k = 4) # n different sets of parameters, with k parameters to change
 A[,1] <- qunif(A[,1], 2, 15) # min and max values -- this is max kill rate
-A[,2] <- qunif(A[,2], 0.01, 0.1) # min and max values -- this is SMC decay rate
-A[,3] <- 122#round(qunif(A[,3], 90, 150),0) # min and max values -- this is day of season start, which is also the first day of SMC -- relative to the first day of FU which is 1 April 2017
-A[,4] <- round(qunif(A[,4],0, 60), 0) # lag in days of p of an infectious bite -- this will move the curves to the right 
+A[,2] <- qunif(A[,3], 10, 30) # min and max values -- this is lambda
+A[,3] <- qunif(A[,4], 0.05, 0.3) # min and max values -- this is kappa
+A[,4] <- round(qunif(A[,4],0, 100), 0) # lag in days of p of an infectious bite -- this will move the curves to the right 
 # A
-colnames(A) <- c('max_SMC_kill_rate', 'SMC_decay', 'season_start_day', 'lag_p_bite')
+colnames(A) <- c('max_SMC_kill_rate', 'lambda', 'kappa', 'lag_p_bite')
 params_df <- as.data.frame(A)
+params_df$sim_id <- rownames(params_df)
 
 # Lag the probability of infectious bites 
 prob_bite_BFA <- readRDS('prob_bite_BFA.rds')
 prob_bite_MLI <- readRDS('prob_bite_MLI.rds')
+
 # Get unique lag values from parameter set
 unique_lags <- unique(params_df$lag_p_bite)
 
 #Calculate lagged vectors for all unique lags
-calc_lagged_vectors <- function(prob_data, lags, start_date = '2017-04-01', 
+calc_lagged_vectors <- function(prob_data, lags, start_date = as.Date('2017-04-01'), 
                                       end_date = '2020-04-01', burnints) {
   
   lag_list <- map(lags, function(lag_val) {
@@ -110,12 +101,15 @@ calc_lagged_vectors <- function(prob_data, lags, start_date = '2017-04-01',
       mutate(prob_lagged = lag(prob_infectious_bite, n = lag_val),
              date_lagged = lag(date, n = lag_val))
     
-    prob_filtered <- prob_lagged[prob_lagged$date_lagged >= start_date & 
+    # Get start date minus burnin 
+    start_date_pbite <- start_date - burnints
+    prob_filtered <- prob_lagged[prob_lagged$date_lagged >= start_date_pbite & 
                                    prob_lagged$date_lagged < end_date & 
                                    !is.na(prob_lagged$date_lagged),]
     
-    c(rep(median(prob_filtered$prob_lagged, na.rm = TRUE), burnints), 
-      prob_filtered$prob_lagged)
+    # isntead of median, am now filtering to start date - burnin above
+    # c(rep(median(prob_filtered$prob_lagged, na.rm = TRUE), burnints), # this is to have a probability of bite before the burnin 
+    #   prob_filtered$prob_lagged)
   })
   
   names(lag_list) <- paste0("lag_", lags)
@@ -123,18 +117,29 @@ calc_lagged_vectors <- function(prob_data, lags, start_date = '2017-04-01',
 }
 
 # Pre-compute the lagged probabilities for both countries
+# each is a list of the probabilities for each of the 3 parameter sets in A
 bfa_vectors <- calc_lagged_vectors(prob_bite_BFA, unique_lags, burnints = burnints)
 mli_vectors <- calc_lagged_vectors(prob_bite_MLI, unique_lags, burnints = burnints)
+
+p_bitevector <- if(country_to_run == 'BF') {
+  bfa_vectors
+} else if(country_to_run == 'Mali') {
+  mli_vectors 
+} else if(country_to_run == 'generic') {
+  generic_vectors
+}
 
 # Add to parameter dataframe by matching lag values
 parameters_df <- params_df %>%
   mutate(
-    p_bite_bfa = map(lag_p_bite, ~bfa_vectors[[paste0("lag_", .x)]]),
-    p_bite_mli = map(lag_p_bite, ~mli_vectors[[paste0("lag_", .x)]])
+    p_bite = map(lag_p_bite, ~p_bitevector[[paste0("lag_", .x)]])#,
+    # p_bite_mli = map(lag_p_bite, ~mli_vectors[[paste0("lag_", .x)]])
   )
 
 # Create a metadata child data frame from trial data 
 metadata_df <- children %>%
+  # filter to country we are running 
+  filter(country == country_to_run) %>%
   mutate(start_of_fu = as.Date('2017-04-01'),  # this is the start of the cohort simulation. 
          start_to_v3 = v3_date - start_of_fu, # 
          # vaccination day is the day of vaccination relative to the start of follow-up of cohort which is april 1, 2017
@@ -145,17 +150,20 @@ metadata_df <- children %>%
          SMC = ifelse(arm == 'rtss', 0, 1),
          t_to_boost1 = as.numeric(boost1_date - v3_date),
          t_to_boost2 = as.numeric(boost2_date - v3_date)) %>%
-  # Calculate timings of smc for each year
-  mutate() %>%
+  # Calculate timings of smc for each year - first, need to calculate days since april 1, 2017 (analogous to vaccination_day above)
+  rowwise() %>%
+  mutate(smc_dates = list(na.omit(c_across(ends_with('date_received')))),
+         smc_dose_days = list(as.integer(smc_dates - start_of_fu))
+         ) %>%
   filter(!is.na(vaccination_day)) %>%
-  # for second booster, say if it is missing then second booster is much later so that it is after the follow-up time is over
-  mutate(t_to_boost2 = ifelse(is.na(t_to_boost2), 1400, t_to_boost2),
+  # for boosters, say if it is missing then second booster is much later so that it is after the follow-up time is over
+  mutate(t_to_boost1 = ifelse(is.na(t_to_boost1), 1400, t_to_boost1),
          t_to_boost2 = ifelse(is.na(t_to_boost2), 1500, t_to_boost2)) %>%
   # update RIDs to be numeric 
   mutate(rid_original = rid) %>%
   group_by(country) %>%
-  mutate(rid = row_number())
-
+  # make numeric id to use for darwing of numbers 
+  mutate(rid = as.numeric(str_extract(rid, "[0-9]+"))) 
 
 
 # Run parameter sweep
