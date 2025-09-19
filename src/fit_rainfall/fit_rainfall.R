@@ -335,9 +335,14 @@ saveRDS(outputs_mali_all %>% select(prob_infectious_bite, date, year, rainfall_y
 
 
 # Get generic seasonal probability of a bite using default parameters from malariasimulation 
+seasonal <- list(c(0.285505,-0.325352,-0.0109352,0.0779865,-0.132815,0.104675,-0.013919))
+
 genericparams <- get_parameters(
   overrides = list(
     model_seasonality = TRUE,
+    g0 = unlist(seasonal)[1],
+    g = unlist(seasonal)[2:4],
+    h = unlist(seasonal)[5:7],
     human_population = 10000,
     age_group_rendering_min_ages = c(0, 1825, 5475),
     age_group_rendering_max_ages = c(1824, 5474, 36499)
@@ -352,8 +357,8 @@ genericoutput <- malariasimulation::run_simulation(
 )
 
 generic <- genericoutput %>% 
-  mutate(year = floor(timestep / 365) + 2000,# this is the year of simulation within the site files 
-         date = as.Date(timestep - (365*17) + 1, origin = '2017-01-01'))  %>%
+  mutate(year = floor(timestep / 365) + 2017,#start the date at beginning of the trial (though it's still generic, we will use same dates)
+         date = as.Date(timestep, origin = '2017-01-01'))  %>%
   # calculate probability of bite per day per person 
   mutate(prob_infectious_bite = ifelse(!is.na(n_bitten), 
                                        n_bitten/(n_age_0_1824 + n_age_1825_5474 + n_age_5475_36499), 0))
