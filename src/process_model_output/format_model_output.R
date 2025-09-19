@@ -1,5 +1,6 @@
 format_model_output <- function(model_data, 
-                                start_fu = as.Date('2017-04-01'),
+                                cohort, # 'generic' or 'trial' -- this influences the start of follow-up
+                                start_cohort = as.Date('2017-04-01'),
                                 simulation){
   
   # First, convert to date format adnd get vaccination date 
@@ -9,33 +10,30 @@ format_model_output <- function(model_data,
     
     # make date vars be Date format 
     mutate(across(c(time_ext, infectious_bite_day, BSinfection_day, detection_day),
-                  ~ as.Date(.x, origin = '2017-04-01'))) %>%
+                  ~ as.Date(.x, origin = start_cohort))) %>%
     
     # add date for vaccination 
-    mutate(vaccinate_date = start_fu + vaccination_day) %>%# vaccination day is negative if before the start of follow-up
+    mutate(vaccinate_date = start_cohort + vaccination_day) %>%# vaccination day is negative if before the start of follow-up
     
     # Find year of infection 
     mutate(infection_year = case_when(
-      detection_day >= start_fu & detection_day < start_fu + 365 ~ 1,
-      detection_day >= start_fu + 365 & detection_day < start_fu + 365*2 ~ 2, 
-      detection_day >= start_fu + 365*2 & detection_day < start_fu + 365*3 ~ 3,
+      detection_day >= start_cohort & detection_day < start_cohort + 365 ~ 1,
+      detection_day >= start_cohort + 365 & detection_day < start_cohort + 365*2 ~ 2, 
+      detection_day >= start_cohort + 365*2 & detection_day < start_cohort + 365*3 ~ 3,
       TRUE ~ NA
     ))
   
   # Function to format rows with detectable cases specific years-- 
   format_cases <- function(year){
     
-    censor_date = as.Date(start_fu + 365*year)
+    censor_date = as.Date(start_cohort + 365*year)
     
     df <- model_data %>%
       
       # First, filter to only include rows with infections 
-      filter(#!is.na(detectable) & detectable == 1 &
-        ( detection_day <= censor_date & 
-            detection_day > (censor_date - 365) ) #| 
-        # (BSinfection_day <= censor_date &
-        #    BSinfection_day > (censor_date - 365) &
-        #    is.na(detection_day)) 
+      filter(
+         detection_day <= censor_date & 
+            detection_day > (censor_date - 365) 
       ) %>%
       
       # Group by child and arrange by infection time
@@ -44,16 +42,19 @@ format_model_output <- function(model_data,
       
       # Create recurrent event structure
       mutate(
+
+        # if the cohort argument is 'generic' then use the satart of the cohort for everyone, otherwise, it is the first vaccination day
+        start_fu_date = ifelse(cohort == 'generic', start_cohort, v1_date),
         
         # Calculate start time for each interval
         start_date = case_when(
-          row_number() == 1 & year == 1 ~ start_fu, # First infection starts at origin
-          row_number() == 1 & year != 1 ~ as.Date(start_fu + 365 * (year - 1)),
-          TRUE ~ lag(detection_day)#time_length(interval(start_fu, lag(detection_day)), unit = 'years') #(lag(detection_day) - start_fu) / 365.25
+          row_number() == 1 & year == 1 ~ as.Date(start_fu_date), # First infection starts at origin
+          row_number() == 1 & year != 1 ~ as.Date(start_cohort + 365 * (year - 1)), # start dates for following years are on these same days for everyone
+          TRUE ~ lag(detection_day)#time_length(interval(start_cohort, lag(detection_day)), unit = 'years') #(lag(detection_day) - start_cohort) / 365.25
         ),
         
         # End time is when this infection was detected or the end of the year, whichever is first 
-        end_date = if_else(detection_day < censor_date, detection_day, censor_date),#time_length(interval(start_fu, detection_day), unit = 'years') ,#(detection_day - start_fu) / 365.25,
+        end_date = if_else(detection_day < censor_date, detection_day, censor_date),#time_length(interval(start_cohort, detection_day), unit = 'years') ,#(detection_day - start_cohort) / 365.25,
         
         # All these are events (infections)
         event = 1,
@@ -85,8 +86,8 @@ format_model_output <- function(model_data,
         censoring_row$poutcome <- NA_real_
         censoring_row$threshold_day <- NA
         censoring_row$BSinfection_day <- NA
-        censoring_row$infectious_bite_day <- NA
-        censoring_row$time_ext <- NA
+        censoring_row$infectious_bite_day <- as.Date(NA)
+        censoring_row$time_ext <- as.Date(NA)
         censoring_row$detection_day <- NA
         censoring_row$t_toreach_threshold <- NA
         censoring_row$detectable <- 0
@@ -117,8 +118,8 @@ format_model_output <- function(model_data,
     rid = rep(all_children, each = 3),
     year = rep(1:3, times = length(all_children))
   ) %>%
-    mutate(year_start = start_fu + 365 * (year - 1),
-           year_end = start_fu + 365 * year) %>%
+    mutate(year_start = start_cohort + 365 * (year - 1),
+           year_end = start_cohort + 365 * year) %>%
     left_join(metadata_child)
   
   # Join with exsiting combinations 
@@ -155,10 +156,12 @@ format_model_output <- function(model_data,
   person_time <- rbind(all_cases, censoring_intervals) %>%
     arrange(rid) %>%
     # Get start and end times in years since origin
-    mutate(origin = start_fu, 
+    mutate(origin = start_cohort, 
            start_time = time_length(interval(origin, start_date), unit = 'years'),
            end_time = time_length(interval(origin, end_date), unit = 'years'),
            person_years = end_time - start_time)
+  
   message('finished ', simulation)
+  
   return(person_time)
 }
