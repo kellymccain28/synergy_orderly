@@ -125,23 +125,23 @@ convert_coefs <- function(df, country, name, iso){
 # Fit fourier parameters to BF rainfall 
 fit1bf <- fit_fourier(rainfall = raindata_bf[raindata_bf$year == 2017,]$rainfall, 
                       t = raindata_bf[raindata_bf$year == 2017,]$day, 
-                      floor = 0.1)
-predictb_1 <- fourier_predict(coef = fit1bf$coefficients, t = 1:365, floor = 0.1)
+                      floor = 0.001)
+predictb_1 <- fourier_predict(coef = fit1bf$coefficients, t = 1:365, floor = 0.001)
 
 fit2bf <- fit_fourier(rainfall = raindata_bf[raindata_bf$year == 2018,]$rainfall, 
                       t = raindata_bf[raindata_bf$year == 2018,]$day - 365, 
-                      floor = 0.1)
-predictb_2 <- fourier_predict(coef = fit2bf$coefficients, t = 1:365, floor = 0.1)
+                      floor = 0.001)
+predictb_2 <- fourier_predict(coef = fit2bf$coefficients, t = 1:365, floor = 0.001)
 
 fit3bf <- fit_fourier(rainfall = raindata_bf[raindata_bf$year == 2019,]$rainfall, 
                       t = raindata_bf[raindata_bf$year == 2019,]$day - 730, 
-                      floor = 0.1)
-predictb_3 <- fourier_predict(coef = fit3bf$coefficients, t = 1:365, floor = 0.1)
+                      floor = 0.001)
+predictb_3 <- fourier_predict(coef = fit3bf$coefficients, t = 1:365, floor = 0.001)
 
 fit4bf <- fit_fourier(rainfall = raindata_bf[raindata_bf$year == 2020,]$rainfall, 
                       t = raindata_bf[raindata_bf$year == 2020,]$day - 1095, 
-                      floor = 0.1)
-predictb_4 <- fourier_predict(coef = fit4bf$coefficients, t = 1:365, floor = 0.1)
+                      floor = 0.001)
+predictb_4 <- fourier_predict(coef = fit4bf$coefficients, t = 1:365, floor = 0.001)
 
 bf_fits_p <- ggplot() + 
   geom_point(data = raindata_bf,
@@ -175,23 +175,23 @@ allcoefsbf <- lapply(bffits, convert_coefs,
 # Fit fourier parameters to Mali rainfall 
 fit1mali <- fit_fourier(rainfall = raindata_mali[raindata_mali$year == 2017,]$rainfall, 
                         t = raindata_mali[raindata_mali$year == 2017,]$day, 
-                        floor = 0.1)
-predictm_1 <- fourier_predict(coef = fit1mali$coefficients, t = 1:365, floor = 00.1)
+                        floor = 0.001)
+predictm_1 <- fourier_predict(coef = fit1mali$coefficients, t = 1:365, floor = 0.001)
 
 fit2mali <- fit_fourier(rainfall = raindata_mali[raindata_mali$year == 2018,]$rainfall, 
                         t = raindata_mali[raindata_mali$year == 2018,]$day - 365, 
-                        floor = 0.1)
-predictm_2 <- fourier_predict(coef = fit2mali$coefficients, t = 1:365, floor = 0.1)
+                        floor = 0.001)
+predictm_2 <- fourier_predict(coef = fit2mali$coefficients, t = 1:365, floor = 0.001)
 
 fit3mali <- fit_fourier(rainfall = raindata_mali[raindata_mali$year == 2019,]$rainfall, 
                         t = raindata_mali[raindata_mali$year == 2019,]$day - 730, 
-                        floor = 0.1)
-predictm_3 <- fourier_predict(coef = fit3mali$coefficients, t = 1:365, floor = 0.1)
+                        floor = 0.001)
+predictm_3 <- fourier_predict(coef = fit3mali$coefficients, t = 1:365, floor = 0.001)
 
 fit4mali <- fit_fourier(rainfall = raindata_mali[raindata_mali$year == 2020,]$rainfall, 
                         t = raindata_mali[raindata_mali$year == 2020,]$day - 1095, 
-                        floor = 0.1)
-predictm_4 <- fourier_predict(coef = fit4mali$coefficients, t = 1:365, floor = 0.1)
+                        floor = 0.001)
+predictm_4 <- fourier_predict(coef = fit4mali$coefficients, t = 1:365, floor = 0.001)
 
 mali_fits_p <- ggplot() + 
   geom_point(data = raindata_mali,
@@ -332,3 +332,31 @@ saveRDS(outputs_mali_all %>% select(prob_infectious_bite, date, year, rainfall_y
         file = 'prob_bite_MLI.rds')
 
 # then can add in the interventions and see how the seasonality matches those cases 
+
+
+# Get generic seasonal probability of a bite using default parameters from malariasimulation 
+genericparams <- get_parameters(
+  overrides = list(
+    model_seasonality = TRUE,
+    human_population = 10000,
+    age_group_rendering_min_ages = c(0, 1825, 5475),
+    age_group_rendering_max_ages = c(1824, 5474, 36499)
+  )
+)
+
+genericparams <- set_equilibrium(genericparams, init_EIR = 0.6)
+
+genericoutput <- malariasimulation::run_simulation(
+  timesteps = (365*4),
+  parameters = genericparams
+)
+
+generic <- genericoutput %>% 
+  mutate(year = floor(timestep / 365) + 2000,# this is the year of simulation within the site files 
+         date = as.Date(timestep - (365*17) + 1, origin = '2017-01-01'))  %>%
+  # calculate probability of bite per day per person 
+  mutate(prob_infectious_bite = ifelse(!is.na(n_bitten), 
+                                       n_bitten/(n_age_0_1824 + n_age_1825_5474 + n_age_5475_36499), 0))
+
+saveRDS(generic %>% select(prob_infectious_bite, date, year), 
+        file = 'prob_bite_generic.rds')
