@@ -21,7 +21,11 @@ format_model_output <- function(model_data,
       detection_day >= start_cohort + 365 & detection_day < start_cohort + 365*2 ~ 2, 
       detection_day >= start_cohort + 365*2 & detection_day < start_cohort + 365*3 ~ 3,
       TRUE ~ NA
-    ))
+    )) %>%
+    #Filter to remove infections that were detected prior to vaccination (which is first day of follow-up)
+    filter(v1_date < detection_day | is.na(detection_day))
+    
+    
   
   # Function to format rows with detectable cases specific years-- 
   format_cases <- function(year){
@@ -44,7 +48,9 @@ format_model_output <- function(model_data,
       mutate(
 
         # if the cohort argument is 'generic' then use the satart of the cohort for everyone, otherwise, it is the first vaccination day
-        start_fu_date = ifelse(cohort == 'generic', start_cohort, v1_date),
+        start_fu_date = case_when(
+          cohort == 'generic' ~ start_cohort,
+          TRUE ~ v1_date),
         
         # Calculate start time for each interval
         start_date = case_when(
@@ -92,6 +98,7 @@ format_model_output <- function(model_data,
         censoring_row$t_toreach_threshold <- NA
         censoring_row$detectable <- 0
         censoring_row$infection_year <- NA
+        censoring_row$start_fu_date <- censoring_row$v1_date
         
         # Combine infections + censoring
         bind_rows(.x, censoring_row)
