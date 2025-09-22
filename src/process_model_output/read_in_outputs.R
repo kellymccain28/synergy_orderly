@@ -4,7 +4,7 @@ read_in_outputs <- function(output_dir = 'simulation_outputs') {
   
   # Get all simulation directories
   sim_dirs <- list.dirs(output_dir, recursive = FALSE, full.names = TRUE)
-  sim_dirs <- sim_dirs[grepl("^sim_", basename(sim_dirs))]
+  sim_dirs <- sim_dirs[grepl("^parameter_set_", basename(sim_dirs))]
   
   # Read in the parameters and baseline params 
   baseline_inputs <- readRDS(file.path(output_dir, "base_inputs.rds"))
