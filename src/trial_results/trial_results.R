@@ -1,5 +1,4 @@
 # Reproducing trial outputs from Chandramohan et al 2021
-library(lubridate)
 library(tidyverse)
 library(survival)
 library(survminer)
@@ -10,6 +9,7 @@ library(flexsurv)
 library(SurvRegCensCov)
 library(haven)
 library(cyphr)
+library(lubridate)
 
 key <- cyphr::data_key()
 
@@ -48,8 +48,8 @@ smcrefresults <- get_cox_efficacy(df = primary_pt,
 
 ## RTSS comparator by year and overall ---- 
 rtssrefresults <- get_cox_efficacy(df = primary_pt, 
-                                  ref = 'arm_rtssref',
-                                  model = FALSE)
+                                   ref = 'arm_rtssref',
+                                   model = FALSE)
 
 # Plot the vaccine efficacies 
 tidy_results <- rbind(smcrefresults, rtssrefresults)
@@ -57,25 +57,32 @@ tidy_results <- rbind(smcrefresults, rtssrefresults)
 saveRDS(tidy_results, 'surv_analysis_trial.rds')
 
 # Get efficacy for 3 versus 2 doses 
-# df <- primary %>% 
-#   filter(nprimary %in% c(3,2)) %>% 
-#   mutate(nprimary = factor(nprimary, levels = c(3, 2, 1))) %>%
-#   filter(arm == 'both' & year == 1)
-# coxdoses <- coxph(Surv(start_time, end_time, event) ~ factor(nprimary),# + factor(country), 
-#                   data = df,
-#                   cluster = rid,
-#                   ties = "efron")
-# results <- tidy(coxdoses,
-#                 exponentiate = TRUE,
-#                 conf.int = TRUE) %>%
-#   # Calculate vaccine efficacy and its confidence intervals
-#   mutate(VE = (1 - estimate) * 100,              # VE = 1 - HR
-#     VE_lower = (1 - conf.high) * 100,       # Lower CI for VE = 1 - Upper CI for HR
-#     VE_upper = (1 - conf.low) * 100        # Upper CI for VE = 1 - Lower CI for HR
-#   ) %>% mutate(
-#     n_events = coxdoses$nevent,
-#     n_obs = coxdoses$n
-#   )
+df <- primary %>%
+  # filter(nprimary %in% c(3,2)) %>%
+  mutate(nprimary = factor(nprimary, levels = c(3, 2, 1))) %>%
+  filter(arm == 'both'| arm == 'rtss') %>%#  & year == 1)
+  filter(arm == 'rtss')
+coxdoses <- coxph(Surv(start_time, end_time, event) ~ factor(nprimary),# + factor(country),
+                  data = df,
+                  cluster = rid,
+                  ties = "efron")
+results <- tidy(coxdoses,
+                exponentiate = TRUE,
+                conf.int = TRUE) %>%
+  # Calculate vaccine efficacy and its confidence intervals
+  mutate(VE = (1 - estimate) * 100,              # VE = 1 - HR
+    VE_lower = (1 - conf.high) * 100,       # Lower CI for VE = 1 - Upper CI for HR
+    VE_upper = (1 - conf.low) * 100        # Upper CI for VE = 1 - Lower CI for HR
+  ) %>% mutate(
+    n_events = coxdoses$nevent,
+    n_obs = coxdoses$n
+  )
+ggplot(results)+
+  geom_point(aes(x = term, y = VE)) + 
+  geom_errorbar(aes(x = term, ymin = VE_lower, ymax = VE_upper), width = 0.2) +
+  geom_hline(aes(yintercept = 0), linetype = 2) +
+  labs(x = '') +
+  theme_bw(base_size = 16) #+ labs(caption = 'rtss only')
 
 # Plot efficacy
 efficacies <- ggplot(tidy_results %>% filter(term %in% c("Both vs. RTSS",'RTSS vs. SMC','Both vs. SMC')))+
@@ -157,30 +164,7 @@ ggsave("trial_monthlyincidence.png", plot = monthlyincidenceplot, bg = 'white', 
 
 
 
-# analysis with fake person time data here (assuming all go until end of trial)
-# mitt <- mitt %>%
-#   # Get start/stop dates of cases for Anderson-Gill estimator -- unsure if correct
-#   arrange(rid, dcontact) %>%
-#   group_by(rid) %>%
-#   mutate(
-#     start_date = lag(dcontact, default = v1_date[1]),
-#     stop_date = dcontact,
-#     start = as.numeric(start_date - v1_date),
-#     stop = as.numeric(stop_date - v1_date),
-#     event = poutcome  # 1 if case, 0 if not
-#   )%>%
-#   mutate(time_to_event = time_length(interval(v1_date, dcontact), unit = 'months'),
-#          event = !is.na(dcontact) & dcontact < "2020-03-31",
-#          arm = factor(arm, levels =c('smc','rtss','both'))) %>%
-#   # add fake end date for now (should be updated from Paul)
-#   mutate(fu_end_date = ymd('2020-03-31'))
-# 
-# # mITT population with first infections only 
-# mitt_first <- mitt %>%
-#   filter(!is.na(v1_date)) %>%
-#   filter(first_inf == 1)
-# 
-# ###### Get follow-up time among cases and non-cases-----
+ ###### Get follow-up time among cases and non-cases-----
 # make_child_months <- function(rid, arm, v1_date, fu_end_date) {
 #   month_seq <- seq(floor_date(v1_date, "month"), floor_date(fu_end_date, "month"), by = "month")
 #   tibble(

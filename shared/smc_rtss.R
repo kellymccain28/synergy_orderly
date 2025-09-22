@@ -74,10 +74,6 @@ update(PBsum) <- if(time > 3) PC - sum(buffer) else 0
 # # Time since last SMC dose
 # smc_dose_day <- floor((days_in_season - 1) / (smc_interval))
 # time_since_smc <- (days_in_season - 1) - smc_dose_day * (smc_interval)
-# 
-
-# Individual-specific SMC dates as defined by metadata_df 
-
 # # SMC kill rate
 # SMC_kill_rate <- if (SMC_on == 1) max_SMC_kill_rate * exp(-(time_since_smc / lambda)^kappa) else 0
 
@@ -161,9 +157,9 @@ VB <- parameter()
 # max_SMC_kill_rate <- parameter(1.5)
 # SMC_decay <- parameter(0.05) # decay of SMC kill rate
 # smc_timing <- parameter(0) # timing of receipt of last dose of SMC relative to start of simulation
+# infection_start_day <- parameter(0) # external time that the infection began -- default is 0 (if running outside of cohort )
 
 # SMC parameters
-# infection_start_day <- parameter(0) # external time that the infection began -- default is 0 (if running outside of cohort )
 SMC_time <- parameter(constant = TRUE) # timesteps over which the SMC kill rate should be interpolated
 SMC_kill_vec <- parameter(constant = TRUE) # kill rate vector for individual child 
 dim(SMC_time, SMC_kill_vec) <- parameter(rank = 1) # this means that both of the above 2 parameters are vectors 

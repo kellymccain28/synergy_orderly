@@ -1,6 +1,10 @@
 # Also use the ncov-ic universe
 repo::https://ncov-ic.r-universe.dev
 
+repo::https://mrc-ide.r-universe.dev
+repo::https://cloud.r-project.org
+
+
 # Package from CRAN
 dplyr
 data.table
@@ -31,6 +35,8 @@ survival
 broom
 countrycode
 terra
+cyphr
+hipercow.dide
 
 # Github
 github::mrc-ide/umbrella

@@ -17,10 +17,10 @@ mod1 <- odin2::odin({
   
 })
 
-max_SMC_kill_rate = 10
+max_SMC_kill_rate = 18
 lambda =17 
 kappa = 0.28
-smc_timing <- c(5,15,30,50)
+smc_timing <- c(5,15,30,55)
 tt = seq(0, 100,1)
 time_since_smc <- sapply(tt, function(d) {
   last_dose <- max(smc_timing[smc_timing <= d])
