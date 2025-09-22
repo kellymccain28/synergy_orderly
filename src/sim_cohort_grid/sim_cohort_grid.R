@@ -31,7 +31,9 @@ orderly_resource("cohort_sim_utils.R")
 orderly_dependency(name = 'fit_rainfall',
                    "latest()",
                    c("prob_bite_BFA.rds",
-                     "prob_bite_MLI.rds"))
+                     "prob_bite_MLI.rds",
+                     'prob_bite_generic.rds'
+                     ))
 
 orderly_dependency(name = 'clean_trial_data',
                    "latest()",
@@ -83,11 +85,12 @@ A[,4] <- round(qunif(A[,4],0, 100), 0) # lag in days of p of an infectious bite 
 # A
 colnames(A) <- c('max_SMC_kill_rate', 'lambda', 'kappa', 'lag_p_bite')
 params_df <- as.data.frame(A)
-params_df$sim_id <- rownames(params_df)
+params_df$sim_id <- paste0('sim_', rownames(params_df))
 
 # Lag the probability of infectious bites 
 prob_bite_BFA <- readRDS('prob_bite_BFA.rds')
 prob_bite_MLI <- readRDS('prob_bite_MLI.rds')
+prob_bite_generic <- readRDS('prob_bite_generic.rds')
 
 # Get unique lag values from parameter set
 unique_lags <- unique(params_df$lag_p_bite)
@@ -98,8 +101,8 @@ calc_lagged_vectors <- function(prob_data, lags, start_date = as.Date('2017-04-0
   
   lag_list <- map(lags, function(lag_val) {
     prob_lagged <- prob_data %>% 
-      mutate(prob_lagged = lag(prob_infectious_bite, n = lag_val),
-             date_lagged = lag(date, n = lag_val))
+      mutate(prob_lagged = dplyr::lag(prob_infectious_bite, n = lag_val),
+             date_lagged = dplyr::lag(date, n = lag_val))
     
     # Get start date minus burnin 
     start_date_pbite <- start_date - burnints
@@ -117,9 +120,10 @@ calc_lagged_vectors <- function(prob_data, lags, start_date = as.Date('2017-04-0
 }
 
 # Pre-compute the lagged probabilities for both countries
-# each is a list of the probabilities for each of the 3 parameter sets in A
+# each is a list of the probabilities for each of the n parameter sets in A
 bfa_vectors <- calc_lagged_vectors(prob_bite_BFA, unique_lags, burnints = burnints)
 mli_vectors <- calc_lagged_vectors(prob_bite_MLI, unique_lags, burnints = burnints)
+generic_vectors <- calc_lagged_vectors(prob_bite_generic, 0, burnints = burnints)
 
 p_bitevector <- if(country_to_run == 'BF') {
   bfa_vectors
@@ -143,8 +147,8 @@ metadata_df <- children %>%
   mutate(start_of_fu = as.Date('2017-04-01'),  # this is the start of the cohort simulation. 
          start_to_v3 = v3_date - start_of_fu, # 
          # vaccination day is the day of vaccination relative to the start of follow-up of cohort which is april 1, 2017
-         # so a + value means that the vaccine was given x days after april 1, 2017
-         # then we use this to find the number of days since vaccination within the cohrot sim loop
+         # so a + value means that the 3rd dose of the vaccine was given x days after april 1, 2017
+         # then we use this to find the number of days since vaccination within the cohrot sim loop to determine when efficacy begins
          vaccination_day = as.numeric(start_to_v3),
          PEV = ifelse(arm == 'smc', 0, 1),
          SMC = ifelse(arm == 'rtss', 0, 1),
@@ -153,7 +157,8 @@ metadata_df <- children %>%
   # Calculate timings of smc for each year - first, need to calculate days since april 1, 2017 (analogous to vaccination_day above)
   rowwise() %>%
   mutate(smc_dates = list(na.omit(c_across(ends_with('date_received')))),
-         smc_dose_days = list(as.integer(smc_dates - start_of_fu))
+         smc_dose_days = list(as.integer(smc_dates - start_of_fu)),
+         smc_dose_days = if_else(arm == 'rtss', list(orderlyparams$trial_ts+burnints), list(smc_dose_days))
          ) %>%
   filter(!is.na(vaccination_day)) %>%
   # for boosters, say if it is missing then second booster is much later so that it is after the follow-up time is over
