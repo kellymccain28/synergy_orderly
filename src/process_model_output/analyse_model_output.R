@@ -34,15 +34,6 @@ analyse_model_output <- function(outputs, simulation, parameters){
            end_time = ifelse(start_time==end_time, end_time + 0.00001, end_time)) %>%
     filter(start_time != end_time) %>% ungroup()
   
-   # Convert to basic data.frame and ensure it's in the right environment
-  # Create a completely clean dataset
-  # survival_data <- data.frame(
-  #   start_time = model_output$start_time,
-  #   end_time = model_output$end_time, 
-  #   event = model_output$event,
-  #   arm = model_output$arm
-  # )
-  
   kmsurvobj <- survival::survfit(Surv(start_time,
                                       end_time,
                                       event) ~ arm,#+ strata(country),
@@ -117,29 +108,30 @@ analyse_model_output <- function(outputs, simulation, parameters){
   
   ggsave(filename = paste0('outputs/', simulation, '/plots/efficacy_plot.png'), efficacy_plot, height = 6, width = 6)
   
-  # Get expected efficacy of combination for each year ----
+  # Get expected efficacy of combination for each year ---- this doesn't work with trial because it doesn't have a 'none' arm
   # Calculate expected vs observed
-  ve_comparison <- tidy_results %>%
-    group_by(year) %>%
-    filter(term %in% c("SMC vs None", "RTSS vs None", "Both vs None")) %>%
-    select(term, VE) %>%
-    pivot_wider(names_from = term, values_from = VE) %>%
-    mutate(
-      expected_both = 1 - (1 - `SMC vs None`) * (1 - `RTSS vs None`),
-      observed_both = `Both vs None`,
-      difference = observed_both - expected_both,
-      interaction_type = case_when(
-        difference > 0 ~ "Synergistic",
-        difference < 0 ~ "Antagonistic",
-        TRUE ~ "Independent"
-      )
-    )
+  # ve_comparison <- tidy_results %>%
+  #   group_by(year) %>%
+  #   filter(term %in% c("SMC vs None", "RTSS vs None", "Both vs None")) %>%
+  #   select(term, VE) %>%
+  #   pivot_wider(names_from = term, values_from = VE) %>%
+  #   mutate(
+  #     expected_both = 1 - (1 - `SMC vs None`) * (1 - `RTSS vs None`),
+  #     observed_both = `Both vs None`,
+  #     difference = observed_both - expected_both,
+  #     interaction_type = case_when(
+  #       difference > 0 ~ "Synergistic",
+  #       difference < 0 ~ "Antagonistic",
+  #       TRUE ~ "Independent"
+  #     )
+  #   )
   
-  saveRDS(ve_comparison, file = paste0('outputs/', simulation, '/expected_efficacies.rds'))
+  # saveRDS(ve_comparison, file = paste0('outputs/', simulation, '/expected_efficacies.rds'))
   
   # Get monhtly incidence
-  monthly_inci_model <- get_incidence(model = TRUE, 
-                                      df_children = metadata_child, 
+  metadata_child_sim <- metadata_child %>%
+    filter(sim_id == simulation)
+  monthly_inci_model <- get_incidence(df_children = metadata_child_sim, 
                                       casedata = model_output)
   
   saveRDS(monthly_inci_model, paste0('outputs/', simulation, '/monthly_incidence_model.rds'))
@@ -180,7 +172,7 @@ analyse_model_output <- function(outputs, simulation, parameters){
   
   
   # Number of infections per day # incidence
-  ints <- c('smc','vax','vaxsmc','none')
+  ints <- c('smc','rtss','both','none')
   weeks <- seq.Date(as.Date('2017-04-02'), as.Date('2020-03-31'), 7)
   allweeks <- expand.grid(arm = ints,
                           week = weeks)# %>%

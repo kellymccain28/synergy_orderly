@@ -8,7 +8,16 @@ library(orderly2)
 
 orderly_strict_mode()
 
-orderly_dependency(name = "sim_cohort_grid", "latest()",
+taskparams <- orderly_parameters(trial_ts = NULL, 
+                                 sim_allow_superinfections = NULL, 
+                                 country_to_run = NULL,
+                                 n_param_sets = NULL)
+
+orderly_dependency(name = "sim_cohort_grid", 
+                   "latest(parameter:trial_ts == this:trial_ts &&
+                   parameter:sim_allow_superinfections == this:sim_allow_superinfections &&
+                   parameter:country_to_run == this:country_to_run &&
+                   parameter:n_param_sets == this:n_param_sets)",
                    files = c('simulation_outputs/'))
                    # files = c("outputs/infection_records.rds", 
                    #           "outputs/parasitemia.rds", 
@@ -40,19 +49,6 @@ source('get_incidence.R')
 dir.create('outputs/')
 dir.create("outputs/plots/")
 
-# orderly_artefact(description = 'plots and formatted model and analysis output',
-#                  files = c(
-#                    'outputs/plots/efficacy_plot.png',
-#                    'outputs/model_output_formatted.rds',
-#                    'outputs/plots/monthly_incidence_model.png',
-#                    'outputs/surv_analysis_model.rds', 
-#                    'outputs/monthly_incidence_model.rds'
-#                  ))
-
-# infection_records <- readRDS("outputs/infection_records.rds")
-# parasitemia <- readRDS("outputs/parasitemia.rds")
-# metadata_child <- readRDS("outputs/metadata_children.rds")
-# inputs <- readRDS("inputs.rds") # this is just to carry over the inputs 
 
 # Read in results from the latest run of sim_cohort_grid
 results <- read_in_outputs()
@@ -71,21 +67,19 @@ metadata_child <- results[[2]]$child_metadata
 
 sim_ids <- unique(parameters$sim_id)
 
-
 # Format model output 
+cohortval <- if(taskparams$country_to_run %in% c('BF','Mali')) 'trial' else 'generic'
 outputs <- lapply(sim_ids, function(sim){
-  format_model_output(infection_records, simulation = sim)
+  format_model_output(model_data = infection_records, 
+                      simulation = sim,
+                      cohort = cohortval)
 })
 saveRDS(outputs, 'outputs/model_outputs_formatted.rds')
-
 
 
 # Initialise new column for the LL
 parameters$ll <- NA
 
-# parameters <- lapply(sim_ids, function(sim){
-#   analyse_model_output(outputs, simulation = sim, parameters)
-#   }  )
 parameters <- Map(function(sim){
   analyse_model_output(outputs, simulation = sim, parameters)},
   sim_ids) 
@@ -95,11 +89,7 @@ parameters <- bind_rows(parameters)
 saveRDS(parameters, 'outputs/parameters_ll.rds')
 
 # plots comparing the different parameters and the log-likelihoods
-# ggplot(parameters) +
-#   geom_point(aes(x = max_SMC_kill_rate, y = ll, size = SMC_decay, color = season_start_day))
-# ggplot(parameters) +
-#   geom_point(aes(x = SMC_decay, y = ll, size = max_SMC_kill_rate, color = season_start_day))
 llplot <- ggplot(parameters) + 
-  geom_point(aes(x = lag_p_bite, y = ll, size = SMC_decay, color = max_SMC_kill_rate)) + 
+  geom_point(aes(x = max_SMC_kill_rate, y = ll, size = kappa, color = lambda)) + 
   theme_bw()
 ggsave('ll_plot.png', llplot)
