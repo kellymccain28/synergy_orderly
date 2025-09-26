@@ -64,12 +64,13 @@ run_cohort_simulation <- function(metadata_df,
                                        calc_time_since_dose, 
                                        days = 0:(trial_ts+burnin))
   metadata_df$smckillvec <- lapply(metadata_df$time_since_smc,
-                       function(.){
-                       kill <- max_SMC_kill_rate * exp(-(./ smc_lambda)^smc_kappa)  # calculate kill rate with hill function
-                       kill <- ifelse(is.na(kill),0, kill)                          # change NAs (when there is no SMC) to 0 
-                       kill <- c(rep(0, burnin), kill)                              # pad front of vector with 0s for burnin period so that SMC begins after burnin
-                       kill <- kill[seq_along(kill) %% 2 == 1]                      # keep only odd indices since timesteps in the within-host model are 2 days
-                         })
+                                   function(.){
+                                     kill <- max_SMC_kill_rate * exp(-(./ smc_lambda)^smc_kappa)  # calculate kill rate with hill function
+                                     # kill <- ifelse(is.na(kill), 0, kill)                          
+                                     kill[is.na(kill)] <- 0                                       # change NAs (when there is no SMC) to 0 
+                                     kill <- c(rep(0, burnin), kill)                              # pad front of vector with 0s for burnin period so that SMC begins after burnin
+                                     kill <- kill[seq_along(kill) %% 2 == 1]                      # keep only odd indices since timesteps in the within-host model are 2 days
+                                   })
   message('Calculated smc kill rate vectors for each child')
   # this kill vector has 25 2-day timesteps for burnin=50, then 548 2-day timesteps for the 1095 day simulation  
   
@@ -121,9 +122,9 @@ run_cohort_simulation <- function(metadata_df,
           recovering_kids <- most_recent$rid[recovery_today]
           susceptibles[recovering_kids] <- TRUE
         }
-
+        
       }
-      }
+    }
     
     # Avoid superinfection -- if a kid is bitten and they aren't susceptible they are not added to the list of bit_kids
     bit_kids_t <- c()
@@ -167,7 +168,7 @@ run_cohort_simulation <- function(metadata_df,
         PEV_vec <- pev_lookup[as.character(bit_kids)]
         # Find the time since vaccination -- time between 3rd dose (vax day) and infectious bite
         t_since_vax_vec <- (t - burnin) - vax_day_lookup[as.character(bit_kids)] # here, a (-) value of vaxdaylookup indicates 
-                                                                                  # vaccination before the infection begins 
+        # vaccination before the infection begins 
         # for negative values of t_since_vax_vec, which means that the vaccine was delivered after the current time t, change to 0 so that ab_user is not NA
         t_since_vax_vec <- ifelse(t_since_vax_vec<0, 0, t_since_vax_vec)
         
@@ -195,7 +196,7 @@ run_cohort_simulation <- function(metadata_df,
         # Print intervention status
         message('PEV:', PEV_vec)
         message('SMC:', SMC_vec)
-        }
+      }
       
       
       # Run within-host simulation with current parameters
@@ -233,8 +234,8 @@ run_cohort_simulation <- function(metadata_df,
                           t_inf = t_inf,
                           VB = VB,
                           tt = tt,
-                          max_SMC_kill_rate = max_SMC_kill_rate,  # Parameter from sweep
-                          SMC_decay = SMC_decay,                  # Parameter from sweep
+                          # max_SMC_kill_rate = max_SMC_kill_rate,  # Parameter from sweep
+                          # SMC_decay = SMC_decay,                  # Parameter from sweep
                           infection_start_day = infection_start_day,# external time that infection begins 
                           # season_start_day = season_start_day,# day of season start relative to Jan 1 of external year 
                           # season_length = season_length,# ~4 months (120 days)
@@ -262,7 +263,7 @@ run_cohort_simulation <- function(metadata_df,
         vaccination_day = if(t < burnin) rep(NA, length(bit_kids)) else kid_metadata$vaccination_day,   # day of vaccination relative to the start of follow-up (day 0 external time)
         prob_bite = rep(p_bite[t], length(bit_kids)),
         recovery_day = ((t - burnin) + sapply(outputs, function(x) x$threshold_day)) + 12 - t_liverstage, # day that the child would be 'recovered' if we assume that a child is treated and has a period of prophylaxis for 12 days after detection day 
-                                                                      # (90% at 12 days in paper but here, assuming 100% for 12 days) after the day of treatment and that all infectiosn are treated with AL 10.1038/ncomms6606
+        # (90% at 12 days in paper but here, assuming 100% for 12 days) after the day of treatment and that all infectiosn are treated with AL 10.1038/ncomms6606
         country = country_to_run
       ) 
       
@@ -306,12 +307,12 @@ run_cohort_simulation <- function(metadata_df,
     filter(detection_day > 0 | is.na(detection_day)) %>%
     group_by(rid, day1_BSinfection) %>%
     mutate(
-    #   child_dayinf = paste0(rid, ", day ", day1_BSinfection),
+      #   child_dayinf = paste0(rid, ", day ", day1_BSinfection),
       det = ifelse(!is.na(detection_day), 1, 0),
       country = country_to_run
     ) 
-    
-    # keep a small sample of the parasitemia dataset
+  
+  # keep a small sample of the parasitemia dataset
     parasitemia_df <- parasitemia_df[parasitemia_df$rid %in% 
                      (parasitemia_df %>% 
                         distinct(rid, arm) %>% 

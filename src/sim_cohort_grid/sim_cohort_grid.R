@@ -53,7 +53,7 @@ source("cohort_sim_utils.R")
 # set base parameters 
 n_particles = 1L
 n_threads = 1L
-burnints = 50
+burnints = 90#50
 threshold = 5000
 tstep = 1
 t_liverstage = 8
@@ -78,14 +78,14 @@ base_inputs <- list(
 set.seed(123)
 
 A <- randomLHS(n = orderlyparams$n_param_sets, k = 4) # n different sets of parameters, with k parameters to change
-A[,1] <- qunif(A[,1], 2, 15) # min and max values -- this is max kill rate
-A[,2] <- qunif(A[,3], 10, 30) # min and max values -- this is lambda
-A[,3] <- qunif(A[,4], 0.05, 0.3) # min and max values -- this is kappa
-A[,4] <- round(qunif(A[,4],0, 100), 0) # lag in days of p of an infectious bite -- this will move the curves to the right 
+A[,1] <- qunif(A[,1], 2, 20) # min and max values -- this is max kill rate
+A[,2] <- qunif(A[,3], 5, 30) # min and max values -- this is lambda
+A[,3] <- qunif(A[,4], 0.05, 0.5) # min and max values -- this is kappa
+A[,4] <- round(qunif(A[,4], 0, 20), 0) # lag in days of p of an infectious bite -- this will move the curves to the right 
 # A
 colnames(A) <- c('max_SMC_kill_rate', 'lambda', 'kappa', 'lag_p_bite')
 params_df <- as.data.frame(A)
-params_df$sim_id <- paste0('sim_', rownames(params_df))
+params_df$sim_id <- paste0('parameter_set_',rownames(params_df),"_", country_to_run, "_",orderlyparams$allow_superinfections)#paste0('sim_', rownames(params_df))
 
 # Lag the probability of infectious bites 
 prob_bite_BFA <- readRDS('prob_bite_BFA.rds')
@@ -97,7 +97,7 @@ unique_lags <- unique(params_df$lag_p_bite)
 
 #Calculate lagged vectors for all unique lags
 calc_lagged_vectors <- function(prob_data, lags, start_date = as.Date('2017-04-01'), 
-                                      end_date = '2020-04-01', burnints) {
+                                end_date = '2020-04-01', burnints) {
   
   lag_list <- map(lags, function(lag_val) {
     prob_lagged <- prob_data %>% 
@@ -106,13 +106,13 @@ calc_lagged_vectors <- function(prob_data, lags, start_date = as.Date('2017-04-0
     
     # Get start date minus burnin 
     start_date_pbite <- start_date - burnints
-    prob_filtered <- prob_lagged[prob_lagged$date_lagged >= start_date_pbite & 
+    prob_filtered <- prob_lagged[prob_lagged$date_lagged >= start_date &#_pbite & # &#
                                    prob_lagged$date_lagged < end_date & 
                                    !is.na(prob_lagged$date_lagged),]
     
-    # isntead of median, am now filtering to start date - burnin above
-    # c(rep(median(prob_filtered$prob_lagged, na.rm = TRUE), burnints), # this is to have a probability of bite before the burnin 
-    #   prob_filtered$prob_lagged)
+    # instead of median, am now filtering to start date - burnin above
+    c(rep(median(prob_filtered$prob_lagged, na.rm = TRUE), burnints), # this is to have a probability of bite before the burnin
+      prob_filtered$prob_lagged)
   })
   
   names(lag_list) <- paste0("lag_", lags)
@@ -159,7 +159,7 @@ metadata_df <- children %>%
   mutate(smc_dates = list(na.omit(c_across(ends_with('date_received')))),
          smc_dose_days = list(as.integer(smc_dates - start_of_fu)),
          smc_dose_days = if_else(arm == 'rtss', list(orderlyparams$trial_ts+burnints), list(smc_dose_days))
-         ) %>%
+  ) %>%
   filter(!is.na(vaccination_day)) %>%
   # for boosters, say if it is missing then second booster is much later so that it is after the follow-up time is over
   mutate(t_to_boost1 = ifelse(is.na(t_to_boost1), 1400, t_to_boost1),
