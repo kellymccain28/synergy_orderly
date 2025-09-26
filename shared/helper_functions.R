@@ -10,11 +10,11 @@ run_process_model <- function(n_particles = 1L,
                               tt , # sequence of timesteps (2 days for each 1 step)
                               VB = 1e6,
                               det_mode = FALSE,
-                              max_SMC_kill_rate,
-                              SMC_decay,
+                              # max_SMC_kill_rate,
+                              # SMC_decay,
                               infection_start_day, # external time that infection begins
-                              n_smc_doses,  # number of SMC doses delivered over 3 year study
-                              smc_dose_timing, # timing of SMC doses with length of n_smc_doses, integer values in days from april 1, 2017
+                              # n_smc_doses,  # number of SMC doses delivered over 3 year study
+                              # smc_dose_timing, # timing of SMC doses with length of n_smc_doses, integer values in days from april 1, 2017
                               # season_start_day = 10, # day of season start relative to Jan 1 of external year
                               # season_length = 120, # ~4 months (120 days)
                               # smc_interval= 30, # how often are SMC rounds (days)
@@ -23,7 +23,7 @@ run_process_model <- function(n_particles = 1L,
                               tboost1 = 364,
                               tboost2 = 729
                               ){ 
-
+  
   # Run model  out <- run_model(args)
   out <- run_model(n_particles = n_particles,
                    n_threads = n_threads,
@@ -33,7 +33,7 @@ run_process_model <- function(n_particles = 1L,
                    tt = tt,
                    VB = VB,
                    det_mode = det_mode,
-                   max_SMC_kill_rate = max_SMC_kill_rate,
+                   # max_SMC_kill_rate = max_SMC_kill_rate,
                    infection_start_day = infection_start_day, # external time that infection begins
                    # season_start_day = season_start_day, # day of season start relative to Jan 1 of external year
                    # season_length = season_length, # ~4 months (120 days)
@@ -62,7 +62,7 @@ run_process_model <- function(n_particles = 1L,
 #' @param PEV_on 0 for no PEV, 1 if PEV is delivered
 #' @param SMC_on 0 for no SMC, 1 if SMC is delivered
 #' @param t_inf time of infection relative to vaccination (i.e. 20 means the vaccine was given 20 days prior to infectious bite); 
-                # should be >=0 if vaccination will protect from infection; (this influences ab titre at time of infection)
+# should be >=0 if vaccination will protect from infection; (this influences ab titre at time of infection)
 #' @param tt sequence of timesteps in 2-day increments 
 #' @param VB volume of blood in microL; 1e6 is for a small child (1L); adult male is 5L
 #' @param det_mode logical, if model should be run in deterministic mode
@@ -74,8 +74,8 @@ run_model <- function(n_particles = 1L,
                       tt,
                       VB,
                       det_mode = FALSE,
-                      max_SMC_kill_rate = 0,
-                      SMC_decay = 0,
+                      # max_SMC_kill_rate = 0,
+                      # SMC_decay = 0,
                       infection_start_day = 0, # external time that infection begins 
                       SMC_time, # season_start_day = 122, # day of season start relative to April 1 of external year  (start of FU) - 122 is August 1
                       SMC_kill_vec,# season_length = 120, # ~4 months (120 days)
@@ -89,7 +89,7 @@ run_model <- function(n_particles = 1L,
   # Get antibody curve over 3 years of cohort study 
   ts <- seq(0,365*5)
   phases <- ifelse(ts < tboost1, 1,
-                  ifelse(ts < tboost2, 2, 3))
+                   ifelse(ts < tboost2, 2, 3))
   ab <- antibody_titre(t = ts,
                        phase = phases,
                        peak1 = c(621,0.35) ,
@@ -109,7 +109,8 @@ run_model <- function(n_particles = 1L,
                SMC_on = SMC_on,
                ab_user = ab_user,
                VB = VB,
-               max_SMC_kill_rate= max_SMC_kill_rate,
+               tt = max(tt),
+               # max_SMC_kill_rate= max_SMC_kill_rate,
                infection_start_day = infection_start_day, # external time that infection begins 
                SMC_time = unlist(SMC_time),
                SMC_kill_vec = unlist(SMC_kill_vec)
@@ -147,12 +148,14 @@ format_data <- function(out, tt, infection_start_day){
   
   if(n_particles == 1){
     df <- as.data.frame(out[names(out) != "buffer"]) # removing the buffer column which is not necessary 
+    df <- df %>% select(-starts_with('p_history'))
     df$time <- tt
     df$run <- "run1"
     df <- df %>%
       rename(parasites = PB, 
              innate_imm = sc,
-             genadaptive_imm = sm)
+             genadaptive_imm = sm,
+             varspecific_imm = sv)
   }
   
   if(n_particles > 1){
@@ -183,6 +186,14 @@ format_data <- function(out, tt, infection_start_day){
       pivot_longer(cols = starts_with('run'),
                    names_to = 'run',
                    values_to = 'genadaptive_imm') 
+    
+    sv <- as.data.frame(t(out$sv))
+    colnames(sv) <- paste0('run',seq(1:n_particles))
+    sv$time <- tt
+    sv_long <- sv %>% 
+      pivot_longer(cols = starts_with('run'),
+                   names_to = 'run',
+                   values_to = 'varspecific_imm') 
     
     gr <- as.data.frame(t(out$growth))
     colnames(gr) <- paste0('run',seq(1:n_particles))
@@ -235,6 +246,7 @@ format_data <- function(out, tt, infection_start_day){
     df <- df_long %>% 
       left_join(sc_long) %>% 
       left_join(sm_long) %>%
+      left_join(sv_long) %>%
       left_join(gr_long) %>%
       left_join(m_long) %>%
       left_join(smc_long) %>%
@@ -243,7 +255,7 @@ format_data <- function(out, tt, infection_start_day){
       # left_join(smc_seasonon) %>%
       # Fix time to be dependent on when the infection was relative to external time (infection_start_day)
       mutate(time = time*2 + infection_start_day)#,
-             # infection_start = infection_start_day) # because the infection start day is in days and time is in timestpes, 
+    # infection_start = infection_start_day) # because the infection start day is in days and time is in timestpes, 
   }
   return(df)
 }
@@ -256,7 +268,7 @@ make_plots <- function(df){
     mutate(cleared = ifelse(parasites[time == 150] < 1e-5, 'cleared', 'not cleared'),
            cleared = factor(cleared, levels = c('not cleared', 'cleared')),
            time = time # timesteps are by 2 days, so we want to get the two day steps in plots
-           ) %>%
+    ) %>%
     ungroup() %>%
     group_by(time) %>%
     mutate(median_parasites = median(parasites))
@@ -268,7 +280,7 @@ make_plots <- function(df){
     geom_hline(aes(yintercept = 1e-5), linetype = 2, color = 'darkgreen', linewidth = 1) + # this is the clearance threshold
     scale_y_log10() +
     scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
-                       limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
+      limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
     scale_color_manual(values = c("#D67236","#FD6467")) +
     labs(x = 'Timesteps since start of blood stage',
          y = 'PRBCs',
@@ -281,7 +293,7 @@ make_plots <- function(df){
   scplt <- ggplot(df %>% filter(cleared == 'not cleared')) + 
     geom_line(aes(x = time, y = innate_imm, group = run, color = cleared), alpha = 0.7) + #, color = cleared
     scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
-                       limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
+      limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
     labs(x = 'Timesteps since start of blood stage',
          y = 'Innate immunity',
          caption = paste0('proportion of runs with no infection at time 0 = ', 
@@ -293,9 +305,21 @@ make_plots <- function(df){
   smplt <- ggplot(df%>% filter(cleared == 'not cleared')) + 
     geom_line(aes(x = time, y = genadaptive_imm, group = run, color = cleared), alpha = 0.7) + #, color = cleared
     scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
-                       limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
+      limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
     labs(x = 'Timesteps since start of blood stage',
          y = 'General adaptive immunity',
+         caption = paste0('proportion of runs with no infection at time 0 = ', 
+                          (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
+    scale_color_manual(values = c("#D67236","#FD6467")) +
+    theme_bw() + 
+    theme(legend.position = 'none')
+  
+  svplt <- ggplot(df%>% filter(cleared == 'not cleared')) + 
+    geom_line(aes(x = time, y = varspecific_imm, group = run, color = cleared), alpha = 0.7) + #, color = cleared
+    scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
+      limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
+    labs(x = 'Timesteps since start of blood stage',
+         y = 'var-specific immunity',
          caption = paste0('proportion of runs with no infection at time 0 = ', 
                           (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
     scale_color_manual(values = c("#D67236","#FD6467")) +
@@ -305,9 +329,9 @@ make_plots <- function(df){
   grplt <- ggplot(df %>% filter(cleared == 'not cleared')) + 
     geom_line(aes(x = time, y = growth, group = run, color = cleared), alpha = 0.7) + #
     scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
-                       limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
+      limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
     labs(x = 'Timesteps since start of blood stage',
-         y = 'Growth rate (m * sc * sm)',
+         y = 'Growth rate (m * sc * sm * sv)',
          caption = paste0('proportion of bites that do not lead to infection at time 0 = ', 
                           (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
     scale_color_manual(values = c("#D67236","#FD6467")) +
@@ -317,7 +341,7 @@ make_plots <- function(df){
   mplt <- ggplot(df)+#  %>% filter(cleared == 'not cleared')) + 
     geom_line(aes(x = time, y = m, group = run, color = cleared), alpha = 0.7) + #
     scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
-                       limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
+      limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
     labs(x = 'Timesteps since start of blood stage',
          y = 'm',
          caption = paste0('proportion of bites that do not lead to infection at time 0 = ', 
@@ -329,7 +353,7 @@ make_plots <- function(df){
   smcplt <- ggplot(df) + 
     geom_line(aes(x = (time)/365.25, y = smcrate, group = run, color = cleared), alpha = 0.7) + #
     scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
-                       limits = c(0, max(df$time)/365.25))+#(max(df$time)+7)*multiplier
+      limits = c(0, max(df$time)/365.25))+#(max(df$time)+7)*multiplier
     labs(x = 'Timesteps since start of blood stage',
          y = 'SMC kill rate',
          caption = paste0('proportion of bites that do not lead to infection at time 0 = ', 
@@ -365,7 +389,7 @@ make_plots <- function(df){
   
   message('prop runs with no infection = ', (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)
   
-  return(list(p, scplt, smplt, grplt, df, mplt, smcplt, psmckillplt, nsmckillplt))
+  return(list(p, scplt, smplt, svplt, grplt, df, mplt, smcplt, psmckillplt, nsmckillplt))
 }
 
 # Time to infection

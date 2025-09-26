@@ -4,14 +4,16 @@
 ## Core equations for transitions between compartments:
 update(PB) <- if(PB_next < 1e-5) 0 else (PB_next)# - n_killSMC) * growth # first see how many die then multiply by growth
 update(sc) <- 1 / (1 + (PB_next / pc)^kappac) # gets smaller as parasite density increases (could maybe set a minimum value?)
-update(sm) <- if(time > 3) beta + (1 - beta) / (1 + (PBsum / pm)^kappam) + beta else 1
-update(growth) <- m * sc * sm ## growth rate is modified by natural and general-adaptive immunity
+update(sm) <- if(time > 3) (1 - beta) / (1 + (PBsum / pm)^kappam) + beta else 1
+update(sv) <- if(time > 3) 1 / (1 + (PBvsum / pv) ^ kappav) else 1
+update(growth) <- m * sc * sm * sv## growth rate is modified by natural and general-adaptive immunity and var-specific immunity
 
 ## Initial states:
 initial(PB) <- (mero_init / VB)
 initial(sc) <- 1 # this means that multiplying by the growth rate keeps the growth rate as it would be without immunity
 initial(growth) <- m_init
 initial(sm) <- 1
+initial(sv) <- 1
 
 # make variable to use what the value of PB will be at current timestep
 PB_next <- (PB - n_killSMC) * growth #PB + n_grow - n_killSMC ##
@@ -29,21 +31,49 @@ initial(m) <- m_init
 update(m) <- TruncatedNormal(mean = mean_new, sd = sd_new, min = min_m, max = max_m)
 
 # Make cumulative general adaptive immunity PC
-update(PC) <- PC + if(PB_next > C) C else PB_next 
+update(PC) <- PC + if(PB_next > C) C else PB_next
 initial(PC) <- 0
 
 # Make variable to keep track of  sum of parasitemia over timesteps t = 1 to t = t-4+1
 n_dim <- 3
 dim(buffer) <- n_dim
 initial(buffer[]) <- 0
-
 ## Most recent data first
 update(buffer[1]) <- if(PB_next > C) C else PB_next #if(PB_next > C) C else PB_next#
 update(buffer[2:n_dim]) <- buffer[i - 1]
 
-# Make total variable
+# Make total variable -- cumulative minus the parasitemia from the last few timesteps
 initial(PBsum) <- 0
 update(PBsum) <- if(time > 3) PC - sum(buffer) else 0
+# update(PBsum) <- if(time > 3) sum(buffer) else 0
+
+
+
+# Make total paraistemia variable for var-specific immunity Pv, bounds checking and sum calculation
+# No sum before t=4, # Invalid range if ft>tminus4,  # Valid range - sum from f_t_timestep to t_minus_4_timestep
+update(sv_timestep_range) <- t_minus_4 - f_t
+initial(sv_timestep_range) <- 0
+update(PBvsum) <- if (time <= 4) 0 else if (sv_timestep_range <= 0) 0 else sum(p_history[t_minus_4_ts:f_t_ts])
+initial(PBvsum) <- 0
+
+# Make array variable to keep track of paraistemia over gradually expanding time window 
+# lower timestep is 4 timesteps back in the arrray that is shifting over time 
+update(t_minus_4) <- if (time <= 4) 1 else time - 4
+initial(t_minus_4) <- 1
+update(t_minus_4_ts) <- time - t_minus_4 + 1 # get the index of the array p_history for lowe rrange
+initial(t_minus_4_ts) <- 1
+# upper timestep 
+update(f_t) <- if (time <= 4) 1 else max(1, ceiling(lambdav^(time - 4)* (time - 4)))
+initial(f_t) <- 1
+update(f_t_ts) <- time - f_t + 1# get the index of the array p_history for upper range
+initial(f_t_ts) <- 1
+
+n_pv_dim <- tt # this is number of timesteps for the within-host model
+dim(p_history) <- n_pv_dim
+initial(p_history[]) <- 0
+# more recent data are first
+update(p_history[1]) <- PB_next
+update(p_history[2:n_pv_dim]) <- p_history[i - 1]# for current timestep, add in the current parasitemia
 
 
 # SMC 
@@ -85,7 +115,6 @@ update(PBsum) <- if(time > 3) PC - sum(buffer) else 0
 p_killSMC <-  if(SMC_on == 1) 1 - exp(-SMC_kill_rate * dt) else 0
 n_killSMC <- Binomial(PB * VB, p_killSMC) / VB 
 
-
 initial(SMC_kill_rateout) <- 0
 update(SMC_kill_rateout) <- SMC_kill_rate
 initial(prob_smckill) <- 0
@@ -118,6 +147,14 @@ theta_pm <- 0.0004 #2       # second " "
 unif <- Uniform(0,1)
 pm_rand <- log(1 - (1 / theta_pm) * log(1 - unif)) * (1 / alpha_pm)
 pm <- km * pm_rand
+
+# EVSR immune response 
+kappav <- 1
+pv <- 10100 # controls strength of EVSR
+lambdav <- 0.9996 # part of f(t) that governs duration of EVSR memory
+# ts = seq(1,100,1)
+# plot(ceiling(lambdav^(ts-4)*(ts-4)))
+
 
 ########
 
@@ -154,6 +191,7 @@ PEV_on <- parameter()
 SMC_on <- parameter()
 ab_user <- parameter()
 VB <- parameter()
+tt <- parameter(100, constant = TRUE)
 # max_SMC_kill_rate <- parameter(1.5)
 # SMC_decay <- parameter(0.05) # decay of SMC kill rate
 # smc_timing <- parameter(0) # timing of receipt of last dose of SMC relative to start of simulation
