@@ -48,7 +48,8 @@ run_process_model <- function(n_particles = 1L,
   # Format data 
   out_formatted <- format_data(out,
                                tt = tt,
-                               infection_start_day = infection_start_day)
+                               infection_start_day = infection_start_day, 
+                               n_particles = n_particles)
   
   # Find first day threshold is reached 
   threshold_day <- get_ttoinf(out_formatted) %>% pull(time)
@@ -143,7 +144,7 @@ run_model <- function(n_particles = 1L,
   return(out)
 }
 
-format_data <- function(out, tt, infection_start_day){
+format_data <- function(out, tt, infection_start_day, n_particles){
   # tt <- seq(1, ts, by = 1)
   
   if(n_particles == 1){
@@ -262,6 +263,7 @@ format_data <- function(out, tt, infection_start_day){
 
 make_plots <- function(df){
   multiplier <- if(tstep == 1) 2 else if (tstep == 2) 1
+  colorsplot <- c("darkblue","lightblue")
   # 7 + time * multiplier
   df <- df %>%
     group_by(run) %>%
@@ -274,14 +276,14 @@ make_plots <- function(df){
     mutate(median_parasites = median(parasites))
   
   p <- ggplot(df) + 
-    geom_line(aes(x = time, y = parasites, group = run,color = "#D67236"), alpha = 0.15, linewidth = 0.8) + #, color = cleared
-    geom_line(aes(x = time, y = median_parasites, color = '#D67236'), linewidth = 0.8)+
+    geom_line(aes(x = time, y = parasites, group = run,color = "darkblue"), alpha = 0.15, linewidth = 0.8) + #, color = cleared
+    geom_line(aes(x = time, y = median_parasites, color = 'darkblue'), linewidth = 0.8)+
     geom_hline(aes(yintercept = 10), linetype = 2, color = 'darkred', linewidth = 1) + # this is the detection limit (followiung Challenger et al.)
     geom_hline(aes(yintercept = 1e-5), linetype = 2, color = 'darkgreen', linewidth = 1) + # this is the clearance threshold
     scale_y_log10() +
     scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
       limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
-    scale_color_manual(values = c("#D67236","#FD6467")) +
+    scale_color_manual(values = colorsplot) +
     labs(x = 'Timesteps since start of blood stage',
          y = 'PRBCs',
          caption = paste0('proportion of runs with no infection at time 0 = ', 
@@ -298,7 +300,7 @@ make_plots <- function(df){
          y = 'Innate immunity',
          caption = paste0('proportion of runs with no infection at time 0 = ', 
                           (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
-    scale_color_manual(values = c("#D67236","#FD6467")) +
+    scale_color_manual(values = colorsplot) +
     theme_bw() + 
     theme(legend.position = 'none')
   
@@ -310,7 +312,7 @@ make_plots <- function(df){
          y = 'General adaptive immunity',
          caption = paste0('proportion of runs with no infection at time 0 = ', 
                           (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
-    scale_color_manual(values = c("#D67236","#FD6467")) +
+    scale_color_manual(values = colorsplot) +
     theme_bw() + 
     theme(legend.position = 'none')
   
@@ -319,10 +321,10 @@ make_plots <- function(df){
     scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
       limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
     labs(x = 'Timesteps since start of blood stage',
-         y = 'var-specific immunity',
+         y = 'Var-specific immunity',
          caption = paste0('proportion of runs with no infection at time 0 = ', 
                           (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
-    scale_color_manual(values = c("#D67236","#FD6467")) +
+    scale_color_manual(values = colorsplot) +
     theme_bw() + 
     theme(legend.position = 'none')
   
@@ -334,7 +336,7 @@ make_plots <- function(df){
          y = 'Growth rate (m * sc * sm * sv)',
          caption = paste0('proportion of bites that do not lead to infection at time 0 = ', 
                           (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
-    scale_color_manual(values = c("#D67236","#FD6467")) +
+    scale_color_manual(values = colorsplot) +
     theme_bw() + 
     theme(legend.position = 'none')
   
@@ -346,7 +348,7 @@ make_plots <- function(df){
          y = 'm',
          caption = paste0('proportion of bites that do not lead to infection at time 0 = ', 
                           (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
-    scale_color_manual(values = c("#D67236","#FD6467")) +
+    scale_color_manual(values = colorsplot) +
     theme_bw() + 
     theme(legend.position = 'none')
   
@@ -358,7 +360,7 @@ make_plots <- function(df){
          y = 'SMC kill rate',
          caption = paste0('proportion of bites that do not lead to infection at time 0 = ', 
                           (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
-    scale_color_manual(values = c("#D67236","#FD6467")) +
+    scale_color_manual(values = colorsplot) +
     theme_bw() + 
     theme(legend.position = 'none')
   
@@ -370,7 +372,7 @@ make_plots <- function(df){
          y = 'SMC per parasite/uL kill probability',
          caption = paste0('proportion of bites that do not lead to infection at time 0 = ', 
                           (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
-    scale_color_manual(values = c("#D67236","#FD6467")) +
+    scale_color_manual(values = colorsplot) +
     theme_bw() + 
     theme(legend.position = 'none')
   
@@ -382,7 +384,7 @@ make_plots <- function(df){
          y = 'Parasites/uL killed by SMC',
          caption = paste0('proportion of bites that do not lead to infection at time 0 = ', 
                           (df %>% filter(time == 1, parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
-    scale_color_manual(values = c("#D67236","#FD6467")) +
+    scale_color_manual(values = colorsplot) +
     theme_bw() + 
     scale_y_log10() +
     theme(legend.position = 'none')
@@ -415,9 +417,34 @@ get_ttoinf <- function(df){
 # where timings is the vector of days since April 1, 2017 that SMC was delievered for an individual child
 # and days is a vector of days (0:end of cohort sim) 
 # outputs at each day how long it has been since the last dose which can be used to calculate the kill rate due to SMC per day 
-calc_time_since_dose <- function(timings, days, burnin) {
+calc_time_since_dose <- function(timings, days) {
   suppressWarnings(sapply(days, function(d) {
     last_dose <- max(timings[timings <= d])
     ifelse(is.finite(last_dose), d - last_dose, NA)
   }))
+}
+
+
+#Calculate lagged vectors for all unique lags
+calc_lagged_vectors <- function(prob_data, lags, start_date = as.Date('2017-04-01'), 
+                                end_date = '2020-04-01', burnints) {
+  
+  lag_list <- map(lags, function(lag_val) {
+    prob_lagged <- prob_data %>% 
+      mutate(prob_lagged = dplyr::lag(prob_infectious_bite, n = lag_val),
+             date_lagged = dplyr::lag(date, n = lag_val))
+    
+    # Get start date minus burnin 
+    start_date_pbite <- start_date - burnints
+    prob_filtered <- prob_lagged[prob_lagged$date_lagged >= start_date_pbite & # &#
+                                   prob_lagged$date_lagged < end_date & 
+                                   !is.na(prob_lagged$date_lagged),]
+    
+    # instead of median, am now filtering to start date - burnin above
+    # c(rep(median(prob_filtered$prob_lagged, na.rm = TRUE), burnints), # this is to have a probability of bite before the burnin
+    #   prob_filtered$prob_lagged)
+  })
+  
+  names(lag_list) <- paste0("lag_", lags)
+  return(lag_list)
 }
