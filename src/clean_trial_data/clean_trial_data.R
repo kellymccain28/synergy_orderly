@@ -84,9 +84,10 @@ children <- children_raw %>%
                      v1_date, v2_date, v3_date, last_primary_vac, boost1_date, boost2_date, 
                      ends_with('date_received'), -contains('d2'), -contains('d3'), # d2 and d3 are the 2nd and third doses per month
                      nprimary, nsmc_received)) %>%
-  mutate(dob = v1_date - age_months_v1 * 30)%>%
-  mutate(ageatV3 = (v3_date - dob),
-         ageatlastvac = last_primary_vac - dob) %>%
+  mutate(dob = v1_date - age_months_v1 * 30) %>%
+  # mutate(ageatV3 = (v3_date - dob),
+  #        ageatlastvac = last_primary_vac - dob) %>%
+  select(-dob) %>%
   # add same end date for now (should be updated from Paul)
   mutate(fu_end_date = ymd('2020-03-31'))  
 
