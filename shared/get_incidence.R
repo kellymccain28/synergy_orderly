@@ -8,47 +8,37 @@ get_incidence <- function(model = TRUE,
                           
 ){
   # Define function to expand to get all the different months in the dataset
-  make_child_months <- function(rid, arm, start_date, fu_end_date) {
-    month_seq <- seq(floor_date(start_date, "month"), floor_date(fu_end_date, "month"), by = "month")
-    tibble(
-      rid = rid,
-      arm = arm,
-      month = floor_date(month_seq, "month")
-    )
-  }
+  # make_child_months <- function(rid, arm, start_date, fu_end_date) {
+  #   month_seq <- seq(floor_date(start_date, "month"), floor_date(fu_end_date, "month"), by = "month")
+  #   tibble(
+  #     rid = rid,
+  #     arm = arm,
+  #     month = floor_date(month_seq, "month")
+  #   )
+  # }
   
   # expand all children 
   person_months_df <- df_children %>%
-    mutate(fu_end_date = ymd('2020-03-31'),
-           start_date = v1_date)
+    mutate(fu_end_date = ymd('2020-03-31'),# this should change to when the follow up actually ended
+           start_date = v1_date) %>%
+    
+    ungroup() %>% 
+    mutate(month = map2(start_date, fu_end_date,
+                        ~seq(floor_date(.x, "month"),
+                             floor_date(.y, "month"),
+                             by = 'month'))) %>%
+    unnest(month)
+
+  # person_months_df <- person_months_df %>%
+  #   ungroup() %>%
+  #   select(rid, arm, start_date, fu_end_date) %>%
+  #   pmap(~ make_child_months(..1, ..2, as.Date(..3), as.Date(..4))) %>%
+  #   bind_rows()
+  # 
   
-  # if(model){
-  #   person_months_df$start_date = ymd('2017-04-01')
-  # } else {
-  #   person_months_df$start_date <- df_children$v1_date
-  # }
-  
-  person_months_df <- person_months_df %>%
-    ungroup() %>%
-    select(rid, arm, start_date, fu_end_date) %>%
-    pmap(~ make_child_months(..1, ..2, as.Date(..3), as.Date(..4))) %>%
-    bind_rows()
-  
-  # if(model){
-  #   # get back start and end date 
-  #   person_months_df2 <- person_months_df %>%
-  #     mutate(v1_date = ymd('2017-04-01'), # later, this should change to when the children were actually vaccinated 
-  #            fu_end_date = ymd('2020-03-31'))
-  #   
-  #   casedata <- casedata %>%
-  #     mutate(fu_end_date = ymd('2020-03-31'))
-  # } else{
-  # join back v1date and end date 
   person_months_df2 <- person_months_df %>%
     left_join(df_children %>% 
-                mutate(fu_end_date = ymd('2020-03-31')) %>%# this should change to when the follow up actually ended
-                select(rid, v1_date, fu_end_date), by = 'rid')
-  # }
+                select(rid, country), by = 'rid')
   
   # Calculate actual person-time per child-month
   # for each month, we need to find max an dmin -- so if the start date is=or > the floor date of the month and < last day of that month, 
