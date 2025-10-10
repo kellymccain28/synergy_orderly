@@ -108,3 +108,49 @@ get_incidence <- function(model = TRUE,
   
 }
 
+
+get_incidence_simpler <- function(model_data, 
+                                  metadata_df, 
+                                  start_cohort = as.Date('2017-04-01'), 
+                                  time_horizon) {#weekly or monthly
+  
+  child_counts <- metadata_df %>%
+    count(arm, country, name = 'pop')#, sim_id
+  
+  # Get case counts by month 
+  case_counts <- model_data %>% 
+    mutate(detection_day = as.Date(detection_day, origin= start_cohort)) %>%
+    filter(!is.na(detection_day)) %>%
+    filter(detection_day >= start_cohort)  %>%
+    filter(detection_day <= (start_cohort + 365*3)) %>% 
+    mutate(yearmonth = floor_date(detection_day, "month"),
+           week = floor_date(detection_day, "week")) 
+  
+  if(time_horizon == 'monthly'){
+    output <- case_counts %>% 
+      count(arm, country, yearmonth,  name = "n_cases") %>% #sim_id,
+      tidyr::complete(yearmonth = seq(min(yearmonth), max(yearmonth), by = '1 month'), 
+                      fill = list(cases = 0,
+                                  inci = 0))  %>%
+      left_join(child_counts) %>%
+      mutate( 
+        # Approximate person-months (cohort size × 1 month) 
+        person_months = pop,
+        incidence_per_1000pm = (n_cases / person_months) * 100 )
+    
+  }
+  
+  if(time_horizon == 'weekly'){
+    output <- case_counts %>%
+      count(arm, country, week,  name = "n_cases") %>% #sim_id,
+      tidyr::complete(week = seq(min(week), max(week), by = '1 week'), 
+                      fill = list(cases = 0,
+                                  inci = 0)) %>%
+      left_join(child_counts) %>%
+      mutate( 
+        # Approximate person-months (cohort size × 1 month) 
+        person_weeks = pop,
+        incidence_per_1000pw = (n_cases / person_weeks) * 100 )
+  }
+  return(output) 
+}
