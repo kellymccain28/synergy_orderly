@@ -429,10 +429,24 @@ calc_time_since_dose <- function(timings, days) {
 calc_lagged_vectors <- function(prob_data, lags, start_date = as.Date('2017-04-01'), 
                                 end_date = '2020-04-01', burnints) {
   
-  lag_list <- map(lags, function(lag_val) {
-    prob_lagged <- prob_data %>% 
-      mutate(prob_lagged = dplyr::lag(prob_infectious_bite, n = lag_val),
-             date_lagged = dplyr::lag(date, n = lag_val))
+  lag_list <- purrr::map(lags, function(lag_val) {
+    # prob_lagged <- prob_data %>% 
+    #   mutate(prob_lagged = dplyr::lag(prob_infectious_bite, n = lag_val),
+    #          date_lagged = dplyr::lag(date, n = lag_val))
+    
+    if (lag_val >= 0) {
+      prob_lagged <- prob_data %>% 
+        mutate(
+          prob_lagged = dplyr::lag(prob_infectious_bite, n = lag_val),
+          date_lagged = dplyr::lag(date, n = lag_val)
+        )
+    } else {
+      prob_lagged <- prob_data %>% 
+        mutate(
+          prob_lagged = dplyr::lead(prob_infectious_bite, n = abs(lag_val)),
+          date_lagged = dplyr::lead(date, n = abs(lag_val))
+        )
+    }
     
     # Get start date minus burnin 
     start_date_pbite <- start_date - burnints
@@ -443,6 +457,7 @@ calc_lagged_vectors <- function(prob_data, lags, start_date = as.Date('2017-04-0
     # instead of median, am now filtering to start date - burnin above
     # c(rep(median(prob_filtered$prob_lagged, na.rm = TRUE), burnints), # this is to have a probability of bite before the burnin
     #   prob_filtered$prob_lagged)
+    return(prob_filtered)
   })
   
   names(lag_list) <- paste0("lag_", lags)
