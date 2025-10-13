@@ -10,13 +10,15 @@ orderly_strict_mode()
 orderly_parameters(n_particles = NULL,
                    n_threads = NULL,
                    t_inf = NULL,
-                   ts = 365,
+                   ts = NULL,
                    tstep = NULL,
                    max_SMC_kill_rate = NULL,
-                   SMC_decay = NULL,
+                   lambda = NULL, 
+                   kappa = NULL, 
+                   # SMC_decay = NULL,
                    season_start_day = NULL,
-                   season_length = NULL,
-                   smc_interval = NULL,
+                   # season_length = NULL,
+                   # smc_interval = NULL,
                    inf_start = NULL)
 
 # PEV_on <- 0
@@ -28,7 +30,7 @@ orderly_parameters(n_particles = NULL,
 VB = 1e6
 # det_mode = FALSE
 # tstep <- 1
-tt <- seq(0, ts, by = tstep)#
+tt <- seq(1, ts, by = tstep)#
 threshold <- 100
 # max_SMC_kill_rate = 4
 # SMC_decay <- 0.05
@@ -43,9 +45,9 @@ orderly_shared_resource("smc.R",
                         "smc_rtss.R",
                         "helper_functions.R")
 
+gen_bs <- odin2::odin("smc_rtss.R")
 source("rtss.R")
 source("helper_functions.R")
-gen_bs <- odin2::odin("smc_rtss.R")
 
 # set.seed(1234)
 
@@ -58,20 +60,32 @@ nothing <- run_model(n_particles = n_particles,
                      PEV_on = 0,
                      SMC_on = 0,
                      tt= tt,
+                     SMC_time = seq(0,100,1),
+                     SMC_kill_vec = rep(0,101),
                      t_inf = t_inf,
                      infection_start_day = inf_start,
                      VB = VB,
                      det_mode = FALSE) %>%
   format_data(tt= tt,
-              infection_start_day = inf_start) %>%
+              infection_start_day = inf_start,
+              n_particles = n_particles) %>%
   make_plots() 
-# nothing[[1]] #+ xlim(c(0,100))
-# nothing[[2]]
-# nothing[[3]]
-# nothing[[4]]
+prbc <- nothing[[1]] #+ xlim(c(0,100))
+innate <- nothing[[2]]
+genad <- nothing[[3]]
+varspec <- nothing[[4]]
+growthr <- nothing[[5]]
 # nothing[[6]]
-# nothing[[7]]
+mplot <- nothing[[7]]
 # nothing[[9]]
+plot_grid(prbc+labs(caption = NULL, x = 'Days'),
+          growthr+labs(caption = NULL, x = 'Days'),
+          innate+labs(caption = NULL, x = 'Days'),
+          genad+labs(caption = NULL, x = 'Days'),
+          varspec+labs(caption = NULL, x = 'Days'),
+          mplot+labs(caption = NULL, x = 'Days')
+) # in caption, days since start of blood-stage 
+ggsave('immunity_plot.pdf')
 nothingplt <- plot_grid(nothing[[1]] +labs(caption = NULL, x = 'Days since start of blood stage'), 
                         nothing[[2]]+labs(caption = NULL, x = 'Days since start of blood stage'),
                         nothing[[3]]+labs(caption = NULL, x = 'Days since start of blood stage'),
@@ -81,7 +95,7 @@ nothingplt <- plot_grid(nothing[[1]] +labs(caption = NULL, x = 'Days since start
                         nothing[[8]]+labs(caption = NULL, x = 'Days since start of blood stage'),
                         nothing[[9]]+labs(caption = NULL, x = 'Days since start of blood stage'),
                         nrow = 4) 
-dfnothing <- nothing[[5]] %>%
+dfnothing <- nothing[[6]] %>%
   mutate(scen = 'none')
 # % of runs without infection at different times
 # dfnothing %>% filter(time == 1, parasites < 1e-5) %>% count() / n_particles
@@ -95,17 +109,20 @@ vax <- run_model(n_particles = n_particles,
                  SMC_on = 0,
                  t_inf = t_inf,
                  infection_start_day = inf_start,
+                 SMC_time = seq(0,100,1),
+                 SMC_kill_vec = rep(0,101),
                  tt= tt,
                  VB = VB,
                  det_mode = FALSE) %>%
   format_data(tt= tt,
-              infection_start_day = inf_start) %>%
+              infection_start_day = inf_start,
+              n_particles = n_particles) %>%
   make_plots()
-# vax[[1]] + xlim(c(0,100))
-# vax[[2]]
-# vax[[3]]
-# vax[[4]]
-# vax[[7]]
+vax[[1]] + xlim(c(0,100))
+vax[[2]]
+vax[[3]]
+vax[[4]]
+vax[[7]]
 # vax[[9]]
 vaxplt <- plot_grid(vax[[1]] +labs(caption = NULL, x = 'Days since start of blood stage'), 
                     vax[[2]]+labs(caption = NULL, x = 'Days since start of blood stage'),
@@ -122,6 +139,22 @@ dfvax <- vax[[5]] %>%
 # dfvax %>% filter(time == max(time), parasites < 10) %>% count() / n_particles
 # dfvax %>% filter(time == 15, parasites < 10) %>% count() / n_particles
 
+# Calculate SMC kill vector 
+smc_dose_days <- c(seq(season_start_day, season_start_day + 120 - 1, 30),
+                   seq(season_start_day + 365, season_start_day + 365 + 120 - 1, 30),
+                   seq(season_start_day + 365*2, season_start_day  + 365*2 + 120 - 1, 30))
+
+time_since_smc <- lapply(list(smc_dose_days), 
+                         calc_time_since_dose, 
+                         days = 0:(ts*2 -1))
+smckillvec <- lapply(time_since_smc,
+                                 function(.){
+                                   kill <- max_SMC_kill_rate * exp(-(./ lambda)^kappa)  # calculate kill rate with hill function
+                                   # kill <- ifelse(is.na(kill), 0, kill)                          
+                                   kill[is.na(kill)] <- 0                                       # change NAs (when there is no SMC) to 0 
+                                   kill <- kill[seq_along(kill) %% 2 == 1]                      # keep only odd indices since timesteps in the within-host model are 2 days
+                                 })
+
 # Without vaccination but with SMC
 smc <- run_model(n_particles = n_particles,
                  n_threads = 4L,
@@ -131,24 +164,28 @@ smc <- run_model(n_particles = n_particles,
                  det_mode = FALSE,
                  t_inf = t_inf,
                  VB = VB,
-                 max_SMC_kill_rate = max_SMC_kill_rate,
+                 SMC_time = seq(0,length(smckillvec[[1]])-1,1),
+                 SMC_kill_vec = smckillvec#,
+                 # max_SMC_kill_rate = max_SMC_kill_rate,
                  # SMC parameters
-                 infection_start_day = inf_start,
-                 season_start_day = season_start_day,
-                 season_length = season_length,
-                 smc_interval = smc_interval# smc_timing = 10
+                 # infection_start_day = inf_start,
+                 # season_start_day = season_start_day,
+                 # season_length = season_length,
+                 # smc_interval = smc_interval# smc_timing = 10
                  ) %>%
   format_data(tt= tt,
-              infection_start_day = inf_start) %>%
+              infection_start_day = inf_start,
+              n_particles = n_particles) %>%
   make_plots()
-# smc[[1]] #+ xlim(c(0,100))
-# smc[[2]] #+ xlim(c(0,100))
-# smc[[3]]
-# smc[[4]]
+smc[[1]] #+ xlim(c(0,100))
+smc[[2]] #+ xlim(c(0,100))
+smc[[3]]
+smc[[4]]
 # smc[[6]]
-# smc[[7]]# + labs(x = 'Years', caption = NULL) #+ xlim(c(0,1))
-# smc[[8]]
-# smc[[9]]
+smc[[7]]# + labs(x = 'Years', caption = NULL) #+ xlim(c(0,1))
+smc[[8]]
+smc[[9]]
+smc[[10]]
 smcplt <- plot_grid(smc[[1]] +labs(caption = NULL, x = 'Days since start of blood stage'), 
                     smc[[2]]+labs(caption = NULL, x = 'Days since start of blood stage'),
                     smc[[3]]+labs(caption = NULL, x = 'Days since start of blood stage'),
@@ -158,7 +195,7 @@ smcplt <- plot_grid(smc[[1]] +labs(caption = NULL, x = 'Days since start of bloo
                     smc[[8]]+labs(caption = NULL, x = 'Days since start of blood stage'),
                     smc[[9]]+labs(caption = NULL, x = 'Days since start of blood stage'),
                     nrow = 4) 
-dfsmc <- smc[[5]] %>%
+dfsmc <- smc[[6]] %>%
   mutate(scen = 'smc')
 # % of runs with infection at day 60 
 # dfsmc %>% filter(time == max(time), parasites < 10) %>% count() / n_particles
@@ -173,15 +210,18 @@ vaxSMC <- run_model(n_particles = n_particles,
                     tt = tt,
                     det_mode = FALSE,
                     VB = VB,
-                    max_SMC_kill_rate = max_SMC_kill_rate,
+                    SMC_time = seq(0,100,1),
+                    SMC_kill_vec = rep(0,101)
+                    # max_SMC_kill_rate = max_SMC_kill_rate,
                     # SMC parameters
-                    infection_start_day = inf_start,
-                    season_start_day = season_start_day,
-                    season_length = season_length,
-                    smc_interval = smc_interval# smc_timing = 10
+                    # infection_start_day = inf_start,
+                    # season_start_day = season_start_day,
+                    # season_length = season_length,
+                    # smc_interval = smc_interval# smc_timing = 10
                     ) %>%
   format_data(tt= tt,
-              infection_start_day = inf_start) %>%
+              infection_start_day = inf_start,
+              n_particles = n_particles) %>%
   make_plots() 
 # vaxSMC[[1]]# + xlim(c(0,100))
 # vaxSMC[[2]]
@@ -198,7 +238,7 @@ vaxSMCplt <- plot_grid(vaxSMC[[1]] +labs(caption = NULL, x = 'Days since start o
                        vaxSMC[[8]]+labs(caption = NULL, x = 'Days since start of blood stage'),
                        vaxSMC[[9]]+labs(caption = NULL, x = 'Days since start of blood stage'),
                        nrow = 4) 
-dfvaxsmc <- vaxSMC[[5]] %>%
+dfvaxsmc <- vaxSMC[[6]] %>%
   mutate(scen = 'vaxsmc')
 # % of runs with infection at day 60 
 # dfvaxsmc %>% filter(time == max(time), parasites < 10) %>% count() / n_particles
