@@ -18,9 +18,9 @@ mod1 <- odin2::odin({
 })
 
 max_SMC_kill_rate = 18
-lambda =17 
-kappa = 0.28
-smc_timing <- c(5,15,30,55)
+lambda = 35 # 17
+kappa = 3.4 #0.28
+smc_timing <- c(1,60,90)
 tt = seq(0, 100,1)
 time_since_smc <- sapply(tt, function(d) {
   last_dose <- max(smc_timing[smc_timing <= d])
@@ -29,6 +29,7 @@ time_since_smc <- sapply(tt, function(d) {
 # time_since_smc <- lapply(smc_timing, calc_time_since_dose, days = tt)
 
 smckillvec = max_SMC_kill_rate * exp(-(time_since_smc / lambda)^kappa) 
+# smckillvec = kappa/lambda * (time_since_smc/lambda)^(kappa-1)#exp(-(time_since_smc/lambda)^kappa)
 pars <- list(
   SMC_kill_vec = smckillvec,
   SMC_time = tt
@@ -47,7 +48,7 @@ dust_system_set_state_initial(sys)
 bs_model <- dust_system_simulate(sys, tt)
 
 out <- dust_unpack_state(sys, bs_model)
-out
+# out
 
 plot(out$SMC_kill_rateout)
 plot(out$prob_smckill)
