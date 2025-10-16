@@ -6,15 +6,17 @@ library(terra)
 library(tidyverse)
 library(malariasimulation)
 library(orderly2)
+library(umbrella)
 
 orderly_strict_mode()
 
 orderly_resource(files = c('shapefiles/',
                            'chirps/'))
 
-orderly_artefact(description = 'two datasets (Burkina Faso and Mali) with vectors of probability of infectious bite during the time of the trial',
+orderly_artefact(description = 'three datasets (generic, Burkina Faso and Mali) with vectors of probability of infectious bite during the time of the trial',
                  files = c('prob_bite_BFA.rds',
-                           'prob_bite_MLI.rds'))
+                           'prob_bite_MLI.rds',
+                           'prob_bite_generic.rds'))
 
 
 # Get the site files
@@ -225,43 +227,67 @@ allcoefsmali <- lapply(malifits, convert_coefs,
 
 # Now, need to run malariasimilation or the odin model to get a curve of EIR or prevalence
 
+# Set interventions to 0 in site files 
+int_vars <- c('tx_cov','itn_use','irs_cov','rtss_cov','r21_cov','lsm_cov','smc_cov','pmc_cov','prop_act','prop_public',
+              'smc_n_rounds','bioassay_mortality','pyrethroid_resistance','mean_retention','itn_input_dist','predicted_use',
+              'irs_spray_rounds')
+hounde$interventions[int_vars] <- 0
+bougouni$interventions[int_vars] <- 0
+
+
 # First, specify site parameters along with year-specific rainfall parameters for each of the years
+get_pars <- function(site, x){
+  site_data <- if(site == 'Hounde') hounde else bougouni
+  
+  pars <- get_parameters(
+    overrides = list(
+      human_population = 10000,
+      model_seasonality = TRUE, 
+      g0 = x$g0,
+      g = c(x$g1, x$g2, x$g3),
+      h = c(x$h1, x$h2, x$h3),
+      individual_mosquitoes = FALSE
+    )
+  )
+  
+  demo <- site_data$demography[site_data$demography$year == '2020',]
+  ages <- round(unique(site_data$demography$age_upper) * 365)
+  timesteps <- 365 * (unique(site_data$demography$year) - 2000)
+  deathrates <- site_data$demography$adjusted_mortality_rates / 365
+  deathrates_matrix <- matrix(deathrates, nrow = length(timesteps), byrow = TRUE)
+  pars <- set_demography(
+    pars,
+    agegroups = ages,
+    timesteps = timesteps,
+    deathrates = deathrates_matrix
+  )
+  
+  pars <- malariasimulation::set_species(
+    parameters = pars,
+    species = list(malariasimulation::gamb_params, malariasimulation::arab_params, malariasimulation::fun_params),
+    proportions = site_data$vectors$vector_species$prop) 
+  
+  pars$age_group_rendering_min_ages = c(0, 1825, 5475)
+  pars$age_group_rendering_max_ages = c(1824, 5474, 36499)
+  
+  pars <- set_equilibrium(pars, 
+                        init_EIR = site_data$eir$eir)
+  
+  return(pars)
+}
+
 bf_pars <- lapply(allcoefsbf, 
-                  function(x) {
-                    pars <- site_parameters(
-                      interventions = bougouni$interventions,
-                      demography = bougouni$demography,
-                      vectors = bougouni$vectors$vector_species,
-                      seasonality = x,
-                      eir = bougouni$eir$eir,
-                      overrides = list(
-                        human_population = 10000
-                      ))
-                    
-                    pars <- set_equilibrium(pars, 
-                                            init_EIR = pars$init_EIR)
-                    
-                    return(pars)} )
+                  get_pars,
+                  site = 'Hounde')
 mali_pars <- lapply(allcoefsmali, 
-                    function(x) {
-                      pars <- site_parameters(
-                        interventions = bougouni$interventions,
-                        demography = bougouni$demography,
-                        vectors = bougouni$vectors$vector_species,
-                        seasonality = x,
-                        eir = bougouni$eir$eir,
-                        overrides = list(
-                          human_population = 10000
-                        ))
-                      
-                      pars <- set_equilibrium(pars, 
-                                              init_EIR = pars$init_EIR)} )
+                    get_pars,
+                    site = 'Bougouni')
 
 # now, run the simulation for each of these parameter sets 
 outputs_bf <- lapply(bf_pars, 
                      function(x){
                        malariasimulation::run_simulation(
-                         timesteps = x$timesteps,
+                         timesteps = 25*365,
                          parameters = x
                        )
                      })
@@ -269,7 +295,7 @@ outputs_bf <- lapply(bf_pars,
 outputs_mali <- lapply(mali_pars, 
                        function(x){
                          malariasimulation::run_simulation(
-                           timesteps = x$timesteps,
+                           timesteps = 25*365,
                            parameters = x
                          )
                        })
@@ -349,10 +375,10 @@ genericparams <- get_parameters(
   )
 )
 
-genericparams <- set_equilibrium(genericparams, init_EIR = 0.6)
+genericparams <- set_equilibrium(genericparams, init_EIR = 50)
 
 genericoutput <- malariasimulation::run_simulation(
-  timesteps = (365*4),
+  timesteps = (365*15),
   parameters = genericparams
 )
 
