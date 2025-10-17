@@ -221,11 +221,6 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
         objective <- function(params) {
           n_evals <<- n_evals + 1
           
-          # Early stopping if max iterations reached
-          if(n_evals > 10) {
-            return(1e10)
-          }
-          
           params_tibble <- data.frame(
             max_SMC_kill_rate = params[[1]],
             lambda = params[[2]],
@@ -259,8 +254,9 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
           lower = lower_bounds,
           upper = upper_bounds,
           control = list(
-            maxit = 10,  # Hard limit
-            factr = 1e10  # Loose convergence (we're time-limited)
+            maxit = 50,  # Hard limit
+            trace = 1, 
+            factr = 1e8  # Loose convergence (we're time-limited)
           )
         )
         
@@ -355,11 +351,6 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
                                               objective <- function(params) {
                                                 n_evals <<- n_evals + 1
                                                 
-                                                # Early stopping if max iterations reached
-                                                if(n_evals > 10) {
-                                                  return(1e10)
-                                                }
-                                                
                                                 params_tibble <- data.frame(
                                                   max_SMC_kill_rate = params[[1]],
                                                   lambda = params[[2]],
@@ -393,8 +384,9 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
                                                 lower = lower_bounds,
                                                 upper = upper_bounds,
                                                 control = list(
-                                                  maxit = 10,  # Hard limit
-                                                  factr = 1e10  # Loose convergence (we're time-limited)
+                                                  maxit = 50,  # Hard limit
+                                                  trace = 1, 
+                                                  factr = 1e8  # Loose convergence (we're time-limited)
                                                 )
                                               )
                                               
@@ -599,3 +591,19 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
 #     legend.position = 'none'
 #   )
 # 
+
+
+
+# Optimization 
+# optimization_results <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/optimization_results.rds")
+# 
+# best_refined <- optimization_results[[which.max(
+#   sapply(optimization_results, function(x) x$log_likelihood)
+# )]]
+# 
+# best_refined$log_likelihood
+# best_refined$starting_point_id
+# best_refined$initial_params
+# best_refined$final_params
+# best_refined$convergence
+# best_refined$n_evaluations

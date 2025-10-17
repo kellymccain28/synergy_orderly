@@ -40,7 +40,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
   country_short = 'g'
   n_param_sets = n_param_sets
   N = N
-  vax_day = 0 # unlike hte model sim, this is in days (not timesteps)
+  vax_day = -25 # unlike hte model sim, this is in days (not timesteps)
   
   n_particles = 1L
   n_threads = 1L
@@ -70,7 +70,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
   params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", sim_allow_superinfections)
   
   prob_bite_generic <- readRDS(paste0(path, '/archive/fit_rainfall/20251009-144330-1d355186/prob_bite_generic.rds'))
-  prob_bite_generic$prob_infectious_bite = 0.15
+  prob_bite_generic$prob_infectious_bite = 0.3
   p_bitevector <- calc_lagged_vectors(prob_bite_generic, 0, burnints = burnints) # no lagged values
   
   params_df$lag_p_bite <- 0
@@ -149,7 +149,9 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
                          # return(list(efficacy_weekly = eff,
                          #             efficacy_daily = eff_daily,
                          #             params = params_row))
-                         return(eff)
+                         return(list(infection_records = o$infection_records, 
+                                     efficacy_weekly = eff,
+                                     params = params_row))
                        })
     
   } else {
@@ -215,17 +217,21 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
                                          # return(list(efficacy_weekly = eff,
                                          #             efficacy_daily = eff_daily,
                                          #             params = params_row))
-                                         return(eff)
+                                         return(list(infection_records = o$infection_records, 
+                                                     efficacy_weekly = eff,
+                                                     params = params_row))
                                        }
     )
     parallel::stopCluster(cl)
   }
   
   infectionrecords <- purrr::map_df(results2, "infection_records")
+  efficacy <- purrr::map_df(results2, 'efficacy_weekly')
   params <- purrr::map_df(results2, 'parameters')
   
   saveRDS(params, paste0(path, '/src/fit_rtss/outputs/parameters_', Sys.Date(), '.rds'))
   saveRDS(infectionrecords, paste0(path, '/src/fit_rtss/outputs/infectionrecords_rtss_', Sys.Date(), '.rds'))
+  saveRDS(efficacy, paste0(path, '/src/fit_rtss/outputs/efficacy_rtss_', Sys.Date(), '.rds'))
 }
 
 
@@ -233,7 +239,9 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
 # ts <- seq(1,365*3)
 # phases <- ifelse(ts < 366, 1,
 #                  ifelse(ts < 729, 2, 3))
-# csp <- antibody_titre(t = ts,
+# csp <- list()
+# for(i in 1:50){
+#   csp[[i]] <- antibody_titre(t = ts,
 #                      phase = phases,
 #                      peak1 = c(621,0.35) ,
 #                      peak2 = c(277, 0.35),
@@ -243,21 +251,66 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
 #                      rho1 = c(2.37832, 1.00813),
 #                      rho2 = c(1.034, 1.027),
 #                      rho3 = c(1.034, 1.027))
-# ve_inf <- vaccine_eff(csp)
-# ve_inf <- ve_inf[seq_along(ve_inf) %% 7 == 0]    
-# ve_inf_df <- data.frame(weeks_since_rtss = seq(0,66),
-#                         ve_inf = ve_inf[1:67])
-
-# infectionrecords <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/infectionrecords_rtss_2025-10-16.rds")
-# df <- infectionrecords
-
-# eff <- calc_rtss_efficacy(df) %>%
-#   left_join(ve_inf_df)
+# }
+# csp_df <- data.frame(do.call(rbind, csp))
+# colnames(csp_df) <- ts
+# csp_df$sim <- 1:50
 # 
-# eff %>% filter(weeks_since_rtss < 52)  %>%
+# csp_long <- pivot_longer(csp_df, cols = -sim, 
+#                          names_to = "time", values_to = "titre")
+# csp_long$time <- as.numeric(csp_long$time)
+# 
+# # Plot
+# ggplot(csp_long, aes(x = time, y = titre, group = sim)) +
+#   geom_line(alpha = 0.3) +
+#   theme_minimal() + scale_y_log10() +
+#   labs(x = "Time", y = "Antibody Titre")
+# 
+# ve <- lapply(csp, vaccine_eff)
+# ve_df <- data.frame(do.call(rbind, ve))
+# colnames(ve_df) <- ts
+# ve_df$sim <- 1:50
+# 
+# ve_long <- pivot_longer(ve_df, cols = -sim, 
+#                          names_to = "time", values_to = "ve")
+# ve_long$time <- as.numeric(ve_long$time)
+# ve_long <- ve_long %>% ungroup() %>%
+#   mutate(weeks_since_rtss = floor(time/7)) %>%
+#   filter(weeks_since_rtss < 52) %>%
+#   group_by(weeks_since_rtss, sim) %>%
+#   summarize(ve_inf = mean(ve))
+# 
+# # Plot
+# ggplot(ve_long, aes(x = weeks_since_rtss, y = ve_inf, group = sim)) +
+#   geom_line(alpha = 0.3) +
+#   theme_minimal() + 
+#   labs(x = "Weeks since RTSS", y = "Efficacy")
+# # ve_inf <- vaccine_eff(csp)
+# # plot(ve_inf[0:52])
+# # ve_inf <- ve_inf[seq_along(ve_inf) %% 7 == 0]
+# ve_inf_df <- data.frame(#weeks_since_rtss = seq(0,66),
+#                         days_since_rtss = ts,
+#                         ve_inf = ve_inf) %>%
+#   mutate(weeks_since_rtss = floor(days_since_rtss/7)) %>%
+#   group_by(weeks_since_rtss) %>%
+#   summarize(ve_inf = mean(ve_inf))
+# plot(ve_inf_df)
+# # infectionrecords <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/infectionrecords_rtss_2025-10-16.rds")
+# # infectionrecords <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/infectionrecords_rtss_2025-10-17.rds")
+# # df <- infectionrecords
+# 
+# # eff <- calc_rtss_efficacy(df) %>%
+# #   left_join(ve_inf_df)
+# # 
+# # eff1017 <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2025-10-17.rds")
+# eff <- efficacy_rtss_0325 %>%#eff1017 %>%
+#   left_join(ve_long)
+# 
+# eff %>% filter(weeks_since_rtss < 50)  %>%
 #   ggplot() +
-#   geom_line(aes(x = weeks_since_rtss, y = efficacy, group = sim_id), color = '#962150', alpha = 0.5) +
-#   geom_line(aes(x = weeks_since_rtss, y = ve_inf), color = 'orange', linewidth = 1) +
+#   geom_line(aes(x = weeks_since_rtss +1, y = ve_inf, group = sim), 
+#             alpha = 0.2, color = 'orange', linewidth = 1) +
+#   geom_line(aes(x = weeks_since_rtss, y = efficacy, group = sim_id), color = '#962150', alpha = 0.4) +
 #   ylim(c(0,1)) +
 #   theme_bw()
-# ggsave(filename = 'outputs/efficacy_comparison_20251016.png')
+# ggsave(filename = 'outputs/efficacy_comparison_20251016_0.2_unsureaboutdelay.png')

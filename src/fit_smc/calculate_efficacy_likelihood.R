@@ -21,21 +21,48 @@ calculate_efficacy_likelihood <- function(params_row,
     #                                by_week = FALSE)
     
     eff$sim_id <- params_row$sim_id
-    # eff_daily$sim_id <- params_row$sim_id
+    
+    # CHECK: Do we have efficacy values?
+    message("Efficacy rows: ", nrow(eff))
+    message("Efficacy range: ", min(eff$efficacy, na.rm=TRUE), " to ", 
+            max(eff$efficacy, na.rm=TRUE))
+    
     
     matched <- observed_efficacy %>%
       left_join(eff %>% select(weeks_since_smc, efficacy) %>%
-                  rename(predicted_efficacy = efficacy), by = 'weeks_since_smc')
+                  rename(predicted_efficacy = efficacy), 
+                by = 'weeks_since_smc')
+    
+    # CHECK: Do we have matches?
+    message("Matched rows: ", nrow(matched))
+    message("Non-NA predicted: ", sum(!is.na(matched$predicted_efficacy)))
+    
+    # Remove NAs before calculating likelihood
+    matched_complete <- matched %>%
+      filter(!is.na(observed_efficacy), !is.na(predicted_efficacy))
+    
+    if(nrow(matched_complete) == 0) {
+      warning("No matching timepoints between observed and predicted!")
+      return(1e10)  # Return large penalty, not -Inf
+    }
     
     # Calculate log-likelihood
     sigma <- 0.05  # Assumed measurement error (5%)
     
     ll <- sum(dnorm(
-      x = matched$observed_efficacy,          # Observed from paper
-      mean = matched$predicted_efficacy,  # Predicted from model
+      x = matched_complete$observed_efficacy,          # Observed from paper
+      mean = matched_complete$predicted_efficacy,  # Predicted from model
       sd = sigma,
       log = TRUE
     ))
+    
+    message("Log-likelihood: ", ll)
+    
+    # Check for invalid values
+    if(is.na(ll) || is.infinite(ll)) {
+      warning("Invalid log-likelihood calculated: ", ll)
+      return(1e10)
+    }
     
     return(-ll)
     
