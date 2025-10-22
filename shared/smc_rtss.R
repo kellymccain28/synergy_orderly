@@ -165,8 +165,8 @@ DR <- 1 / (1 + (ab / beta_ab)^alpha_ab) # prob of survival of single spz
 
 # Parameters for spz model initial merozoites 
 # estimated and fixed parameters  
-n <- 150/5 #n, mean number of successful spz per challenge / 5 bites; neg bin
-sigma_n <- 194/5 #, sigman sd of number of successful spz per challenge / 5 bites
+n <- 150 #n, mean number of successful spz per challenge ; neg bin
+sigma_n <- 194 #, sigman sd of number of successful spz per challenge 
 mu <- 2136 #30000 #10.1371/journal.pcbi.1005255 as assumed by Hayley #2136 # mean number of merozoites released per sporozoite in Michael's model; gamma distributed
 sigma_mu <- 4460 #71427 #4460 from Michael's model # sd of number of merozoites released per sporozoite; gamma distributed
 beta_ab <- 6.62 #8639 # from hayley's #6.62 # anti-CSP titre for 50% reduction in spz survival prob microgram/mL
@@ -174,17 +174,18 @@ alpha_ab <- 1.32 #1.53 # from hayley's #1.32 # shape parameter for antibody dose
 
 # Parameters for Negative Binomial distribution
 r <- n^2 / (sigma_n^2 - n)
-p <- r / (n*DR + r) 
+p <- n*DR / (n*DR + r) # p here is probability that a sporozoite dies (which is 1-prob of survival, so need to use 1-p in negbinom call)
 
 # Draw number of successful sporozoites
-kspz <- NegativeBinomial(r, p)
+kspz <- NegativeBinomial(r / 5, 1-p) #/ 5 bites
 
 # Parameters for Gamma distribution
 theta <- sigma_mu^2 / mu  # Scale parameter (theta)
 gamma_shape <- kspz * mu / theta
 # find total merozoites for from k sporozoites
 mero_init <- Gamma(shape = gamma_shape, scale = theta) 
-
+initial(mero_init_out) <- mero_init
+update(mero_init_out) <- mero_init
 ## User defined parameters - default in parentheses:
 # m <- parameter(20) # average PMR over two days or 48 hours (initial value)
 PEV_on <- parameter()
