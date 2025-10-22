@@ -1,7 +1,8 @@
 # Likelihood function 
 
 calculate_poisson_likelihood <- function(trial_df = monthly_inci_trial, 
-                                         model_df = monthly_inci_model){
+                                         model_df = monthly_inci_model,
+                                         return_by_arm = TRUE){
   
   # Cases ~ Poisson(infection rate × person-months)
   # k is the observed number of cases in that month(t) and intervention group (i) (from trial)
@@ -46,17 +47,21 @@ calculate_poisson_likelihood <- function(trial_df = monthly_inci_trial,
   lambda <- pmax(lambda, epsilon)
   
   logL <- dpois(k, lambda, log = TRUE)
-  
   # likelihood[i,t] <- ( lambda[i,t]^k[i,t] * exp(-lambda[i,t]) ) / factorial(k[i,t])
   # log_likelihood2 <- k * log(lambda) - lambda - lgamma(k + 1) # also works
   
   # logL <- log(likelihood)
-  ll <- sum(logL)
   
-  return(ll)
-}
-
-# Calculate likelihood of SMC efficacy from model compared to Hayley's fit (10.1016/S2214-109X(22)00416-8)
-calculate_SMC_likelihood <- function(){
+  # ll <- sum(logL) # overall LL 
   
+  if(return_by_arm) {
+    # Return LL by arm (sum over time for each arm)
+    ll_by_arm <- rowSums(logL)
+    return(ll_by_arm)
+  } else {
+    # Return total LL (sum over arms and time)
+    ll <- sum(logL)
+    return(ll)
+  }
+  # return(ll)
 }
