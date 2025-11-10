@@ -118,7 +118,8 @@ get_incidence_simpler <- function(model_data,
     count(arm, country, name = 'pop')#, sim_id
   
   # Get case counts by month 
-  case_counts <- model_data %>% 
+  case_counts <- model_data %>%
+    # mutate(detection_day = as.Date(detection_day)) %>% # for trial data
     mutate(detection_day = as.Date(detection_day, origin= start_cohort)) %>%
     filter(!is.na(detection_day)) %>%
     filter(detection_day >= start_cohort)  %>%

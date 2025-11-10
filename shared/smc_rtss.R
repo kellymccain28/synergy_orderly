@@ -185,7 +185,7 @@ gamma_shape <- kspz * mu / theta
 # find total merozoites for from k sporozoites
 mero_init <- Gamma(shape = gamma_shape, scale = theta) 
 initial(mero_init_out) <- mero_init
-update(mero_init_out) <- mero_init
+update(mero_init_out) <- if(time == 1) mero_init else 0
 ## User defined parameters - default in parentheses:
 # m <- parameter(20) # average PMR over two days or 48 hours (initial value)
 PEV_on <- parameter()
