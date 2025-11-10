@@ -16,13 +16,13 @@ calculate_efficacy_likelihood <- function(params_row,
     eff <- calc_smc_efficacy(o$infection_records,
                              params_row,
                              by_week = TRUE)
-    # eff_daily <- calc_smc_efficacy(o$infection_records, 
-    #                                params_row, 
+    # eff_daily <- calc_smc_efficacy(o$infection_records,
+    #                                params_row,
     #                                by_week = FALSE)
     
     eff$sim_id <- params_row$sim_id
     
-        matched <- observed_efficacy %>%
+    matched <- observed_efficacy %>%
       left_join(eff %>% select(weeks_since_smc, efficacy) %>%
                   rename(predicted_efficacy = efficacy), 
                 by = 'weeks_since_smc')

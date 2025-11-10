@@ -30,9 +30,6 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
   source(paste0(path, "/src/sim_cohort_grid/cohort_sim_utils.R"))
   # SOurce processing functions
   source(paste0(path, "/shared/likelihood.R"))
-  # source('shared/get_cox_efficacy.R')
-  # source("shared/format_model_output.R")
-  # source("shared/get_incidence.R")
   
   trial_ts = 365# trial timesteps in cohort simulation (inte)
   sim_allow_superinfections = TRUE # TRUE or FALSE
@@ -40,7 +37,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
   country_short = 'g'
   n_param_sets = n_param_sets
   N = N
-  vax_day = -25 # unlike hte model sim, this is in days (not timesteps)
+  vax_day = -1 # unlike the model sim, this is in days (not timesteps)
   
   n_particles = 1L
   n_threads = 1L
@@ -256,7 +253,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
 # colnames(csp_df) <- ts
 # csp_df$sim <- 1:50
 # 
-# csp_long <- pivot_longer(csp_df, cols = -sim, 
+# csp_long <- pivot_longer(csp_df, cols = -sim,
 #                          names_to = "time", values_to = "titre")
 # csp_long$time <- as.numeric(csp_long$time)
 # 
@@ -271,7 +268,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
 # colnames(ve_df) <- ts
 # ve_df$sim <- 1:50
 # 
-# ve_long <- pivot_longer(ve_df, cols = -sim, 
+# ve_long <- pivot_longer(ve_df, cols = -sim,
 #                          names_to = "time", values_to = "ve")
 # ve_long$time <- as.numeric(ve_long$time)
 # ve_long <- ve_long %>% ungroup() %>%
@@ -283,11 +280,12 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
 # # Plot
 # ggplot(ve_long, aes(x = weeks_since_rtss, y = ve_inf, group = sim)) +
 #   geom_line(alpha = 0.3) +
-#   theme_minimal() + 
+#   theme_minimal() +
 #   labs(x = "Weeks since RTSS", y = "Efficacy")
-# # ve_inf <- vaccine_eff(csp)
-# # plot(ve_inf[0:52])
-# # ve_inf <- ve_inf[seq_along(ve_inf) %% 7 == 0]
+
+# ve_inf <- vaccine_eff(csp)
+# plot(ve_inf[0:52])
+# ve_inf <- ve_inf[seq_along(ve_inf) %% 7 == 0]
 # ve_inf_df <- data.frame(#weeks_since_rtss = seq(0,66),
 #                         days_since_rtss = ts,
 #                         ve_inf = ve_inf) %>%
@@ -295,22 +293,23 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
 #   group_by(weeks_since_rtss) %>%
 #   summarize(ve_inf = mean(ve_inf))
 # plot(ve_inf_df)
-# # infectionrecords <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/infectionrecords_rtss_2025-10-16.rds")
-# # infectionrecords <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/infectionrecords_rtss_2025-10-17.rds")
-# # df <- infectionrecords
-# 
-# # eff <- calc_rtss_efficacy(df) %>%
-# #   left_join(ve_inf_df)
-# # 
-# # eff1017 <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2025-10-17.rds")
-# eff <- efficacy_rtss_0325 %>%#eff1017 %>%
+# infectionrecords <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/infectionrecords_rtss_2025-10-16.rds")
+# infectionrecords <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/infectionrecords_rtss_2025-10-17.rds")
+# df <- infectionrecords
+#
+# eff <- calc_rtss_efficacy(df) %>%
+#   left_join(ve_inf_df)
+#
+# eff1020 <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2025-10-23.rds")
+# infectionrecords_rtss1023 <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/infectionrecords_rtss_2025-10-23.rds")
+# eff <- eff1020 %>%#eff1017 %>%
 #   left_join(ve_long)
 # 
-# eff %>% filter(weeks_since_rtss < 50)  %>%
+# eff %>% #filter(weeks_since_rtss< 365)  %>%
 #   ggplot() +
-#   geom_line(aes(x = weeks_since_rtss +1, y = ve_inf, group = sim), 
+#   geom_line(aes(x = weeks_since_rtss+8, y = ve_inf, group = sim),
 #             alpha = 0.2, color = 'orange', linewidth = 1) +
-#   geom_line(aes(x = weeks_since_rtss, y = efficacy, group = sim_id), color = '#962150', alpha = 0.4) +
-#   ylim(c(0,1)) +
+#   geom_line(aes(x = weeks_since_rtss, y = efficacy, group = sim_id), color = '#962150', alpha = 0.2) +
+#   ylim(c(0,1)) + xlim(c(0,60))+
 #   theme_bw()
-# ggsave(filename = 'outputs/efficacy_comparison_20251016_0.2_unsureaboutdelay.png')
+# ggsave(filename = 'outputs/efficacy_comparison_20251024_0.3_0_plus10.png')
