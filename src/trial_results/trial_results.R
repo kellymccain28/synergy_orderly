@@ -71,12 +71,11 @@ results <- tidy(coxdoses,
                 conf.int = TRUE) %>%
   # Calculate vaccine efficacy and its confidence intervals
   mutate(VE = (1 - estimate) * 100,              # VE = 1 - HR
-    VE_lower = (1 - conf.high) * 100,       # Lower CI for VE = 1 - Upper CI for HR
-    VE_upper = (1 - conf.low) * 100        # Upper CI for VE = 1 - Lower CI for HR
-  ) %>% mutate(
-    n_events = coxdoses$nevent,
-    n_obs = coxdoses$n
-  )
+         VE_lower = (1 - conf.high) * 100,       # Lower CI for VE = 1 - Upper CI for HR
+         VE_upper = (1 - conf.low) * 100) %>%     # Upper CI for VE = 1 - Lower CI for HR
+  mutate(n_events = coxdoses$nevent,
+         n_obs = coxdoses$n)
+
 ggplot(results)+
   geom_point(aes(x = term, y = VE)) + 
   geom_errorbar(aes(x = term, ymin = VE_lower, ymax = VE_upper), width = 0.2) +
@@ -123,7 +122,6 @@ ggsave(filename = 'km_trial.png', km_plot)
 monthly_inci <- get_incidence(model = FALSE, 
                               df_children = children, 
                               casedata = mitt)
-
 saveRDS(monthly_inci, 'monthly_incidence_trial.rds')
 
 
@@ -146,13 +144,41 @@ monthlyincidenceplot <- monthly_inci %>%
   ) +
   theme_minimal(base_size = 14)
 
-ggsave("trial_monthlyincidence.png", plot = monthlyincidenceplot, bg = 'white', width = 8, height = 6)
+ggsave("trial_monthlyincidence.png", plot = monthlyincidenceplot, bg = 'white', width = 12, height = 6)
 
 
+# Average delivery times for each intervention / country 
+ggplot(delivery %>% filter(arm !='rtss')) +
+  geom_histogram(aes(x = nsmc_received, group = arm, fill = arm),
+                 position = 'dodge') + 
+  facet_wrap(~ country) +
+  scale_x_continuous(breaks =seq(0,12))
 
+delivery_avg <- delivery %>%
+  group_by(arm, country) %>%
+  summarize(across(contains('date'),
+                   list(median = ~median(.x, na.rm = TRUE)),
+                   .names = "{.col}_{.fn}"))
 
+ggplot(delivery_avg)+ 
+  geom_bar(aes(x = ))
 
+vaxdates <- delivery %>%
+  pivot_longer(cols = c(v1_date, v2_date, v3_date, boost1_date, boost2_date),
+               names_to = 'dose',
+               values_to = 'date') %>%
+  mutate(dose = factor(str_replace(dose, "_date", ""), levels = c("v1",'v2','v3','boost1', 'boost2')))
 
+ggplot(vaxdates) +
+  geom_histogram(aes(x = date, fill = dose)) +
+  scale_x_date(date_breaks = '3 months', date_labels = "%b '%y") +
+  geom_vline(data = delivery_avg, aes(xintercept = v1_date_median, color = 'v1'))+
+  geom_vline(data = delivery_avg, aes(xintercept = v2_date_median, color = 'v2'))+
+  geom_vline(data = delivery_avg, aes(xintercept = v3_date_median, color = 'v3')) +
+  geom_vline(data = delivery_avg, aes(xintercept = boost1_date_median, color = 'boost1')) +
+  geom_vline(data = delivery_avg, aes(xintercept = boost2_date_median, color = 'boost2')) +
+  # theme(axis.text.x = element_text(angle = 45)) +
+  facet_wrap(~country)
 
 
 
