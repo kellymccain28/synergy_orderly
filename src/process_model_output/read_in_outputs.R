@@ -6,11 +6,12 @@ read_in_outputs <- function(output_dir = 'simulation_outputs') {
   sim_dirs <- list.dirs(output_dir, recursive = FALSE, full.names = TRUE)
   sim_dirs <- sim_dirs[grepl("^parameter_set_", basename(sim_dirs))]
   
-  # Read in the parameters and baseline params 
-  baseline_inputs <- readRDS(file.path(output_dir, "base_inputs.rds"))
-  
   # Read all data types
   results <- list()
+  
+  # Read in the parameters and baseline params 
+  baseline_inputs <- readRDS(file.path(output_dir, "base_inputs.rds"))
+  results$child_metadata <- cyphr::decrypt(readRDS(file.path(output_dir, "metadata_df.rds")), key)
   
   # Infection records
   results$infection_records <- map_dfr(sim_dirs, function(sim_dir) {
@@ -24,15 +25,15 @@ read_in_outputs <- function(output_dir = 'simulation_outputs') {
   })
   
   # Child metadata
-  results$child_metadata <- map_dfr(sim_dirs, function(sim_dir) {
-    file_path <- file.path(sim_dir, "child_metadata.rds")
-    if (file.exists(file_path)) {
-      data <- readRDS(file_path)
-      data$sim_id <- basename(sim_dir)
-      return(data)
-    }
-    return(NULL)
-  })
+  # results$child_metadata <- map_dfr(sim_dirs, function(sim_dir) {
+  #   file_path <- file.path(output_dir, "child_metadata.rds")
+  #   if (file.exists(file_path)) {
+  #     data <- readRDS(file_path)
+  #     data$sim_id <- basename(sim_dir)
+  #     return(data)
+  #   }
+  #   return(NULL)
+  # })
   
   # Parasitemia data
   # results$parasitemia_data <- map_dfr(sim_dirs, function(sim_dir) {
