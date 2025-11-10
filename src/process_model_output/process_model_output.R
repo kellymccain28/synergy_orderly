@@ -18,7 +18,8 @@ orderly_dependency(name = "sim_cohort_grid",
                    parameter:sim_allow_superinfections == this:sim_allow_superinfections &&
                    parameter:country_to_run == this:country_to_run &&
                    parameter:n_param_sets == this:n_param_sets)",
-                   files = c('simulation_outputs/'))
+                   files = c('simulation_outputs/',
+                             'outputs/'))
                    # files = c("outputs/infection_records.rds", 
                    #           "outputs/parasitemia.rds", 
                    #           "outputs/metadata_children.rds",
@@ -31,10 +32,10 @@ orderly_dependency(name = 'trial_results',
 # key <- cyphr::data_key()
 monthly_inci_trial <- readRDS("monthly_incidence_trial.rds")
 
-orderly_resource(files = c('format_model_output.R',
-                           'read_in_outputs.R',
-                           'analyse_model_output.R',
-                           'likelihood.R'))
+orderly_resource(files = c('read_in_outputs.R'))
+orderly_shared_resource('format_model_output.R',
+                          'analyse_model_output.R',
+                          'likelihood.R')
 source('format_model_output.R')
 source('read_in_outputs.R')
 source('likelihood.R')
@@ -46,8 +47,8 @@ source('get_cox_efficacy.R')
 orderly_shared_resource('get_incidence.R')
 source('get_incidence.R')
 
-dir.create('outputs/')
-dir.create("outputs/plots/")
+dir.create('processed/')
+dir.create("processed/plots/")
 
 
 # Read in results from the latest run of sim_cohort_grid
@@ -74,7 +75,7 @@ outputs <- lapply(sim_ids, function(sim){
                       simulation = sim,
                       cohort = cohortval)
 })
-saveRDS(outputs, 'outputs/model_outputs_formatted.rds')
+saveRDS(outputs, 'processed/model_outputs_formatted.rds')
 
 
 # Initialise new column for the LL
@@ -86,7 +87,7 @@ parameters <- Map(function(sim){
 
 parameters <- bind_rows(parameters)
 
-saveRDS(parameters, 'outputs/parameters_ll.rds')
+saveRDS(parameters, 'processed/parameters_ll.rds')
 
 # plots comparing the different parameters and the log-likelihoods
 llplot <- ggplot(parameters) + 
