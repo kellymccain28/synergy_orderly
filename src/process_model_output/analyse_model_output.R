@@ -68,6 +68,7 @@ analyse_model_output <- function(outputs, simulation, parameters){
   
   ggsave(filename = paste0('outputs/', simulation, '/plots/survival_model.png'), survival$plot, height = 6, width = 10)
   
+  message('right before cox ')
   # Survival analysis to reproduce results from trial
   ## SMC comparator by year and overall ----
   smcrefresults <- get_cox_efficacy(df = model_output,
@@ -127,7 +128,7 @@ analyse_model_output <- function(outputs, simulation, parameters){
   #   )
   
   # saveRDS(ve_comparison, file = paste0('outputs/', simulation, '/expected_efficacies.rds'))
-  
+  message('right before inci calc')
   # Get monhtly incidence
   metadata_child_sim <- metadata_child %>%
     filter(sim_id == simulation)
@@ -141,10 +142,10 @@ analyse_model_output <- function(outputs, simulation, parameters){
   # Calculate likelihood and add to the parameters df
   ll <- calculate_poisson_likelihood(trial_df = monthly_inci_trial, 
                                      model_df = monthly_inci_model)
-  parameters <- parameters[parameters$sim_id == simulation, ]
-  parameters$ll <- ll
+  pars <- parameters[parameters$sim_id == simulation, ]
+  pars$ll <- ll
   # parameters[parameters$sim_id == simulation, ]$ll <- ll
-  
+  message('got ll ')
   # Plot incidence
   incidence_plot <- monthly_inci_model  %>%
     # filter(intervention != 'none') %>%
@@ -230,5 +231,5 @@ analyse_model_output <- function(outputs, simulation, parameters){
   
   
   message("Saved outputs for ", simulation)
-  return(parameters)
+  return(pars)
 }

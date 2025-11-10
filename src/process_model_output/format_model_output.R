@@ -3,10 +3,8 @@ format_model_output <- function(model_data,
                                 start_cohort = as.Date('2017-04-01'),
                                 simulation){
   
-  # First, convert to date format adnd get vaccination date 
+  # First, convert to date format and get vaccination date 
   model_data <- model_data %>%
-    
-    filter(sim_id == simulation) %>%
     
     # make date vars be Date format 
     mutate(across(c(time_ext, infectious_bite_day, BSinfection_day, detection_day),
@@ -24,8 +22,6 @@ format_model_output <- function(model_data,
     )) %>%
     #Filter to remove infections that were detected prior to vaccination (which is first day of follow-up)
     filter(v1_date < detection_day | is.na(detection_day))
-    
-    
   
   # Function to format rows with detectable cases specific years-- 
   format_cases <- function(year){
@@ -74,35 +70,36 @@ format_model_output <- function(model_data,
         poutcome = 1 # All are infections
       ) %>%
       
-      ungroup() %>%
-      
-      # Add censoring intervals for people who had infections
-      # (interval from last infection to end of follow-up) -- so during this interval there is no infection so all infection-related values should be 0 
+      ungroup() #%>%
+    
+    last_infections <- df %>%
       group_by(rid) %>%
-      group_modify(~{
-        last_infection <- .x[nrow(.x), ]
-        
-        # Create censoring row
-        censoring_row <- last_infection
-        censoring_row$start_date <- as.Date(last_infection$end_date)
-        censoring_row$end_date <- censor_date
-        censoring_row$event <- 0
-        # censoring_row$year <- nrow(.x) + 1
-        censoring_row$dcontact <- censoring_row$start_date 
-        censoring_row$poutcome <- NA_real_
-        censoring_row$threshold_day <- NA
-        censoring_row$BSinfection_day <- NA
-        censoring_row$infectious_bite_day <- as.Date(NA)
-        censoring_row$time_ext <- as.Date(NA)
-        censoring_row$detection_day <- NA
-        censoring_row$t_toreach_threshold <- NA
-        censoring_row$detectable <- 0
-        censoring_row$infection_year <- NA
-        censoring_row$start_fu_date <- censoring_row$v1_date
-        
-        # Combine infections + censoring
-        bind_rows(.x, censoring_row)
-      })
+      slice_max(end_date, n = 1, with_ties = FALSE) %>% # shoudl this be end or start??
+      ungroup()
+
+    # Create censoring rows
+    censoring_rows <- last_infections %>%
+      mutate(
+        start_date = end_date,
+        end_date = censor_date,
+        event = 0,
+        dcontact = start_date,
+        poutcome = NA_real_,
+        threshold_day = NA,
+        BSinfection_day = NA,
+        infectious_bite_day = as.Date(NA),
+        time_ext = as.Date(NA),
+        detection_day = NA,
+        t_toreach_threshold = NA,
+        detectable = 0,
+        infection_year = NA,
+        start_fu_date = v1_date
+      )
+
+    # Combine infections + censoring
+    df <- bind_rows(df, censoring_rows) %>%
+      arrange(rid, start_date)
+
   }
   
   # Format cases by year 
@@ -113,12 +110,8 @@ format_model_output <- function(model_data,
   # Bind all cases together
   all_cases <- bind_rows(cases_yr1, cases_yr2, cases_yr3)
   
-  # Filter metadata_child to be only for simulation sim
-  metadata_child <- metadata_child %>%
-    filter(sim_id == simulation)
-  
   # Get all unique child ids 
-  all_children <- unique(metadata_child$rid)
+  all_children <- unique(metadata_df$rid)
   
   # Year framework 
   year_framework <- tibble(
@@ -127,7 +120,8 @@ format_model_output <- function(model_data,
   ) %>%
     mutate(year_start = start_cohort + 365 * (year - 1),
            year_end = start_cohort + 365 * year) %>%
-    left_join(metadata_child)
+    left_join(metadata_df) %>%
+    left_join(all_cases %>% distinct(rid, smckillvec, time_since_smc))
   
   # Join with exsiting combinations 
   existing_combinations <- all_cases %>%
@@ -153,7 +147,13 @@ format_model_output <- function(model_data,
       t_toreach_threshold = NA, 
       detectable = 0, 
       vaccinate_date = as.Date(vaccination_day, origin = as.Date('2017-04-01')),
-      infection_year = NA
+      infection_year = NA,
+      prob_bite = NA, 
+      recovery_day = NA, 
+      cumul_inf = NA, 
+      start_fu_date = case_when(
+        cohort == 'generic' ~ start_cohort,
+        TRUE ~ v1_date)
     ) %>% 
     select(-year_start, -year_end) %>%
     # add children_in_group var
@@ -168,6 +168,7 @@ format_model_output <- function(model_data,
            end_time = time_length(interval(origin, end_date), unit = 'years'),
            person_years = end_time - start_time)
   
+  # saveRDS(person_time, file = paste0('outputs/processed_', simulation, ".rds"))
   message('finished ', simulation)
   
   return(person_time)
