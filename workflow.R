@@ -86,7 +86,7 @@ hipercow_bundle_log_value('freezable_kakarikis')[[10]]
 # task_log_show(cohort_TRUE)
 # task_log_show(cohort_FALSE)
 
-# Fit SMC
+# Fit SMC -- need to update the parmaeters if i want to do any lhs fitting -- atm it is just running the 'best' parameters n_param_sets times 
 library(hipercow)
 hipercow_provision()
 hipercow_environment_create(sources = c("shared/rtss.R",
@@ -94,28 +94,35 @@ hipercow_environment_create(sources = c("shared/rtss.R",
                                         "src/sim_cohort_grid/cohort_sim_utils.R",
                                         "shared/likelihood.R",
                                         'src/fit_smc/fit_smc.R',
-                                        'src/fit_rtss/fit_rtss.R'
+                                        'src/fit_rtss/fit_rtss.R',
+                                        'src/fit_smc/run_smc_test.R'
 ))
-nparams = 5
+nparams = 3
 ncores = if(nparams > 32) 32 else nparams
 
-t5 <- task_create_expr(expr = run_fit_smc(N = 1200,
+fitsmctask <- task_create_expr(expr = run_fit_smc(N = 600,
                                          n_param_sets = nparams),
                       resources = hipercow_resources(cores = ncores))
-task_log_show(t5)
+task_log_show(fitsmctask)#dbdc3cd3162f1976c6bf4dc2c941bef1
 
+
+n_params = 32
+ncores = if(n_params > 32) 32 else n_params
+test_lhs_smc <- task_create_expr(expr = run_smc_test(N = 800,
+                                                     n_param_sets = n_params),
+                                 resources = hipercow_resources(cores = ncores))
+task_log_show(test_lhs_smc)#max_SMC_kill_rate = c(1, 10),# parasites per uL per 2-day timestep lambda = c(5, 50),kappa = c(0.1, 9)
+#0d15c3ef223da5a3a851ea00de6495da
 
 
 # Fit RTSS
-nparams = 20 # this is just the number of repetitions bc not changing any params 
+nparams = 10 # this is just the number of repetitions bc not changing any params 
 ncores = if(nparams > 32) 32 else nparams
-rtss20 <- task_create_expr(expr = run_fit_rtss(path = "R:/Kelly/synergy_orderly",
+rtss60_fixedparams <- task_create_expr(expr = run_fit_rtss(path = "R:/Kelly/synergy_orderly",
                                                N = 1200,
                                                n_param_sets = nparams),
                            resources = hipercow_resources(cores = ncores))
-task_log_show(rtss20)
-
-
+task_log_show(rtss60_fixedparams)
 # source('src/fit_smc/fit_smc.R')
 # run_fit_smc(N = 100,
 #             n_param_sets = 2)

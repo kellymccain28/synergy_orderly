@@ -22,20 +22,13 @@ calculate_efficacy_likelihood <- function(params_row,
     
     eff$sim_id <- params_row$sim_id
     
-    # CHECK: Do we have efficacy values?
-    message("Efficacy rows: ", nrow(eff))
-    message("Efficacy range: ", min(eff$efficacy, na.rm=TRUE), " to ", 
-            max(eff$efficacy, na.rm=TRUE))
-    
-    
-    matched <- observed_efficacy %>%
+        matched <- observed_efficacy %>%
       left_join(eff %>% select(weeks_since_smc, efficacy) %>%
                   rename(predicted_efficacy = efficacy), 
                 by = 'weeks_since_smc')
     
     # CHECK: Do we have matches?
     message("Matched rows: ", nrow(matched))
-    message("Non-NA predicted: ", sum(!is.na(matched$predicted_efficacy)))
     
     # Remove NAs before calculating likelihood
     matched_complete <- matched %>%
@@ -64,7 +57,7 @@ calculate_efficacy_likelihood <- function(params_row,
       return(1e10)
     }
     
-    return(-ll)
+    return(-ll) # we will minimize the negative log likelihood
     
   },
   error = function(e) {
