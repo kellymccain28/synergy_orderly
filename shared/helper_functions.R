@@ -133,7 +133,9 @@ format_data <- function(out, tt, infection_start_day, n_particles){
       rename(parasites = PB, 
              innate_imm = sc,
              genadaptive_imm = sm,
-             varspecific_imm = sv)
+             varspecific_imm = sv) %>%
+      mutate(time_orig = time, 
+             time = time * 2 + infection_start_day)
   }
   
   if(n_particles > 1){
