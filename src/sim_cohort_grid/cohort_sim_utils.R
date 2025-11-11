@@ -1,40 +1,36 @@
 # functions to do parameter sweeps 
 
 # Main cohort simulation function
-run_cohort_simulation <- function(metadata_df, 
-                                  params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
+run_cohort_simulation <- function(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
+                                  metadata_df, 
                                   base_inputs, 
                                   output_dir = 'simulation_outputs',
                                   allow_superinfections = TRUE, 
+                                  return_parasitemia = TRUE,
                                   save_outputs = TRUE) {
   
+  message('running cohort simulation for: ', params_row$sim_id)
   # Extract parameters from the row
   max_SMC_kill_rate <- params_row$max_SMC_kill_rate
   smc_lambda <- params_row$lambda #17
   smc_kappa <- params_row$kappa #0.28 - these are default values (can't rmember where I got them though..)
-  # SMC_decay <- params_row$SMC_decay
-  # season_start_day <- params_row$season_start_day # always the same, but now with specific smc timings don't need this 
-  # season_length <- 30*5#params_row$season_length
-  lag_p_bite <- params_row$lag_p_bite
-  # get specific probability of bite for each run 
   p_bite <- unlist(params_row$p_bite)
   
   message("Running simulation: ", params_row$sim_id)
   
-  # Extract base inputs (these stay constant across parameter sweeps)
+  # Extract base inputs (these stay constant across parameter sets)
   trial_ts <- base_inputs$trial_timesteps#[[i]]
   burnin <- base_inputs$burnin
   threshold <- base_inputs$threshold
   VB <- base_inputs$VB
   tstep <- base_inputs$tstep
   t_liverstage <- base_inputs$t_liverstage
-  weights <- base_inputs$weights#[[1]]
-  # country <- base_inputs$country
   country_to_run <- base_inputs$country
   country_short <- str_sub(country_to_run, 1, 1)
   
   # now, just do 100 timesteps (200 days) for each infection, which is plenty of time 
-  tt <- seq(0, 100, by = tstep)#seq(0, ((trial_ts + burnin) - t)/divide, by = tstep)
+  ts <- 100
+  tt <- seq(1, ts, by = tstep)#seq(0, ((trial_ts + burnin) - t)/divide, by = tstep)
   
   # Initialize storage for this simulation
   infection_records <- data.frame(
@@ -53,24 +49,43 @@ run_cohort_simulation <- function(metadata_df,
   
   N <- nrow(metadata_df)
   
-  # Make weights to prevent homogenoeous transmission 
+  # Make weights to prevent homogeneous transmission 
   weights <- rexp(N) # Generate random weights to sample children at different probabilities (could also use rpois(N) or rexp(N))
   weights <- weights / sum(weights) # normalize to sum to 1
   
   message('calculating time since smc and parasite kill rate vector')
   # Calculate SMC kill rate vectors for each child  - not sure where these are from 
   # this is time since smc where the day is relative to the first day of the simulation (not including burnin)
-  metadata_df$time_since_smc <- lapply(metadata_df$smc_dose_days, 
-                                       calc_time_since_dose, 
-                                       days = 0:(trial_ts+burnin))
-  metadata_df$smckillvec <- lapply(metadata_df$time_since_smc,
-                                   function(.){
-                                     kill <- max_SMC_kill_rate * exp(-(./ smc_lambda)^smc_kappa)  # calculate kill rate with hill function
-                                     # kill <- ifelse(is.na(kill), 0, kill)                          
-                                     kill[is.na(kill)] <- 0                                       # change NAs (when there is no SMC) to 0 
-                                     kill <- c(rep(0, burnin), kill)                              # pad front of vector with 0s for burnin period so that SMC begins after burnin
-                                     kill <- kill[seq_along(kill) %% 2 == 1]                      # keep only odd indices since timesteps in the within-host model are 2 days
-                                   })
+  if("smc_dose_days" %in% names(params_row)){ 
+    metadata_df$smc_dose_days <- params_row$smc_dose_days
+    } 
+  
+  # metadata_df$time_since_smc <- lapply(smc_dose_days,
+  #                                      calc_time_since_dose,
+  #                                      days = 0:(trial_ts+burnin))
+  # # This creates a vector of smc kill rates that have 0s padded at the beginning for the number of burnin ts / 2
+  # # the entire vector is 1/2 of the length of the number of timesteps (every 2 is summed)
+  # metadata_df$smckillvec <- lapply(metadata_df$time_since_smc,
+  #                                  function(.){
+  #                                    kill <- max_SMC_kill_rate * exp(-(./ smc_lambda)^smc_kappa)  # calculate kill rate with hill function
+  #                                    # kill <- ifelse(is.na(kill), 0, kill)
+  #                                    kill[is.na(kill)] <- 0                                       # change NAs (when there is no SMC) to 0
+  #                                    kill <- c(rep(0, burnin), kill)                              # pad front of vector with 0s for burnin period so that SMC begins after burnin
+  #                                    # Sum every two consecutive days
+  #                                    n <- length(kill)
+  #                                    if (n %% 2 == 1) kill <- c(kill, kill[n])                         # pad with last value if odd length
+  #                                    colSums(matrix(kill, nrow = 2))
+  # 
+  #                                    # kill <- kill[seq_along(kill) %% 2 == 1]                      # keep only odd indices since timesteps in the within-host model are 2 days
+  #                                  })
+  metadata_df$smckillvec <- lapply(metadata_df$smc_dose_days, get_smc_vectors,
+                                   ts = ts,
+                                   burnin = base_inputs$burnin,
+                                   max_SMC_kill_rate = max_SMC_kill_rate,
+                                   lambda = smc_lambda,
+                                   kappa = smc_kappa)
+    
+  # hill? plot(1 - (1/(1+(3.7/seq(0,6,0.1))^4))) plot(1 - (1/(1+(25/seq(0,60,1))^3.2)))
   message('Calculated smc kill rate vectors for each child')
   # this kill vector has 25 2-day timesteps for burnin=50, then 548 2-day timesteps for the 1095 day simulation  
   
@@ -80,27 +95,19 @@ run_cohort_simulation <- function(metadata_df,
   
   susceptibles <- rep(TRUE, N)
   
-  # Choose probability of biting for baseline transmission/seasonality depending on country 
-  # p_bite <- if(country_to_run == 'BF') p_bite_bfa else p_bite_mli
-  
   # Main simulation loop 
   for (t in 1:(trial_ts + burnin)) {
-    # message(str_glue("infection records has {nrow(infection_records)} entries"))
-    
     # Determine number of new infectious bites on time t
     n_infectious_bites <- rpois(1, lambda = N * p_bite[t])
     
     if (n_infectious_bites == 0) next
     
     # Sample random children to be bitten 
-    bites <- sample(1:N, size = n_infectious_bites, prob = weights, replace = TRUE)
-    # message('There are ', length(bites), " mosquito bites on time ", t, ' out of ', (trial_ts+burnin))
+    bites <- sample(metadata_df$rid, size = n_infectious_bites, prob = weights, replace = TRUE)
     
     bit_kids <- unique(bites)
     # Remove any bit kids with no vaccine follow-up data 
     bit_kids <- bit_kids[bit_kids %in% metadata_df$rid] 
-    message('There are ', length(bit_kids), " unique kids bitten on time ", t, ' out of ', (trial_ts+burnin))
-    
     
     # Update susceptibility vector so that recovered kids would be susceptible again
     if (exists("infection_records") && nrow(infection_records) > 0 & !allow_superinfections) {
@@ -136,10 +143,10 @@ run_cohort_simulation <- function(metadata_df,
         j <- j + 1 # move to the next position in the filtered list 
       }
     }
-    message(str_glue('{length(bit_kids_t)} / {length(bit_kids)} bit kids were susceptible'))
+    if(t %% 10 == 0){
+      message(str_glue('{length(bit_kids_t)} / {length(bit_kids)} bit kids were susceptible on time ', t, ' out of ', (trial_ts+burnin)))
+    }
     bit_kids <- bit_kids_t
-    
-    # print(table(susceptibles))
     
     if(length(bit_kids) > 0) {
       # Estimate antibody level for each bitten child 
@@ -152,7 +159,7 @@ run_cohort_simulation <- function(metadata_df,
         t_toboost1_vec <- rep(500, length(bit_kids))
         t_toboost2_vec <- rep(1000, length(bit_kids))
         
-        SMC_kill_vec <- rep(list(rep(0, floor(trial_ts/2 + burnin))), length(bit_kids))
+        SMC_kill_vec <- rep(list(rep(0, floor((trial_ts + burnin)/2))), length(bit_kids))#floor(trial_ts/2 + burnin)
         SMC_timev <- rep(list(0:(length(SMC_kill_vec[[1]])-1)), length = length(bit_kids))
       } else {
         
@@ -167,7 +174,7 @@ run_cohort_simulation <- function(metadata_df,
         # Map to bit_kids order
         PEV_vec <- pev_lookup[as.character(bit_kids)]
         # Find the time since vaccination -- time between 3rd dose (vax day) and infectious bite
-        t_since_vax_vec <- (t - burnin) - vax_day_lookup[as.character(bit_kids)] # here, a (-) value of vaxdaylookup indicates 
+        t_since_vax_vec <- (t - burnin) - vax_day_lookup[as.character(bit_kids)] + t_liverstage # adding t_liverstage to account for the delay between bite and BS infection; a (-) value of vaxdaylookup indicates that vaccination was after BS infection
         # vaccination before the infection begins 
         # for negative values of t_since_vax_vec, which means that the vaccine was delivered after the current time t, change to 0 so that ab_user is not NA
         t_since_vax_vec <- ifelse(t_since_vax_vec<0, 0, t_since_vax_vec)
@@ -184,30 +191,27 @@ run_cohort_simulation <- function(metadata_df,
         # Find the row index for the target rid
         smc_kill_vec_lookup <- setNames(kid_metadata$smckillvec, kid_metadata$rid)
         SMC_kill_vec <- smc_kill_vec_lookup[as.character(bit_kids)]
-        # subset the kill rate vector to be from this external time 
-        # divide max time by two because the vector is every two days 
+        # subset the kill rate vector to be from the external time (t includes the burnin) to the end of the vector
+        # vector is every two days 
         SMC_kill_vec <- lapply(SMC_kill_vec, function(smcvec){
-          subset <- smcvec[floor((t + burnin) / 2) :length(smcvec)]
+          subset <- smcvec[floor((t + t_liverstage) / 2) :length(smcvec)] # t_liverstage added because we want to subset from when BS infection starts + the liver stage time, to the end; +burnin removed because it is already taken into account in the t
           return(subset)
         })
         
-        SMC_timev <- rep(list(0:(length(SMC_kill_vec[[1]])-1)), length = length(bit_kids))#rep(list(0:(trial_ts/2 + burnin)), length = length(bit_kids))
+        SMC_timev <- rep(list(0:(length(SMC_kill_vec[[1]])-1)), 
+                         length = length(bit_kids))#rep(list(0:(trial_ts/2 + burnin)), length = length(bit_kids))
         
-        # Print intervention status
-        message('PEV:', PEV_vec)
-        message('SMC:', SMC_vec)
       }
       
+      # Find time length until end of follow-up to run infection sim  
+      tt_until_end_cohort <- seq(1, length(SMC_kill_vec[[1]]))#seq(1, ((trial_ts + burnin) - t)/2, by = tstep)#seq(1, 100, by = tstep)#
       
       # Run within-host simulation with current parameters
       params_df <- data.frame(
         PEV_on = PEV_vec,
         SMC_on = SMC_vec,
-        t_inf = t_since_vax_vec,
-        infection_start_day = t,
-        # season_start_day = season_start_day,  # Parameter from sweep
-        # season_length = season_length,        # Parameter from sweep
-        # smc_interval = smc_interval,          # Parameter from sweep
+        t_inf_vax = t_since_vax_vec,
+        infection_start_day = t - burnin, # t - burnin because in run_process_model it is only used for formatting the time var -- time*2 + infstartday so that value must be without the burnin period 
         SMC_time = I(SMC_timev),
         SMC_kill_vec = I(SMC_kill_vec), 
         rid = bit_kids,
@@ -218,11 +222,8 @@ run_cohort_simulation <- function(metadata_df,
       outputs <- pmap(params_df, 
                       function(PEV_on, 
                                SMC_on, 
-                               t_inf, 
-                               infection_start_day,
-                               # season_start_day, 
-                               # season_length, 
-                               # smc_interval, 
+                               t_inf_vax,  # time since vaccination -- influences ab titre 
+                               infection_start_day, # current cohort day -- influences the formatting -- time variable 
                                SMC_time,
                                SMC_kill_vec,
                                rid,
@@ -231,15 +232,10 @@ run_cohort_simulation <- function(metadata_df,
                         result <- run_process_model(
                           PEV_on = PEV_on,
                           SMC_on = SMC_on,
-                          t_inf = t_inf,
+                          t_inf_vax = t_inf_vax,
                           VB = VB,
-                          tt = tt,
-                          # max_SMC_kill_rate = max_SMC_kill_rate,  # Parameter from sweep
-                          # SMC_decay = SMC_decay,                  # Parameter from sweep
+                          tt = tt_until_end_cohort, # run the model until the end of the follow-up
                           infection_start_day = infection_start_day,# external time that infection begins 
-                          # season_start_day = season_start_day,# day of season start relative to Jan 1 of external year 
-                          # season_length = season_length,# ~4 months (120 days)
-                          # smc_interval = smc_interval,# how often are SMC rounds (days)
                           SMC_time = unlist(SMC_time),
                           SMC_kill_vec = unlist(SMC_kill_vec),
                           tboost1 = t_toboost1,
@@ -255,6 +251,7 @@ run_cohort_simulation <- function(metadata_df,
       new_records <- data.frame(
         rid = bit_kids,
         time_ext = rep(t - burnin, length(bit_kids)),                                                      # external cohort time (t is the cohort time, then we wnat to scale to be + if after burnin)
+        t = t,  # simulation day
         infectious_bite_day = rep((t - burnin) - t_liverstage, length(bit_kids)),                          # bitten on day t, then assuming the liver stage takes t_liverstage days
         BSinfection_day = rep((t - burnin), length(bit_kids)),                                             # after liver stage, the BS begins #+ t_liverstage
         threshold_day = sapply(outputs, function(x) x$threshold_day),               # days since BS starts that threshold is reached
@@ -279,51 +276,56 @@ run_cohort_simulation <- function(metadata_df,
         } 
       }
       
-      # Vectorized parasitemia storage creation
-      parasitemia_data <- map2(outputs, bit_kids, function(output, kid) {
+      if(return_parasitemia){
+        # Vectorized parasitemia storage creation
+        parasitemia_data <- map2(outputs, bit_kids, function(output, kid) {
+          
+          output$trajectory %>%
+            mutate(
+              day1_BSinfection = t - burnin,#+ t_liverstage 
+              detection_day = t + (output$threshold_day) - burnin,# do not need to multiply threshold day by 2 here since already done in run_process_model #+ t_liverstage 
+              # time_ext = time_orig*2 + (t - burnin) - 1,# + infection_start_day/2,# external time should be dependent on when infection was, relative to external time(inf_start_day aka t); time (model time) has already been multiplied by 2 and related to infection time  #time*2 + (t - 1) - burnin,#+ t_liverstage
+              arm = metadata_df[metadata_df$rid == kid, ]$arm,
+              t = t
+            )
+        })
         
-        output$trajectory %>%
-          mutate(
-            day1_BSinfection = t - burnin,#+ t_liverstage 
-            detection_day = t + (output$threshold_day) - burnin,# do not need to multiply threshold day by 2 here since already done in run_process_model #+ t_liverstage 
-            time_ext = time*2 + (t - burnin),# + infection_start_day/2,# external time should be dependent on when infection was, relative to external time(inf_start_day aka t); time (model time) has already been multiplied by 2 and related to infection time  #time*2 + (t - 1) - burnin,#+ t_liverstage
-            arm = metadata_df[metadata_df$rid == kid, ]$arm,
-            t = t
-          )
-      })
-      
-      # Store all parasitemia data for this time step
-      parasitemia_storage[[t]] <- parasitemia_data
+        
+        # Store all parasitemia data for this time step
+        parasitemia_storage[[t]] <- parasitemia_data
+      }
     }
   }
   
   message("finished sim")
   
-  # Process final outputs
-  parasitemia_storage <- unlist(parasitemia_storage, recursive = FALSE)
-  
-  parasitemia_df <- bind_rows(parasitemia_storage) %>%
-    # don't keep any infections from before follow-up begins
-    filter(detection_day > 0 | is.na(detection_day)) %>%
-    group_by(rid, day1_BSinfection) %>%
-    mutate(
-      #   child_dayinf = paste0(rid, ", day ", day1_BSinfection),
-      det = ifelse(!is.na(detection_day), 1, 0),
-      country = country_to_run
-    ) 
-  
-  # keep a small sample of the parasitemia dataset
-    parasitemia_df <- parasitemia_df[parasitemia_df$rid %in% 
-                     (parasitemia_df %>% 
-                        distinct(rid, arm) %>% 
-                        group_by(arm) %>% 
-                        slice_sample(n=30) %>% 
-                        pull(rid)), ]
+  if(return_parasitemia){
+    # Process final outputs
+    parasitemia_storage <- unlist(parasitemia_storage, recursive = FALSE)
+    
+    parasitemia_df <- bind_rows(parasitemia_storage) %>%
+      # don't keep any infections from before follow-up begins
+      filter(detection_day > 0 | is.na(detection_day)) %>%
+      group_by(rid, day1_BSinfection) %>%
+      mutate(
+        #   child_dayinf = paste0(rid, ", day ", day1_BSinfection),
+        det = ifelse(!is.na(detection_day), 1, 0),
+        country = country_to_run
+      ) 
+    
+    # keep a small sample of the parasitemia dataset
+    parasitemia_df <- parasitemia_df[parasitemia_df$rid %in%
+                                       (parasitemia_df %>%
+                                          distinct(rid, arm) %>%
+                                          group_by(arm) %>%
+                                          slice_sample(n=30) %>%
+                                          pull(rid)), ]
+  }
   
   # Process infection records
   child_counts <- metadata_df %>%
     distinct(rid, arm, country) %>%
-    count(arm, name = "children_in_group")
+    count(arm, country, name = "children_in_group")
   
   infection_records_final <- infection_records %>%
     mutate(rid_original = paste0(country_short, sprintf("%04d", rid))) %>%
@@ -336,59 +338,81 @@ run_cohort_simulation <- function(metadata_df,
     arrange(detection_day) %>%
     mutate(cumul_inf = cumsum(detectable)) %>%
     filter(as.Date(detection_day, origin = as.Date('2017-04-01')) > v1_date | is.na(detection_day)) # remove any infections that started before v1_date (beginning of follow-up for each individual in trial)
-    
-  
   
   message('processed sim')
   
-  # Create diagnostic plots
-  plots <- create_diagnostic_plots(parasitemia_df, infection_records_final,
-                                   max_SMC_kill_rate,
-                                   smc_lambda, smc_kappa)
-  message('made plots')
-  
-  # Prepare results
-  results <- list(
-    sim_id = params_row$sim_id,
-    parameters = params_row,
-    infection_records = infection_records_final,
-    child_metadata = metadata_df,
-    parasitemia_data = parasitemia_df,
-    diagnostic_plots = plots
-  )
-  
-  message('prepared results')
-
-    # Save outputs if requested
+  # Save outputs if requested
   if (save_outputs && !is.null(output_dir)) {
+    # Create diagnostic plots
+    plots <- create_diagnostic_plots(infection_records_final,
+                                     max_SMC_kill_rate,
+                                     smc_lambda, smc_kappa)
+    message('made plots')
+    
+    if(return_parasitemia){
+      # Prepare results
+      results <- list(
+        sim_id = params_row$sim_id,
+        parameters = params_row,
+        infection_records = infection_records_final,
+        parasitemia_data = parasitemia_df,
+        diagnostic_plots = plots
+      )
+    } else {
+      # Prepare results
+      results <- list(
+        sim_id = params_row$sim_id,
+        parameters = params_row,
+        infection_records = infection_records_final,
+        diagnostic_plots = plots)
+    }
     
     save_simulation_outputs(results, output_dir)
     message('saved outputs')
+    rm(results)
   }
   
-  return(results)
+  if(!save_outputs){
+    if(return_parasitemia){
+      # Prepare results
+      results <- list(
+        sim_id = params_row$sim_id,
+        parameters = params_row,
+        infection_records = infection_records_final,
+        parasitemia_data = parasitemia_df
+      )
+    } else {
+      results <- list(
+        sim_id = params_row$sim_id,
+        parameters = params_row,
+        infection_records = infection_records_final
+      )
+    }
+    
+    return(results)
+  }
 }
 
 
 # Function to create diagnostic plots
-create_diagnostic_plots <- function(parasitemia_df, 
-                                    infection_records_final,
-                                    max_SMC_kill_rate, smc_lambda, smc_kappa) {
+create_diagnostic_plots <- function(#parasitemia_df, 
+  infection_records_final,
+  max_SMC_kill_rate, smc_lambda, smc_kappa) {
   
   # Plot 1: Parasitemia over time
-  p1 <- ggplot(parasitemia_df) +
-    geom_line(aes(x=time_ext/365.25, y = parasites, 
-                  group = as.factor(paste0(rid, ", day ", day1_BSinfection)), 
-                  color = det), alpha = 0.5) +
-    scale_y_log10() +
-    geom_hline(aes(yintercept = 10), linetype = 2, color = 'darkred', linewidth = 1) +
-    geom_hline(aes(yintercept = 1e-5), linetype = 2, color = 'darkgreen', linewidth = 1) +
-    geom_vline(aes(xintercept = 0), color = 'darkturquoise', linetype = 2, linewidth = 1) +
-    facet_wrap(~arm) +
-    theme_bw() +
-    theme(legend.position = 'none') +
-    labs(title = "Parasitemia trajectories",
-         caption = str_glue("SMC max kill rate: {max_SMC_kill_rate}, SMC lambda: {smc_lambda}, SMC kappa: {smc_kappa}"))
+  # p1 <- ggplot(parasitemia_df) +
+  #   geom_line(aes(x=time_ext/365.25, y = parasites, 
+  #                 group = as.factor(paste0(rid, ", day ", day1_BSinfection)), 
+  #                 color = det), alpha = 0.5) +
+  #   scale_y_log10() +
+  #   geom_hline(aes(yintercept = 10), linetype = 2, color = 'darkred', linewidth = 1) +
+  #   geom_hline(aes(yintercept = 1e-5), linetype = 2, color = 'darkgreen', linewidth = 1) +
+  #   geom_vline(aes(xintercept = 0), color = 'darkturquoise', linetype = 2, linewidth = 1) +
+  #   facet_wrap(~arm) +
+  #   theme_bw() +
+  #   theme(legend.position = 'none') +
+  #   labs(title = "Parasitemia trajectories",
+  #        caption = str_glue("SMC max kill rate: {max_SMC_kill_rate}, SMC lambda: {smc_lambda}, SMC kappa: {smc_kappa}"))
   
   # Plot 2: Proportion detectable
   p2 <- ggplot(infection_records_final) +
@@ -422,7 +446,7 @@ create_diagnostic_plots <- function(parasitemia_df,
          title = "Probability of an infectious bite")
   
   return(list(
-    parasitemia_trajectories = p1,
+    # parasitemia_trajectories = p1,
     proportion_detectable = p2,
     incidence = p3,
     cumulative_infections = p4,
@@ -435,118 +459,186 @@ save_simulation_outputs <- function(results, output_dir) {
   
   # dir.create('outputs/', showWarnings = FALSE)
   
-  sim_dir <- file.path(output_dir, results$sim_id)
+  # sim_dir <- file.path(output_dir, results$sim_id)
   
-  if (!dir.exists(sim_dir)) {
-    dir.create(sim_dir, recursive = TRUE)
+  # if (!dir.exists(sim_dir)) {
+  #   dir.create(sim_dir, recursive = TRUE)
+  # }
+  if (!dir.exists(output_dir)){
+    dir.create(output_dir, recursive = TRUE)
   }
   
-  plots_dir <- file.path(sim_dir, "/plots")
+  plots_dir <- file.path("/plots")
   if (!dir.exists(plots_dir)) {
     dir.create(plots_dir)
   }
   
   # Save input files 
   # write.csv(params_df, file.path(sim_dir, "parameter_grid.csv"), row.names = FALSE)
-  saveRDS(base_inputs, file.path(sim_dir, "base_inputs.rds"))
+  saveRDS(base_inputs, file.path(output_dir, "/base_inputs.rds"))
   
   # Save data files
-  saveRDS(results$infection_records, file.path(sim_dir, "infection_records.rds"))
-  saveRDS(results$child_metadata, file.path(sim_dir, "child_metadata.rds"))
-  saveRDS(results$parasitemia_data, file.path(sim_dir, "parasitemia_data.rds"))
-  saveRDS(results$parameters, file.path(sim_dir, "parameters.rds"))
+  saveRDS(results$infection_records, paste0(output_dir, "/infection_records",results$sim_id,".rds"))
+  if('parasitemia_data' %in% names(results)){
+    saveRDS(results$parasitemia_data, paste0(output_dir, "/parasitemia_data",results$sim_id,".rds"))
+  } 
+  saveRDS(results$parameters %>% select(-p_bite), paste0(output_dir, "/parameters", results$sim_id, ".rds"))
   
   # Save plots
-  ggsave(file.path(plots_dir, "parasitemia_trajectories.png"), 
-         results$diagnostic_plots$parasitemia_trajectories, 
-         height = 8, width = 12)
-  ggsave(file.path(plots_dir, "proportion_detectable.png"), 
+  ggsave(paste0(plots_dir, "proportion_detectable",results$sim_id,".png"), 
          results$diagnostic_plots$proportion_detectable, 
          height = 8, width = 12)
-  ggsave(file.path(plots_dir, "incidence.png"), 
+  ggsave(paste0(plots_dir, "/incidence",results$sim_id,".png"), 
          results$diagnostic_plots$incidence, 
          height = 6, width = 14)
-  ggsave(file.path(plots_dir, "cumulative_infections.png"), 
+  ggsave(paste0(plots_dir, "/cumulative_infections",results$sim_id,".png"), 
          results$diagnostic_plots$cumulative_infections, 
          height = 8, width = 12)
-  ggsave(file.path(plots_dir, "prob_infectious_bite.png"), 
+  ggsave(paste0(plots_dir, "/prob_infectious_bite",results$sim_id,".png"), 
          results$diagnostic_plots$prob_infectious_bite, 
          height = 8, width = 12)
   
-  message("Saved outputs for ", results$sim_id, " to ", sim_dir)
+  message("Saved outputs for ", results$sim_id)
 }
 
-# Main function to run parameter sweep
-run_parameter_sweep <- function(metadata_df, 
-                                parameters_df, 
-                                base_inputs, 
-                                output_dir = "simulation_outputs", 
-                                save_outputs = TRUE,
-                                parallel = FALSE, n_cores = NULL,
-                                allow_superinfections = TRUE) {
+# function to calculate efficacy of RTSS versus no intervention 
+calc_rtss_efficacy <- function(df){
   
-  if (!dir.exists(output_dir)) {
-    dir.create(output_dir, recursive = TRUE)
-  }
+  # This is for use with output of fit_rtss.R which is the infection records dataset 
+  # and where all children are given the 3rd dose of the vaccine on day 0 of simulation 
   
-  parameters_df$sim_id <- paste0('parameter_set_',rownames(parameters_df),"_", country_to_run, "_",allow_superinfections)#paste0("sim_", "SMCkill", parameters_df$max_SMC_kill_rate,"_SMCdecay", parameters_df$SMC_decay,"_season", parameters_df$season_start_day)
+  df2 <- df %>%
+    filter(!is.na(detection_day)) %>%
+    # filter(infectious_bite_day>0) %>% # to get rid of the build up 
+    mutate(days_since_rtss = detection_day,
+           weeks_since_rtss = floor(detection_day/7)) %>%
+    group_by(arm, sim_id, weeks_since_rtss) %>%
+    summarize(cases = n(),
+              .groups = 'drop') %>%
+    tidyr::complete(arm, sim_id, weeks_since_rtss = seq(min(weeks_since_rtss, na.rm = TRUE),
+                                                        max(weeks_since_rtss, na.rm = TRUE), 1),
+                    fill = list(cases = 0)) %>%
+    mutate(pop = 600) %>% # I ran this with a pop of 1200 divided by rtss and no intervention 
+    mutate(inci = cases / pop) %>% ungroup()
   
-  # Save parameter grid
-  saveRDS(parameters_df, file.path(output_dir, "parameter_grid.rds"))
-  saveRDS(base_inputs, file.path(output_dir, "base_inputs.rds"))
-  cyphr::encrypt(saveRDS(metadata_df, file.path(output_dir, "metadata_df.rds")), key)
+  # Extract no intervention  
+  none <- df2 %>%
+    filter(arm == 'none') %>% 
+    rename(cases_none = cases, inci_none = inci, pop_none = pop) %>%
+    select(-arm)
   
-  if (parallel) {
-    # if (is.null(n_cores)) {
-    #   n_cores <- parallel::detectCores() - 1
-    # }
-    
-    message('Running in parallel is not working at the moment')
-    # message("Running ", nrow(params_df), " simulations in parallel using ", n_cores, " cores")
-    
-    # Set up parallel backend (works on Windows, Mac, Linux)
-    # plan(multisession, workers = n_cores)
-    
-    # # Split params_df into list of rows
-    # param_list <- split(params_df, seq(nrow(params_df)))
-    # 
-    # results <- future_lapply(param_list, 
-    #                          function(param_row) {
-    #                            run_cohort_simulation(param_row, base_inputs, output_dir,
-    #                                                  save_outputs)
-    #                          },
-    #                          future.seed = TRUE)
-    # Split parameter grid into batches
-    # n_per_batch <- 3
-    # param_batches <- split(params_df, ceiling(seq_len(nrow(params_df))/n_per_batch))
-    # 
-    # # Run each batch
-    # results <- future_lapply(param_batches, 
-    #                          function(param_row) {
-    #   message("Running batch ", i, " of ", length(param_batches))
-    #   run_parameter_sweep(param_batches[[i]], base_inputs)
-    # })
-    
-    
-    # Reset to sequential processing
-    # plan(sequential)
-  } else {
-    message("Running ", nrow(params_df), " simulations sequentially")
-    
-    results2 <- list()
-    for (i in 1:nrow(params_df)) {
-      results2[[i]] <- run_cohort_simulation(metadata_df, parameters_df[i, ], base_inputs, output_dir,
-                                            save_outputs = TRUE,
-                                            allow_superinfections = allow_superinfections)#results[[i]] <- 
-      
-      message("done simulation ", i, " of ", nrow(parameters_df))
-      
-    }
-  }
+  # Extract RTSS cases 
+  rtss <- df2 %>% 
+    filter(arm == 'rtss')%>% 
+    rename(cases_smc = cases, inci_rtss = inci, pop_rtss = pop) %>%
+    select(-arm)
   
-  return(list(
-    results2
-    # summary_results = summary_results
-  ))
+  d <- left_join(none, rtss, by = c('weeks_since_rtss','sim_id'))
+  d$efficacy <-  1 - (d$inci_rtss / d$inci_none)
+  
+  return(d)
   
 }
+
+# # Function to calculate SMC efficacy based on Thompson et al. (cumulative proportion)
+calc_smc_efficacy_cumul <- function(df, params_row, by_week = TRUE){
+  smc_dose_days_ <- unlist(params_row$smc_dose_days)
+  n_smc <- nrow(metadata_df[metadata_df$arm == 'smc',])
+  n_none <- nrow(metadata_df[metadata_df$arm == 'none',])
+
+  # get first infection 
+  df_ <- df %>%
+    filter(!is.na(detection_day)) %>%
+    arrange(detection_day, arm, rid) %>%
+    slice_min()
+  
+  
+
+}
+
+# function to calculate efficacy of SMC versus no intervention
+calc_smc_efficacy <- function(df, params_row, by_week = TRUE){
+  
+  smc_dose_days_ <- unlist(params_row$smc_dose_days)
+  n_smc <- nrow(metadata_df[metadata_df$arm == 'smc',])
+  n_none <- nrow(metadata_df[metadata_df$arm == 'none',])
+  
+  if(by_week){
+    df2 <- df %>%
+      filter(!is.na(detection_day))  %>%# keep only cases 
+      # group_by(arm) %>%
+      # find most recent smc day 
+      mutate(most_recent_smc = sapply(detection_day, function(d){
+        prior = smc_dose_days_[smc_dose_days_ < d]
+        if(length(prior) == 0) NA_real_ else max(prior)
+      })) %>%
+      mutate(days_since_smc = detection_day - most_recent_smc,
+             weeks_since_smc = floor(days_since_smc / 7)
+      ) %>%
+      group_by(arm, weeks_since_smc) %>%
+      summarise(cases = n(),
+                .groups = 'drop') %>%
+      tidyr::complete(arm, weeks_since_smc = seq(min(weeks_since_smc, na.rm = TRUE), 
+                                                 max(weeks_since_smc, na.rm = TRUE), 1), 
+                      fill = list(cases = 0)) %>%
+      mutate(pop = ifelse(arm == 'none', n_none, n_smc)) %>%
+      mutate(inci = cases / pop) %>% ungroup() %>%
+      mutate(cases = replace_na(cases, 0),
+             inci = replace_na(inci, 0))
+    
+    # Extract no intervention  
+    none <- df2 %>%
+      filter(arm == 'none') %>% 
+      rename(cases_none = cases, inci_none = inci, pop_none = pop) %>%
+      select(-arm)
+    
+    # Extract SMC cases 
+    smc <- df2 %>% 
+      filter(arm == 'smc')%>% 
+      rename(cases_smc = cases, inci_smc = inci, pop_smc = pop) %>%
+      select(-arm)
+    
+    d <- left_join(none, smc, by = 'weeks_since_smc')
+    d$efficacy <-  1 - (d$inci_smc / d$inci_none)
+  }
+  
+  if(!by_week){
+    df2 <- df %>%
+      filter(!is.na(detection_day))  %>%# keep only cases 
+      # find most recent smc day 
+      mutate(most_recent_smc = sapply(detection_day, function(d){
+        prior = smc_dose_days_[smc_dose_days_ < d]
+        if(length(prior) == 0) NA_real_ else max(prior)
+      })) %>%
+      mutate(days_since_smc = detection_day - most_recent_smc) %>%
+      group_by(arm, days_since_smc) %>%
+      summarise(cases = n(),
+                .groups = 'drop') %>%
+      tidyr::complete(arm, days_since_smc = seq(min(days_since_smc, na.rm = TRUE), 
+                                                 max(days_since_smc, na.rm = TRUE), 1), 
+                      fill = list(cases = 0)) %>%
+      mutate(pop = ifelse(arm == 'none', n_none, n_smc)) %>%
+      mutate(inci = cases / pop) %>% ungroup() %>%
+      mutate(cases = replace_na(cases, 0),
+             inci = replace_na(inci, 0))
+    
+    # Extract no intervention  
+    none <- df2 %>%
+      filter(arm == 'none') %>% 
+      rename(cases_none = cases, inci_none = inci, pop_none = pop) %>%
+      select(-arm)
+    
+    # Extract SMC cases 
+    smc <- df2 %>% 
+      filter(arm == 'smc')%>% 
+      rename(cases_smc = cases, inci_smc = inci, pop_smc = pop) %>%
+      select(-arm)
+    
+    d <- left_join(none, smc, by = 'days_since_smc')
+    d$efficacy <-  1 - (d$inci_smc / d$inci_none)
+  }
+  
+  return(d)
+}
+
+
