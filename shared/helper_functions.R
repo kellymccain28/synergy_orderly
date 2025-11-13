@@ -134,7 +134,8 @@ format_data <- function(out, tt, infection_start_day, n_particles){
              innate_imm = sc,
              genadaptive_imm = sm,
              varspecific_imm = sv) %>%
-      mutate(time_orig = time, 
+      mutate(,time_withinhost = time, 
+             time_withinhost2 = time_withinhost*2,
              time = time * 2 + infection_start_day)
   }
   
@@ -234,8 +235,9 @@ format_data <- function(out, tt, infection_start_day, n_particles){
       left_join(nsmckill_long) %>%
       # left_join(smc_seasonon) %>%
       # Fix time to be in outside days (*2) - not including inf start day as below because it doesn't match with ts since start of bs x labels 
-      mutate(time_orig = time, 
-             time = time * 2 + infection_start_day)
+      mutate(time_withinhost_orig = time, # original timing in within-host model (2-day timesteps)
+             time_withinhost2 = time_withinhost_orig*2, # converted to 1-day timesteps 
+             time_withinhost2_plusinfstart = time * 2 + infection_start_day) # 1 day timesteps + day of start of BS infection 
       # Fix time to be dependent on when the infection was, relative to the start of the season / vaccination
       # mutate(time_ext = time*2 + t_inf_vax - 1)#,
     # infection_start = infection_start_day) # because the infection start day is in days and time is in timestpes, 
@@ -255,136 +257,138 @@ make_plots <- function(df){
            detectable = ifelse(any(parasites >= threshold), 'detectable', 'not detectable')
     ) %>%
     ungroup() %>%
-    group_by(time) %>%
+    group_by(time_withinhost2) %>%
     mutate(median_parasites = median(parasites))
   
   p <- ggplot(df) + 
-    geom_line(aes(x = time, y = parasites, group = run, color = "darkblue"), alpha = 0.15, linewidth = 0.8) + #, color = cleared
-    geom_line(aes(x = time, y = median_parasites, color = 'darkblue'), linewidth = 0.8)+
+    geom_line(aes(x = time_withinhost2, y = parasites, group = run, color = "darkblue"), alpha = 0.15, linewidth = 0.8) + #, color = cleared
+    geom_line(aes(x = time_withinhost2, y = median_parasites, color = 'darkblue'), linewidth = 0.8)+
     geom_hline(aes(yintercept = threshold), linetype = 2, color = 'darkred', linewidth = 1) + # this is the detection limit (followiung Challenger et al.)
     geom_hline(aes(yintercept = 1e-5), linetype = 2, color = 'darkgreen', linewidth = 1) + # this is the clearance threshold
     scale_y_log10() +
     scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
-      limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
+      limits = c(0, max(df$time_withinhost2)))+#(max(df$time)+7)*multiplier
     scale_color_manual(values = colorsplot) +
     labs(x = 'Days since start of blood stage',
          y = 'PRBCs',
          caption = paste0('proportion of runs with no infection at time 0 = ', 
-                          (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
+                          (df %>% filter(time_withinhost2 == min(df$time_withinhost2), parasites == 0) %>% 
+                             count() %>% pull(n))/ n_particles)) + 
     theme_bw() + 
     labs() + 
     theme(legend.position = 'none')
   
   scplt <- ggplot(df )+#%>% filter(detectable == 'not detectable')) + 
-    geom_line(aes(x = time, y = innate_imm, group = run, color = detectable), alpha = 0.7) + #, color = cleared
+    geom_line(aes(x = time_withinhost2, y = innate_imm, group = run, color = detectable), alpha = 0.7) + #, color = cleared
     scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
-      limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
+      limits = c(0, max(df$time_withinhost2)))+#(max(df$time)+7)*multiplier
     labs(x = 'Days since start of blood stage',
          y = 'Innate immunity',
          caption = paste0('proportion of runs with no infection at time 0 = ', 
-                          (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
+                          (df %>% filter(time_withinhost2 == min(df$time_withinhost2), parasites == 0) %>% 
+                             count() %>% pull(n))/ n_particles)) + 
     scale_color_manual(values = colorsplot) +
     theme_bw() + 
     theme(legend.position = 'none')
   
   smplt <- ggplot(df)+#%>% filter(detectable == 'not detectable')) + 
-    geom_line(aes(x = time, y = genadaptive_imm, group = run, color = detectable), alpha = 0.7) + #, color = cleared
+    geom_line(aes(x = time_withinhost2, y = genadaptive_imm, group = run, color = detectable), alpha = 0.7) + #, color = cleared
     scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
-      limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
+      limits = c(0, max(df$time_withinhost2)))+#(max(df$time)+7)*multiplier
     labs(x = 'Days since start of blood stage',
          y = 'General adaptive immunity',
          caption = paste0('proportion of runs with no infection at time 0 = ', 
-                          (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
+                          (df %>% filter(time_withinhost2 == min(df$time_withinhost2), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
     scale_color_manual(values = colorsplot) +
     theme_bw() + 
     theme(legend.position = 'none')
   
   svplt <- ggplot(df)+#%>% filter(detectable == 'not detectable')) + 
-    geom_line(aes(x = time, y = varspecific_imm, group = run, color = detectable), alpha = 0.7) + #, color = cleared
+    geom_line(aes(x = time_withinhost2, y = varspecific_imm, group = run, color = detectable), alpha = 0.7) + #, color = cleared
     scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
-      limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
+      limits = c(0, max(df$time_withinhost2)))+#(max(df$time)+7)*multiplier
     labs(x = 'Days since start of blood stage',
          y = 'Var-specific immunity',
          caption = paste0('proportion of runs with no infection at time 0 = ', 
-                          (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
+                          (df %>% filter(time_withinhost2 == min(df$time_withinhost2), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
     scale_color_manual(values = colorsplot) +
     theme_bw() + 
     theme(legend.position = 'none')
   
   grplt <- ggplot(df)+# %>% filter(detectable == 'not detectable')) + 
-    geom_line(aes(x = time, y = growth, group = run, color = detectable), alpha = 0.7) + #
+    geom_line(aes(x = time_withinhost2, y = growth, group = run, color = detectable), alpha = 0.7) + #
     scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
-      limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
+      limits = c(0, max(df$time_withinhost2)))+#(max(df$time)+7)*multiplier
     labs(x = 'Days since start of blood stage',
          y = 'Growth rate (m * sc * sm * sv)',
          caption = paste0('proportion of bites that do not lead to infection at time 0 = ', 
-                          (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
+                          (df %>% filter(time_withinhost2 == min(df$time_withinhost2), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
     scale_color_manual(values = colorsplot) +
     theme_bw() + 
     theme(legend.position = 'none')
   
   mplt <- ggplot(df)+#  %>% filter(cleared == 'not cleared')) + 
-    geom_line(aes(x = time, y = m, group = run, color = detectable), alpha = 0.7) + #
+    geom_line(aes(x = time_withinhost2, y = m, group = run, color = detectable), alpha = 0.7) + #
     scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
-      limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
+      limits = c(0, max(df$time_withinhost2)))+#(max(df$time)+7)*multiplier
     labs(x = 'Days since start of blood stage',
          y = 'm',
          caption = paste0('proportion of bites that do not lead to infection at time 0 = ', 
-                          (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
+                          (df %>% filter(time_withinhost2 == min(df$time_withinhost2), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
     scale_color_manual(values = colorsplot) +
     theme_bw() + 
     theme(legend.position = 'none')
   
   smcplt <- ggplot(df) + 
-    geom_line(aes(x = time, y = smcrate, group = run, color = detectable), alpha = 0.7) + #
+    geom_line(aes(x = time_withinhost2, y = smcrate, group = run, color = detectable), alpha = 0.7) + #
     scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
-      limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
+      limits = c(0, max(df$time_withinhost2)))+#(max(df$time)+7)*multiplier
     labs(x = 'Days since start of blood stage',
          y = 'SMC kill rate',
          caption = paste0('proportion of bites that do not lead to infection at time 0 = ', 
-                          (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
+                          (df %>% filter(time_withinhost2 == min(df$time_withinhost2), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
     scale_color_manual(values = colorsplot) +
     theme_bw() + 
     theme(legend.position = 'none')
   
   psmckillplt <- ggplot(df) + 
-    geom_line(aes(x = time, y = smc_prob, group = run, color = detectable), alpha = 0.7) + #
-    scale_x_continuous(breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
-                       limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
+    geom_line(aes(x = time_withinhost2, y = smc_prob, group = run, color = detectable), alpha = 0.7) + #
+    scale_x_continuous(breaks = c(0, 7, seq(14, max(df$time_withinhost2), 14)),#(max(df$time)+7) * multiplier
+                       limits = c(0, max(df$time_withinhost2)))+#(max(df$time)+7)*multiplier
     labs(x = 'Days since start of blood stage',
          y = 'SMC per parasite/uL kill probability',
          caption = paste0('proportion of bites that do not lead to infection at time 0 = ', 
-                          (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
+                          (df %>% filter(time == min(df$time_withinhost2), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
     scale_color_manual(values = colorsplot) +
     theme_bw() + 
     theme(legend.position = 'none')
   
   nsmckillplt <- ggplot(df ) + 
-    geom_line(aes(x = time, y = nkillsmc, group = run, color = detectable), alpha = 0.7) + #
-    scale_x_continuous(breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
-                       limits = c(0, max(df$time)))+#(max(df$time)+7)*multiplier
+    geom_line(aes(x = time_withinhost2, y = nkillsmc, group = run, color = detectable), alpha = 0.7) + #
+    scale_x_continuous(breaks = c(0, 7, seq(14, max(df$time_withinhost2), 14)),#(max(df$time)+7) * multiplier
+                       limits = c(0, max(df$time_withinhost2)))+#(max(df$time)+7)*multiplier
     labs(x = 'Days since start of blood stage',
          y = 'Parasites/uL killed by SMC',
          caption = paste0('proportion of bites that do not lead to infection at time 0 = ', 
-                          (df %>% filter(time == 1, parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
+                          (df %>% filter(time_withinhost2 == 1, parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
     scale_color_manual(values = colorsplot) +
     theme_bw() + 
     scale_y_log10() +
     theme(legend.position = 'none')
   
-  meroinitplt <- ggplot(df %>% filter(time == 2)) + 
+  meroinitplt <- ggplot(df %>% filter(time_withinhost2 == min(df$time_withinhost2))) + 
     geom_boxplot(aes(x = detectable, y = parasites*VB, color = detectable), alpha = 0.7) + #
     geom_jitter(aes(x = detectable, y = parasites*VB, color = detectable), alpha = 0.7) + #
     labs(x = 'Infection status',
          y = 'Merozoites initating infection',
          caption = paste0('proportion of bites that do not lead to infection at time 0 = ', 
-                          (df %>% filter(time == 1, parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
+                          (df %>% filter(time_withinhost2 == min(df$time_withinhost2), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
     scale_color_manual(values = colorsplot) +
     theme_bw() + 
     scale_y_log10() +
     theme(legend.position = 'none')
   
-  message('prop runs with no infection = ', (df %>% filter(time == min(df$time), parasites == 0) %>% count() %>% pull(n))/ n_particles)
+  message('prop runs with no infection = ', (df %>% filter(time_withinhost2 == min(df$time_withinhost2), parasites == 0) %>% count() %>% pull(n))/ n_particles)
   
   return(list('pb'= p, 
               'sc'=scplt, 
