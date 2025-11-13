@@ -13,12 +13,9 @@ calculate_efficacy_likelihood <- function(params_row,
                                save_outputs = FALSE)
     message('finished simulation')
     
-    eff <- calc_smc_efficacy(o$infection_records,
-                             params_row,
-                             by_week = TRUE)
-    # eff_daily <- calc_smc_efficacy(o$infection_records,
-    #                                params_row,
-    #                                by_week = FALSE)
+    eff <- calc_smc_efficacy_cumul(o$infection_records,
+                                   params_row,
+                                   by_week = TRUE)
     
     eff$sim_id <- params_row$sim_id
     
@@ -49,7 +46,7 @@ calculate_efficacy_likelihood <- function(params_row,
       log = TRUE
     ))
     
-    message("Log-likelihood: ", ll)
+    message("Log-likelihood: ", ll, " | Negative LL: ", -ll)
     
     # Check for invalid values
     if(is.na(ll) || is.infinite(ll)) {
@@ -62,6 +59,6 @@ calculate_efficacy_likelihood <- function(params_row,
   },
   error = function(e) {
     warning(paste("Error in likelihood calculation:", e$message))
-    return(-Inf)
+    return(1e10)
   })
 }
