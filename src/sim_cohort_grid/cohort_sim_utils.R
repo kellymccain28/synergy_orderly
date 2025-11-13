@@ -503,6 +503,8 @@ save_simulation_outputs <- function(results, output_dir) {
 
 # function to calculate efficacy of RTSS versus no intervention 
 calc_rtss_efficacy <- function(df){
+  n_rtss <- nrow(metadata_df[metadata_df$arm == 'rtss',])
+  n_none <- nrow(metadata_df[metadata_df$arm == 'none',])
   
   # This is for use with output of fit_rtss.R which is the infection records dataset 
   # and where all children are given the 3rd dose of the vaccine on day 0 of simulation 
@@ -518,7 +520,7 @@ calc_rtss_efficacy <- function(df){
     tidyr::complete(arm, sim_id, weeks_since_rtss = seq(min(weeks_since_rtss, na.rm = TRUE),
                                                         max(weeks_since_rtss, na.rm = TRUE), 1),
                     fill = list(cases = 0)) %>%
-    mutate(pop = 600) %>% # I ran this with a pop of 1200 divided by rtss and no intervention 
+    mutate(pop = ifelse(arm == 'none', n_none, n_rtss)) %>% # I ran this with a pop of 1200 divided by rtss and no intervention 
     mutate(inci = cases / pop) %>% ungroup()
   
   # Extract no intervention  
@@ -540,6 +542,57 @@ calc_rtss_efficacy <- function(df){
   
 }
 
+# # Function to calculate RTSS efficacy based on cumulative proportion infected
+calc_rtss_efficacy_cumul <- function(df, params_row){
+  n_rtss <- nrow(metadata_df[metadata_df$arm == 'rtss',])
+  n_none <- nrow(metadata_df[metadata_df$arm == 'none',])
+  
+  # get first infection 
+  df_ <- df %>%
+    filter(!is.na(detection_day)) %>%
+    arrange(detection_day, arm, rid) %>%
+    group_by(arm, rid) %>%
+    slice_min(detection_day) 
+  
+  df2 <- df_ %>%
+    filter(!is.na(detection_day)) %>%
+    # filter(infectious_bite_day>0) %>% # to get rid of the build up 
+    mutate(days_since_rtss = detection_day,
+           weeks_since_rtss = floor(detection_day/7)) %>%
+    group_by(arm, sim_id, weeks_since_rtss) %>%
+    summarize(cases = n(),
+              .groups = 'drop') %>%
+    tidyr::complete(arm, sim_id, weeks_since_rtss = seq(min(weeks_since_rtss, na.rm = TRUE),
+                                                        max(weeks_since_rtss, na.rm = TRUE), 1),
+                    fill = list(cases = 0)) %>%
+    ungroup() %>% group_by(arm) %>%
+    mutate(pop = ifelse(arm == 'none', n_none, n_rtss)) %>%
+    mutate(cumulcases = cumsum(cases),
+             cumulprop = cumulcases / pop) %>%
+      ungroup() %>% select(-cases, -pop)
+    
+    # Extract no intervention  
+    none <- df2 %>%
+      filter(arm == 'none') %>% 
+      rename(cumulprop_none = cumulprop,
+             cumulcases_none = cumulcases) %>%
+      select(-arm)
+    
+    # Extract SMC cases 
+    rtss <- df2 %>% 
+      filter(arm == 'rtss')%>% 
+      rename(cumulprop_rtss = cumulprop,
+             cumulcases_rtss = cumulcases) %>%
+      select(-arm)
+    
+    d <- left_join(none, rtss, by = c('sim_id','weeks_since_rtss'))
+    d$efficacy <-  1 - (d$cumulprop_rtss / d$cumulprop_none)
+  
+  return(d)
+  
+}
+
+
 # # Function to calculate SMC efficacy based on Thompson et al. (cumulative proportion)
 calc_smc_efficacy_cumul <- function(df, params_row, by_week = TRUE){
   smc_dose_days_ <- unlist(params_row$smc_dose_days)
@@ -550,13 +603,89 @@ calc_smc_efficacy_cumul <- function(df, params_row, by_week = TRUE){
   df_ <- df %>%
     filter(!is.na(detection_day)) %>%
     arrange(detection_day, arm, rid) %>%
-    slice_min()
+    group_by(arm, rid) %>%
+    slice_min(detection_day) 
   
+  df_ <- df_ %>%
+    mutate(most_recent_smc = sapply(detection_day, function(d){
+      prior = smc_dose_days_[smc_dose_days_ < d]
+      if(length(prior) == 0) NA_real_ else max(prior)
+    })) %>%
+    mutate(days_since_smc = detection_day - most_recent_smc,
+           weeks_since_smc = ceiling(days_since_smc / 7)
+    )
   
+  if(by_week){
+    dfweek <- df_ %>%
+      group_by(arm, weeks_since_smc) %>%
+      arrange(arm, weeks_since_smc) %>%
+      summarise(cases = n(),
+                .groups = 'drop') %>%
+      tidyr::complete(arm, weeks_since_smc = seq(min(weeks_since_smc, na.rm = TRUE), 
+                                                 max(weeks_since_smc, na.rm = TRUE), 1), 
+                      fill = list(cases = 0)) %>%
+      ungroup() %>% group_by(arm) %>%
+      mutate(pop = ifelse(arm == 'none', n_none, n_smc)) %>%
+      mutate(cumulcases = cumsum(cases),
+             cumulprop = cumulcases / pop) %>%
+      ungroup() 
+    
+    # Extract no intervention  
+    none <- dfweek %>%
+      filter(arm == 'none') %>% 
+      rename(cumulprop_none = cumulprop,
+             cumulcases_none = cumulcases) %>%
+      select(-arm)
+    
+    # Extract SMC cases 
+    smc <- dfweek %>% 
+      filter(arm == 'smc')%>% 
+      rename(cumulprop_smc = cumulprop,
+             cumulcases_smc = cumulcases) %>%
+      select(-arm)
+    
+    d <- left_join(none, smc, by = c('sim_id','weeks_since_smc'))
+    d$efficacy <-  1 - (d$cumulprop_smc / d$cumulprop_none)
+  }
+  
+  if(!by_week){
+    dfday <- df_ %>%
+      group_by(arm, days_since_smc) %>%
+      arrange(arm, days_since_smc) %>%
+      summarise(cases = n(),
+                .groups = 'drop') %>%
+      tidyr::complete(arm, days_since_smc = seq(min(days_since_smc, na.rm = TRUE), 
+                                                 max(days_since_smc, na.rm = TRUE), 1), 
+                      fill = list(cases = 0)) %>%
+      ungroup() %>% group_by(arm) %>%
+      mutate(pop = ifelse(arm == 'none', n_none, n_smc)) %>%
+      mutate(cumulcases = cumsum(cases),
+             cumulprop = cumulcases / pop) %>%
+      ungroup()
+    
+    # Extract no intervention  
+    noneday <- dfday %>%
+      filter(arm == 'none') %>% 
+      rename(cumulprop_none = cumulprop,
+             cumulcases_none = cumulcases) %>%
+      select(-arm)
+    
+    # Extract SMC cases 
+    smcday <- dfday %>% 
+      filter(arm == 'smc')%>% 
+      rename(cumulprop_smc = cumulprop,
+             cumulcases_smc = cumulcases) %>%
+      select(-arm)
+    
+    d <- left_join(noneday, smcday, c('sim_id','weeks_since_smc'))
+    d$efficacy <-  1 - (d$cumulprop_smc / d$cumulprop_none)
+  }
+  
+  return(d)
 
 }
 
-# function to calculate efficacy of SMC versus no intervention
+# function to calculate efficacy of SMC versus no intervention -- incidence based
 calc_smc_efficacy <- function(df, params_row, by_week = TRUE){
   
   smc_dose_days_ <- unlist(params_row$smc_dose_days)
