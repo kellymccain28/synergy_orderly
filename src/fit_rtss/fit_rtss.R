@@ -31,7 +31,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
   # SOurce processing functions
   source(paste0(path, "/shared/likelihood.R"))
   
-  trial_ts = 365# trial timesteps in cohort simulation (inte)
+  trial_ts = 365*3# trial timesteps in cohort simulation (inte)
   sim_allow_superinfections = TRUE # TRUE or FALSE
   country_to_run = 'generic - vaccine'
   country_short = 'g'
@@ -71,7 +71,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
   p_bitevector <- calc_lagged_vectors(prob_bite_generic, 0, burnints = burnints) # no lagged values
   
   params_df$lag_p_bite <- 0
-  params_df$season_start_day <- 50
+  params_df$season_start_day <- 0
   # SMC delivery
   params_df <- params_df %>%
     rowwise() %>%
@@ -134,20 +134,13 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
                                                     save_outputs = FALSE)
                          message('finished simulation')
                          o$infection_records$sim_id <- params_row$sim_id
-                         eff <- calc_rtss_efficacy(o$infection_records)# eff <- calc_smc_efficacy(o$infection_records,
-                         #                          params_row, 
-                         #                          by_week = TRUE)
-                         # eff_daily <- calc_smc_efficacy(o$infection_records, 
-                         #                                params_row, 
-                         #                                by_week = FALSE)
-                         # eff$sim_id <- params_row$sim_id
-                         # eff_daily$sim_id <- params_row$sim_id
                          
-                         # return(list(efficacy_weekly = eff,
-                         #             efficacy_daily = eff_daily,
-                         #             params = params_row))
+                         eff <- calc_rtss_efficacy(o$infection_records)
+                         eff_cumul <- calc_rtss_efficacy_cumul(o$infection_records)
+                         
                          return(list(infection_records = o$infection_records, 
                                      efficacy_weekly = eff,
+                                     efficacy_weekly_cumul = eff_cumul,
                                      params = params_row))
                        })
     
@@ -202,20 +195,11 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
                                          o$infection_records$sim_id <- params_row$sim_id
                                          
                                          eff <- calc_rtss_efficacy(o$infection_records)
-                                         # eff <- calc_smc_efficacy(o$infection_records,
-                                         #                          params_row, 
-                                         #                          by_week = TRUE)
-                                         # eff_daily <- calc_smc_efficacy(o$infection_records, 
-                                         #                                params_row, 
-                                         #                                by_week = FALSE)
-                                         # eff$sim_id <- params_row$sim_id
-                                         # eff_daily$sim_id <- params_row$sim_id
+                                         eff_cumul <- calc_rtss_efficacy_cumul(o$infection_records)
                                          
-                                         # return(list(efficacy_weekly = eff,
-                                         #             efficacy_daily = eff_daily,
-                                         #             params = params_row))
                                          return(list(infection_records = o$infection_records, 
                                                      efficacy_weekly = eff,
+                                                     efficacy_weekly_cumul = eff_cumul,
                                                      params = params_row))
                                        }
     )
@@ -224,11 +208,13 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
   
   infectionrecords <- purrr::map_df(results2, "infection_records")
   efficacy <- purrr::map_df(results2, 'efficacy_weekly')
+  efficacy_cumul <- purrr::map_df(results2, 'efficacy_weekly_cumul')
   params <- purrr::map_df(results2, 'parameters')
   
   saveRDS(params, paste0(path, '/src/fit_rtss/outputs/parameters_', Sys.Date(), '.rds'))
   saveRDS(infectionrecords, paste0(path, '/src/fit_rtss/outputs/infectionrecords_rtss_', Sys.Date(), '.rds'))
   saveRDS(efficacy, paste0(path, '/src/fit_rtss/outputs/efficacy_rtss_', Sys.Date(), '.rds'))
+  saveRDS(efficacy_cumul, paste0(path, '/src/fit_rtss/outputs/efficacy_rtss_cumul_', Sys.Date(), '.rds'))
 }
 
 
