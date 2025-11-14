@@ -247,7 +247,7 @@ format_data <- function(out, tt, infection_start_day, n_particles){
 
 make_plots <- function(df){
   multiplier <- if(tstep == 1) 2 else if (tstep == 2) 1
-  colorsplot <- c("darkblue","lightblue")
+  colorsplot <- c("#4123E8","#A6BF19")
   # 7 + time * multiplier
   df <- df %>%
     group_by(run) %>%
@@ -261,11 +261,12 @@ make_plots <- function(df){
     mutate(median_parasites = median(parasites))
   
   p <- ggplot(df) + 
-    geom_line(aes(x = time_withinhost2, y = parasites, group = run, color = "darkblue"), alpha = 0.15, linewidth = 0.8) + #, color = cleared
-    geom_line(aes(x = time_withinhost2, y = median_parasites, color = 'darkblue'), linewidth = 0.8)+
+    geom_line(aes(x = time_withinhost2, y = parasites, group = run, color = detectable), alpha = 0.6, linewidth = 0.6) + #, color = cleared
+    geom_line(aes(x = time_withinhost2, y = median_parasites, color = detectable), linewidth = 0.6)+
     geom_hline(aes(yintercept = threshold), linetype = 2, color = 'darkred', linewidth = 1) + # this is the detection limit (followiung Challenger et al.)
     geom_hline(aes(yintercept = 1e-5), linetype = 2, color = 'darkgreen', linewidth = 1) + # this is the clearance threshold
-    scale_y_log10() +
+    scale_y_log10(labels = scales::label_log(),
+                  guide = "axis_logticks") +
     scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
       limits = c(0, max(df$time_withinhost2)))+#(max(df$time)+7)*multiplier
     scale_color_manual(values = colorsplot) +
@@ -340,7 +341,7 @@ make_plots <- function(df){
     theme(legend.position = 'none')
   
   smcplt <- ggplot(df) + 
-    geom_line(aes(x = time_withinhost2, y = smcrate, group = run, color = detectable), alpha = 0.7) + #
+    geom_line(aes(x = time_withinhost2, y = smcrate, group = run, color = detectable), alpha = 0.7, linewidth = 1) + #
     scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time), 14)),#(max(df$time)+7) * multiplier
       limits = c(0, max(df$time_withinhost2)))+#(max(df$time)+7)*multiplier
     labs(x = 'Days since start of blood stage',
@@ -352,8 +353,8 @@ make_plots <- function(df){
     theme(legend.position = 'none')
   
   psmckillplt <- ggplot(df) + 
-    geom_line(aes(x = time_withinhost2, y = smc_prob, group = run, color = detectable), alpha = 0.7) + #
-    scale_x_continuous(breaks = c(0, 7, seq(14, max(df$time_withinhost2), 14)),#(max(df$time)+7) * multiplier
+    geom_line(aes(x = time_withinhost2, y = smc_prob, group = run, color = detectable), alpha = 0.7, linewidth = 1) + #
+    scale_x_continuous(breaks = c(0, 7, seq(14, max(df$time_withinhost2), 28)),#(max(df$time)+7) * multiplier
                        limits = c(0, max(df$time_withinhost2)))+#(max(df$time)+7)*multiplier
     labs(x = 'Days since start of blood stage',
          y = 'SMC per parasite/uL kill probability',
@@ -364,7 +365,7 @@ make_plots <- function(df){
     theme(legend.position = 'none')
   
   nsmckillplt <- ggplot(df ) + 
-    geom_line(aes(x = time_withinhost2, y = nkillsmc, group = run, color = detectable), alpha = 0.7) + #
+    geom_line(aes(x = time_withinhost2, y = nkillsmc, group = run, color = detectable), alpha = 0.7, linewidth = 0.6) + #
     scale_x_continuous(breaks = c(0, 7, seq(14, max(df$time_withinhost2), 14)),#(max(df$time)+7) * multiplier
                        limits = c(0, max(df$time_withinhost2)))+#(max(df$time)+7)*multiplier
     labs(x = 'Days since start of blood stage',
@@ -373,7 +374,8 @@ make_plots <- function(df){
                           (df %>% filter(time_withinhost2 == 1, parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
     scale_color_manual(values = colorsplot) +
     theme_bw() + 
-    scale_y_log10() +
+    scale_y_log10(labels = scales::label_log(),
+                  guide = "axis_logticks") +
     theme(legend.position = 'none')
   
   meroinitplt <- ggplot(df %>% filter(time_withinhost2 == min(df$time_withinhost2))) + 
@@ -385,7 +387,8 @@ make_plots <- function(df){
                           (df %>% filter(time_withinhost2 == min(df$time_withinhost2), parasites == 0) %>% count() %>% pull(n))/ n_particles)) + 
     scale_color_manual(values = colorsplot) +
     theme_bw() + 
-    scale_y_log10() +
+    scale_y_log10(labels = scales::label_log(),
+                  guide = "axis_logticks") +
     theme(legend.position = 'none')
   
   message('prop runs with no infection = ', (df %>% filter(time_withinhost2 == min(df$time_withinhost2), parasites == 0) %>% count() %>% pull(n))/ n_particles)

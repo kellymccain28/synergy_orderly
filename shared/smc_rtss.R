@@ -185,7 +185,7 @@ gamma_shape <- kspz * mu / theta
 # find total merozoites for from k sporozoites
 mero_init <- Gamma(shape = gamma_shape, scale = theta) 
 initial(mero_init_out) <- mero_init
-update(mero_init_out) <- if(time == 1) mero_init else 0
+update(mero_init_out) <- if(time == 0) mero_init else 0
 ## User defined parameters - default in parentheses:
 # m <- parameter(20) # average PMR over two days or 48 hours (initial value)
 PEV_on <- parameter()
@@ -193,10 +193,6 @@ SMC_on <- parameter()
 ab_user <- parameter()
 VB <- parameter()
 tt <- parameter(100, constant = TRUE)
-# max_SMC_kill_rate <- parameter(1.5)
-# SMC_decay <- parameter(0.05) # decay of SMC kill rate
-# smc_timing <- parameter(0) # timing of receipt of last dose of SMC relative to start of simulation
-# infection_start_day <- parameter(0) # external time that the infection began -- default is 0 (if running outside of cohort )
 
 # SMC parameters
 SMC_time <- parameter(constant = TRUE) # timesteps over which the SMC kill rate should be interpolated
@@ -204,7 +200,3 @@ SMC_kill_vec <- parameter(constant = TRUE) # kill rate vector for individual chi
 dim(SMC_time, SMC_kill_vec) <- parameter(rank = 1) # this means that both of the above 2 parameters are vectors 
 
 SMC_kill_rate <- interpolate(SMC_time, SMC_kill_vec, 'constant')
-# season_start_day <- parameter(122)    # Day 122 = ~August 1
-# season_length <- parameter(120)       # 4 months (120 days)
-# smc_interval <- parameter(30)         # SMC every 30 days
-

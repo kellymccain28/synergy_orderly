@@ -11,6 +11,8 @@ library(survminer)
 library(broom)
 library(gtsummary)
 library(cyphr)
+library(orderly2)
+library(lubridate)
 
 key <- cyphr::data_key()
 
@@ -87,7 +89,7 @@ children <- children_raw %>%
   mutate(dob = v1_date - age_months_v1 * 30) %>%
   # mutate(ageatV3 = (v3_date - dob),
   #        ageatlastvac = last_primary_vac - dob) %>%
-  select(-dob) %>%
+  # select(-dob) %>%
   # add same end date for now (should be updated from Paul)
   mutate(fu_end_date = ymd('2020-03-31'))  
 
@@ -181,7 +183,10 @@ mitt <- children %>%
          year = lubridate::year(dcontact),
          monthyear = paste0(month, "-", year)) %>%
   group_by(month, year, arm) %>%
-  mutate(cases_per_month = sum(poutcome))
+  mutate(cases_per_month = sum(poutcome)) %>%
+  ungroup() %>%
+  group_by(rid, month, year, monthyear) %>%
+  mutate(n_infections_per_month_pp = n())
 
 
 # Cleaning the person time file 
