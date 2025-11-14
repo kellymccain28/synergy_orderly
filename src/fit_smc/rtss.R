@@ -1,6 +1,6 @@
 # RTS,S over time 
 
-# parameters from Hayley's paper (whic is from White 2015)
+# parameters from  White 2015 Table S3
 
 # Fitted parameter values: from White et al (2015) Lancet ID
 ab_mu <- 621  # median of the geometric means of observed antibody titres
@@ -18,13 +18,17 @@ rho_mu_boost <- 1.034 # proportion of short-lived component following booster (l
 rho_sigma_boost <- 1.027
 
 # FUnctions from Bob Verity (through https://github.com/mrc-ide/rtss_vacc_antibody_model/tree/main)
-# draw from logitnormal distribution. Input arguments include the mean and standard deviation of the RAW normal variate that will be converted to the logit scale. Therefore the mean and standard deviation of the final random variable will not equal these values.
+# draw from logitnormal distribution. 
+# Input arguments include the mean and standard deviation of the RAW normal variate that will be converted to the logit scale. 
+# Therefore the mean and standard deviation of the final random variable will not equal these values.
 rlogitnorm <- function(n, mean_raw, sd_raw) {
   x <- exp(rnorm(n, mean_raw, sd_raw))
   x/(1+x)
 }
 
-# draw from lognormal distribution. Input arguments include the desired mean and standard deviation of the final lognormal random variable; the mean and standard deviation of the raw normal variate are calculated from these values.
+# draw from lognormal distribution. 
+# Input arguments include the desired mean and standard deviation of the final lognormal random variable; 
+# the mean and standard deviation of the raw normal variate are calculated from these values.
 rlnorm2 <- function(n, mean, sd) {
   meanlog <- log(mean^2/sqrt(mean^2+sd^2)) # mean of the lognormal distribution
   sdlog <- sqrt(log(1+(sd/mean)^2)) # standard deviation of the lognormal distribution
@@ -129,7 +133,7 @@ vaccine_eff <- function(csp,
   
 }
 
-#' Vaccine efficacy per sporozoite following White et al. 
+#' Vaccine efficacy per sporozoite following White et al.  2013
 p_spz_surv <- function(ab, beta_ab = 6.62,
                        alpha_ab = 1.32){
   
@@ -195,184 +199,4 @@ antibody_titre <- function(t,
   
   return(ab)
 }
-# ts = seq(0,3*365)
-# ab<-antibody_titre(t = ts,
-# phase = ifelse(ts < 365, 1,
-#                ifelse(ts < 729, 2, 3)),
-# peak1 = c(621,0.35) ,
-# peak2 = c(277, 0.35),
-# peak3 = c(277,0.35),
-# duration1 = c(45,16),
-# duration2 = c(591,245),
-# rho1 = c(2.37832, 1.00813),
-# rho2 = c(1.034, 1.027),
-# rho3 = c(1.034, 1.027),
-# t_boost1 = 364,
-# t_boost2 = 729)
-# plot(ab)
 
-# to run multiple simulations 
-# Method 1: Simple loop approach
-# run_multiple_simulations <- function(n_sims = 1000, ...) {
-#   # Get the time points from the first argument or create default
-#   args <- list(...)
-#   ts <- args$t
-#   
-#   # Create matrix to store results
-#   results <- matrix(NA, nrow = length(ts), ncol = n_sims)
-#   
-#   # Run simulations
-#   for(i in 1:n_sims) {
-#     results[, i] <- antibody_titre(...)
-#     if(i %% 100 == 0) cat("Completed", i, "simulations\n")  # Progress indicator
-#   }
-#   
-#   # Calculate quantiles
-#   median_ab <- apply(results, 1, median)
-#   q25_ab <- apply(results, 1, quantile, probs = 0.25)
-#   q75_ab <- apply(results, 1, quantile, probs = 0.75)
-#   q05_ab <- apply(results, 1, quantile, probs = 0.05)
-#   q95_ab <- apply(results, 1, quantile, probs = 0.95)
-#   
-#   return(list(
-#     time = ts,
-#     median = median_ab,
-#     q25 = q25_ab,
-#     q75 = q75_ab,
-#     q05 = q05_ab,
-#     q95 = q95_ab,
-#     all_results = results
-#   ))
-# }
-# 
-# # Method 2: Using replicate (more R-idiomatic)
-# run_simulations_replicate <- function(n_sims = 1000, ...) {
-#   args <- list(...)
-#   
-#   sim_function <- function(){
-#     do.call(antibody_titre, args)
-#   }
-#   
-#   results <- replicate(n_sims, sim_function(), simplify = TRUE)
-#   
-#   ts <- args$t
-#   
-#   return(list(
-#     time = ts,
-#     median = apply(results, 1, median),
-#     q25 = apply(results, 1, quantile, probs = 0.25),
-#     q75 = apply(results, 1, quantile, probs = 0.75),
-#     q05 = apply(results, 1, quantile, probs = 0.05),
-#     q95 = apply(results, 1, quantile, probs = 0.95),
-#     all_results = results
-#   ))
-# }
-# 
-# # Example usage
-# ts <- seq(0, 3*365)
-# phase_vec <- ifelse(ts < 365, 1, ifelse(ts < 729, 2, 3))
-# 
-# # Run 1000 simulations
-# cat("Running simulations...\n")
-# sim_results <- run_simulations_replicate(
-#   n_sims = 1000,
-#   t = ts,
-#   phase = phase_vec,
-#   peak1 = c(621, 0.35),
-#   peak2 = c(277, 0.35),
-#   peak3 = c(277, 0.35),
-#   duration1 = c(45, 16), 
-#   duration2 = c(591, 245),
-#   rho1 = c(2.37832, 1.00813),
-#   rho2 = c(1.034, 1.027),
-#   rho3 = c(1.034, 1.027),
-#   t_boost1 = 364,
-#   t_boost2 = 729
-# )
-# 
-# # Plot results with confidence bands
-# plot(sim_results$time, sim_results$median, type="l", lwd=2,
-#      xlab="Days", ylab="Antibody Titre", 
-#      main="Median Antibody Levels with 95% CI (1000 simulations)",
-#      ylim=range(c(sim_results$q05, sim_results$q95)))
-# 
-# # Add confidence bands
-# polygon(c(sim_results$time, rev(sim_results$time)), 
-#         c(sim_results$q05, rev(sim_results$q95)), 
-#         col=rgb(0.5, 0.5, 0.5, 0.3), border=NA)
-# 
-# polygon(c(sim_results$time, rev(sim_results$time)), 
-#         c(sim_results$q25, rev(sim_results$q75)), 
-#         col=rgb(0.5, 0.5, 0.5, 0.5), border=NA)
-# 
-# # Redraw median line on top
-# lines(sim_results$time, sim_results$median, lwd=2, col="black")
-# 
-# # Add booster timing lines
-# abline(v=c(364, 729), col="red", lty=2)
-# 
-# # Add legend
-# legend("topright", 
-#        c("Median", "IQR (25-75%)", "95% CI", "Booster times"), 
-#        col=c("black", rgb(0.5, 0.5, 0.5, 0.5), rgb(0.5, 0.5, 0.5, 0.3), "red"),
-#        lty=c(1, 1, 1, 2), lwd=c(2, 10, 10, 1))
-# 
-# # Quick summary at key time points
-# key_times <- c(180, 363, 365, 500, 728, 729, 900, 1095)  # 6mo, 1yr, etc.
-# key_indices <- match(key_times, sim_results$time)
-# key_indices <- key_indices[!is.na(key_indices)]
-# 
-# cat("\nMedian antibody levels at key time points:\n")
-# for(i in key_indices) {
-#   cat(sprintf("Day %d: %.1f (95%% CI: %.1f - %.1f)\n", 
-#               sim_results$time[i], 
-#               sim_results$median[i],
-#               sim_results$q05[i], 
-#               sim_results$q95[i]))
-# }
-
-# Alternative: Parallel processing for faster execution (if you have multiple cores)
-# library(parallel)
-# run_simulations_parallel <- function(n_sims = 1000, n_cores = detectCores()-1, ...) {
-#   args <- list(...)
-#   
-#   # Create a function that will run on each worker
-#   sim_function <- function(i, args_list) {
-#     do.call(antibody_titre, args_list)
-#   }
-#   
-#   cl <- makeCluster(n_cores)
-#   # Export necessary functions and objects to cluster
-#   clusterExport(cl, c("antibody_titre", "rlnorm2", "rlogitnorm"), envir = .GlobalEnv)
-# 
-#   # Export the arguments to all workers
-#   clusterExport(cl, "args", envir = environment())
-#   
-#   # Run simulations in parallel
-#   cat("Running", n_sims, "simulations on", n_cores, "cores...\n")
-#   results <- parSapply(cl, 1:n_sims, function(i) sim_function(i, args), simplify = TRUE)
-#   stopCluster(cl)
-# 
-#   ts <- args$t
-# 
-#   return(list(
-#     time = ts,
-#     median = apply(results, 1, median),
-#     q25 = apply(results, 1, quantile, probs = 0.25),
-#     q75 = apply(results, 1, quantile, probs = 0.75),
-#     all_results = results
-#   ))
-# }
-# phase_vec <- ifelse(ts < 365, 1, ifelse(ts < 729, 2, 3))
-# results <- run_simulations_parallel(t = ts,
-#                          phase = phase_vec,
-#                          peak1 = c(621, 0.35),
-#                          peak2 = c(277, 0.35),
-#                          peak3 = c(277, 0.35),
-#                          duration1 = c(45, 16), 
-#                          duration2 = c(591, 245),
-#                          rho1 = c(2.37832, 1.00813),
-#                          rho2 = c(1.034, 1.027),
-#                          rho3 = c(1.034, 1.027),
-#                          t_boost1 = 364,
-#                          t_boost2 = 729)
