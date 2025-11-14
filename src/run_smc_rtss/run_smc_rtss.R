@@ -6,39 +6,33 @@ library(cowplot)
 library(glue)
 library(orderly2)
 
-orderly_strict_mode()
-orderly_parameters(n_particles = NULL,
+# orderly_strict_mode()
+runpars <- orderly_parameters(n_particles = NULL,
                    n_threads = NULL,
-                   t_inf = NULL,
+                   t_inf_vax = NULL,# if before infection, then + number; time of infectious bite relative to vaccination, influences AB titre and also influences the length of SMC kill vec -- t_inf/2:end
                    ts = NULL,
                    tstep = NULL,
-                   max_SMC_kill_rate = NULL,
-                   lambda = NULL, 
-                   kappa = NULL, 
+                   max_SMC_kill_rate = 5,
+                   lambda = 13, 
+                   kappa = 0.45, 
                    # SMC_decay = NULL,
-                   season_start_day = NULL,
+                   season_start_day = NULL, # influences when SMC is delivered relative to the start of the infection/sim 
                    # season_length = NULL,
                    # smc_interval = NULL,
-                   inf_start = NULL)
-
-# PEV_on <- 0
-# SMC_on <- 0
-# n_particles = 1L
-# n_threads = 1L
-# t_inf = 10#sample(1:(365*3), size = 1) # time of infection relative to vaccination 
-# ts = 365 # timesteps (each one is 2 days if ts = 1 below)
+                   inf_start = NULL)# This is used in the formatting to shift the timesteps since start of BS for individual runs, and to subset the smc vector 
+t_inf_vax = runpars$t_inf_vax
+ts = runpars$ts
+tstep = runpars$tstep
+n_particles = runpars$n_particles
+n_threads = runpars$n_threads
+max_SMC_kill_rate = runpars$max_SMC_kill_rate
+lambda = runpars$lambda
+kappa = runpars$kappa
+season_start_day = runpars$season_start_day
+inf_start = runpars$inf_start
 VB = 1e6
-# det_mode = FALSE
-# tstep <- 1
-tt <- seq(1, ts, by = tstep)#
-threshold <- 100
-# max_SMC_kill_rate = 4
-# SMC_decay <- 0.05
-# SMC_timing <- -10
-# SMC parameters
-# season_start_day <- 0
-# season_length <- 120
-# smc_interval <- 30
+tt <- seq(1, runpars$ts, by = runpars$tstep)#
+threshold <- 5000
 
 orderly_shared_resource("smc.R",
                         "rtss.R",
@@ -52,32 +46,32 @@ source("helper_functions.R")
 # set.seed(1234)
 
 # Stochastic runs ----
-# Without vaccination nor SMC
+# Without vaccination nor SMC ----
 # n_particles = 500L
 # inf_start = 0-- this is when the infection shouldl start relative to the start of follow-up time (more relevant for cohort), can change timing of SMC
-nothing <- run_model(n_particles = n_particles,
+nothing <- run_model(n_particles = runpars$n_particles,
                      n_threads = 4L,
                      PEV_on = 0,
                      SMC_on = 0,
                      tt= tt,
                      SMC_time = seq(0,100,1),
                      SMC_kill_vec = rep(0,101),
-                     t_inf = t_inf,
-                     infection_start_day = inf_start,
+                     t_inf_vax = runpars$t_inf_vax,
+                     infection_start_day = runpars$inf_start,
                      VB = VB,
                      det_mode = FALSE) %>%
   format_data(tt= tt,
-              infection_start_day = inf_start,
-              n_particles = n_particles) %>%
+              infection_start_day = runpars$inf_start,
+              n_particles = runpars$n_particles) %>%
   make_plots() 
-prbc <- nothing[[1]] #+ xlim(c(0,100))
+prbc <- nothing[[1]] + xlim(c(0,200))
 innate <- nothing[[2]]
 genad <- nothing[[3]]
 varspec <- nothing[[4]]
 growthr <- nothing[[5]]
 # nothing[[6]]
 mplot <- nothing[[7]]
-# nothing[[9]]
+# nothing[[11]]
 plot_grid(prbc+labs(caption = NULL, x = 'Days'),
           growthr+labs(caption = NULL, x = 'Days'),
           innate+labs(caption = NULL, x = 'Days'),
@@ -85,7 +79,7 @@ plot_grid(prbc+labs(caption = NULL, x = 'Days'),
           varspec+labs(caption = NULL, x = 'Days'),
           mplot+labs(caption = NULL, x = 'Days')
 ) # in caption, days since start of blood-stage 
-ggsave('immunity_plot.pdf')
+ggsave('R:/Kelly/synergy_orderly/figures/immunity_plot.pdf')
 nothingplt <- plot_grid(nothing[[1]] +labs(caption = NULL, x = 'Days since start of blood stage'), 
                         nothing[[2]]+labs(caption = NULL, x = 'Days since start of blood stage'),
                         nothing[[3]]+labs(caption = NULL, x = 'Days since start of blood stage'),
@@ -102,27 +96,28 @@ dfnothing <- nothing[[6]] %>%
 # dfnothing %>% filter(time == max(time), parasites < 10) %>% count() / n_particles # higher means more runs are not infected
 # dfnothing %>% filter(time == 15, parasites < 10) %>% count() / n_particles
 
-# With vaccination 
-vax <- run_model(n_particles = n_particles,
+# With vaccination ----
+vax <- run_model(n_particles = runpars$n_particles,
                  n_threads = 4L,
                  PEV_on = 1,
                  SMC_on = 0,
-                 t_inf = t_inf,
-                 infection_start_day = inf_start,
+                 t_inf_vax = runpars$t_inf_vax,
+                 infection_start_day = runpars$inf_start,
                  SMC_time = seq(0,100,1),
                  SMC_kill_vec = rep(0,101),
                  tt= tt,
                  VB = VB,
                  det_mode = FALSE) %>%
   format_data(tt= tt,
-              infection_start_day = inf_start,
-              n_particles = n_particles) %>%
+              infection_start_day = runpars$inf_start,
+              n_particles = runpars$n_particles) %>%
   make_plots()
-vax[[1]] + xlim(c(0,100))
+vax[[1]]# + xlim(c(0,100))
 vax[[2]]
 vax[[3]]
 vax[[4]]
 vax[[7]]
+vax[['meroinit']]
 # vax[[9]]
 vaxplt <- plot_grid(vax[[1]] +labs(caption = NULL, x = 'Days since start of blood stage'), 
                     vax[[2]]+labs(caption = NULL, x = 'Days since start of blood stage'),
@@ -133,60 +128,55 @@ vaxplt <- plot_grid(vax[[1]] +labs(caption = NULL, x = 'Days since start of bloo
                     vax[[8]]+labs(caption = NULL, x = 'Days since start of blood stage'),
                     vax[[9]]+labs(caption = NULL, x = 'Days since start of blood stage'),
                     nrow = 4) 
-dfvax <- vax[[5]] %>%
+dfvax <- vax[[6]] %>%
   mutate(scen = 'vax')
 # % of runs with without at day 60 
 # dfvax %>% filter(time == max(time), parasites < 10) %>% count() / n_particles
 # dfvax %>% filter(time == 15, parasites < 10) %>% count() / n_particles
 
-# Calculate SMC kill vector 
+# Calculate SMC kill vector ----
+# intervalsmc_days = 30 
+smc_dose_days <- 0
 smc_dose_days <- c(seq(season_start_day, season_start_day + 120 - 1, 30),
-                   seq(season_start_day + 365, season_start_day + 365 + 120 - 1, 30),
-                   seq(season_start_day + 365*2, season_start_day  + 365*2 + 120 - 1, 30))
-
-time_since_smc <- lapply(list(smc_dose_days), 
-                         calc_time_since_dose, 
-                         days = 0:(ts*2 -1))
-smckillvec <- lapply(time_since_smc,
-                                 function(.){
-                                   kill <- max_SMC_kill_rate * exp(-(./ lambda)^kappa)  # calculate kill rate with hill function
-                                   # kill <- ifelse(is.na(kill), 0, kill)                          
-                                   kill[is.na(kill)] <- 0                                       # change NAs (when there is no SMC) to 0 
-                                   kill <- kill[seq_along(kill) %% 2 == 1]                      # keep only odd indices since timesteps in the within-host model are 2 days
-                                 })
-
-# Without vaccination but with SMC
-smc <- run_model(n_particles = n_particles,
+                   seq(season_start_day + 366, season_start_day + 366 + 120 - 1, 30),
+                   seq(season_start_day + 365*2, season_start_day  + 366*2 + 120 - 1, 30))
+# will output kill vector in length ts
+tssmc = 365*3/2
+smc_killvec <- unlist(get_smc_vectors(smc_dose_days = smc_dose_days,
+                               ts = tssmc, 
+                               max_SMC_kill_rate = runpars$max_SMC_kill_rate,
+                               lambda = runpars$lambda, 
+                               kappa = runpars$kappa))
+smckillvec_subset <- smc_killvec[floor((runpars$inf_start) / 2) :length(smc_killvec)]
+smckillvec_subset <- list(c(smckillvec_subset, rep(0, tssmc-length(smckillvec_subset))))
+smckilltime <- seq(0, length(smckillvec_subset[[1]])-1,1)
+# Without vaccination but with SMC ----
+smc <- run_model(n_particles = runpars$n_particles,
                  n_threads = 4L,
                  PEV_on = 0,
                  SMC_on = 1,
                  tt= tt,
                  det_mode = FALSE,
-                 t_inf = t_inf,
+                 t_inf_vax = runpars$t_inf_vax,
                  VB = VB,
-                 SMC_time = seq(0,length(smckillvec[[1]])-1,1),
-                 SMC_kill_vec = smckillvec#,
-                 # max_SMC_kill_rate = max_SMC_kill_rate,
-                 # SMC parameters
-                 # infection_start_day = inf_start,
-                 # season_start_day = season_start_day,
-                 # season_length = season_length,
-                 # smc_interval = smc_interval# smc_timing = 10
+                 SMC_time = smckilltime,
+                 SMC_kill_vec = smckillvec_subset,
+                 infection_start_day = runpars$inf_start
                  ) %>%
   format_data(tt= tt,
-              infection_start_day = inf_start,
-              n_particles = n_particles) %>%
+              infection_start_day = runpars$inf_start,
+              n_particles = runpars$n_particles) %>%
   make_plots()
-smc[[1]] #+ xlim(c(0,100))
-smc[[2]] #+ xlim(c(0,100))
-smc[[3]]
-smc[[4]]
+smc[[1]] + xlim(c(0,365))# plotting time which is in 2 day timesteps
+# smc[[2]] #+ xlim(c(0,100))
+# smc[[3]]
+# smc[[4]]
 # smc[[6]]
-smc[[7]]# + labs(x = 'Years', caption = NULL) #+ xlim(c(0,1))
-smc[[8]]
-smc[[9]]
-smc[[10]]
-smcplt <- plot_grid(smc[[1]] +labs(caption = NULL, x = 'Days since start of blood stage'), 
+# smc[[7]]# + labs(x = 'Years', caption = NULL) #+ xlim(c(0,1))
+smc[[8]]+ xlim(c(0,400))
+smc[[9]]#+ xlim(c(0,100)) + ylim(c(0, 1))
+smc[[10]]#+xlim(c(0,100))
+smcplt <- plot_grid(smc[[1]]+labs(caption = NULL, x = 'Days since start of blood stage'), 
                     smc[[2]]+labs(caption = NULL, x = 'Days since start of blood stage'),
                     smc[[3]]+labs(caption = NULL, x = 'Days since start of blood stage'),
                     smc[[4]]+labs(caption = NULL, x = 'Days since start of blood stage'),
@@ -197,38 +187,84 @@ smcplt <- plot_grid(smc[[1]] +labs(caption = NULL, x = 'Days since start of bloo
                     nrow = 4) 
 dfsmc <- smc[[6]] %>%
   mutate(scen = 'smc')
+smc[['meroinit']] + labs(caption = NULL)
+
+colorsplot <- c("#4123E8","#A6BF19")
+parasites <- ggplot(dfsmc) + 
+  geom_line(aes(x = time_withinhost2, y = parasites, group = run, color = detectable), alpha = 0.6, linewidth = 0.6) + #, color = cleared
+  geom_line(aes(x = time_withinhost2, y = median_parasites, color = detectable), linewidth = 0.6)+
+  geom_hline(aes(yintercept = threshold), linetype = 2, color = 'darkred', linewidth = 1) + # this is the detection limit (followiung Challenger et al.)
+  geom_hline(aes(yintercept = 1e-5), linetype = 2, color = 'darkgreen', linewidth = 1) + # this is the clearance threshold
+  scale_y_log10(labels = scales::label_log(),
+                guide = "axis_logticks") +
+  scale_x_continuous(limits = c(0, max(dfsmc$time_withinhost2)))+
+  scale_color_manual(values = colorsplot) +
+  labs(x = 'Days since start of blood stage',
+       y = 'PRBCs') + 
+  theme_bw() + xlim(c(0,400))+
+  theme(legend.position = 'none')
+smckillplot <- ggplot(dfsmc) + 
+  geom_line(aes(x = time_withinhost2, y = smcrate, group = run, color = detectable), alpha = 0.7, linewidth = 0.8) + #
+  scale_x_continuous(limits = c(0, max(dfsmc$time_withinhost2)))+
+  labs(x = 'Days since start of blood stage',
+       y = 'SMC kill rate') + 
+  scale_color_manual(values = c('grey','maroon') ) +
+  theme_bw() + xlim(c(0,400)) +
+  theme(legend.position = 'none') 
+smcprobplot <- ggplot(dfsmc) + 
+  geom_line(aes(x = time_withinhost2, y = smc_prob, group = run, color = detectable), alpha = 0.7, linewidth = 0.6) + #
+  scale_x_continuous(breaks = c(0, 7, seq(14, max(dfsmc$time_withinhost2), 28)),
+                     limits = c(0, max(dfsmc$time_withinhost2)))+
+  labs(x = 'Days since start of blood stage',
+       y = 'SMC per parasite/uL kill probability') + 
+  scale_color_manual(values = c('grey','darkorchid4') ) +
+  theme_bw() + 
+  theme(legend.position = 'none') + xlim(c(0,400)) 
+numkillsmcplot <- ggplot(dfsmc ) + 
+  geom_line(aes(x = time_withinhost2, y = nkillsmc, group = run, color = detectable), alpha = 0.7, linewidth = 0.6) + #
+  scale_x_continuous(breaks = c(0, 7, seq(14, max(dfsmc$time_withinhost2), 14)),
+                     limits = c(0, max(dfsmc$time_withinhost2)))+
+  geom_hline(aes(yintercept = threshold), linetype = 2, color = 'darkred', linewidth = 1) + # this is the detection limit (followiung Challenger et al.)
+  geom_hline(aes(yintercept = 1e-5), linetype = 2, color = 'darkgreen', linewidth = 1) + # this is the clearance threshold
+  labs(x = 'Days since start of blood stage',
+       y = 'Parasites/uL killed by SMC') + 
+  scale_color_manual(values = colorsplot) +
+  theme_bw() + 
+  scale_y_log10(labels = scales::label_log(),
+                guide = "axis_logticks") +
+  theme(legend.position = 'none') + xlim(c(0,400)) 
+  
+smcplot <- plot_grid(parasites, smckillplot, numkillsmcplot, smcprobplot,
+          labels = 'AUTO')
+saveRDS(smc[[6]], paste0("R:/Kelly/synergy_orderly/figures/data/smc_data", Sys.Date(), '.rds'))
+ggsave('R:/Kelly/synergy_orderly/figures/smcdynamics_plot.pdf', height = 6, width = 8)
 # % of runs with infection at day 60 
 # dfsmc %>% filter(time == max(time), parasites < 10) %>% count() / n_particles
 # dfsmc %>% filter(time == 15, parasites < 10) %>% count() / n_particles
 
 # Both vaccination and SMC
-vaxSMC <- run_model(n_particles = n_particles,
-                    n_threads = 4L,
-                    PEV_on = 1,
-                    SMC_on = 1,
-                    t_inf = t_inf,
-                    tt = tt,
-                    det_mode = FALSE,
-                    VB = VB,
-                    SMC_time = seq(0,100,1),
-                    SMC_kill_vec = rep(0,101)
-                    # max_SMC_kill_rate = max_SMC_kill_rate,
-                    # SMC parameters
-                    # infection_start_day = inf_start,
-                    # season_start_day = season_start_day,
-                    # season_length = season_length,
-                    # smc_interval = smc_interval# smc_timing = 10
-                    ) %>%
+vaxSMC <- run_model(n_particles = runpars$n_particles,
+                     n_threads = 4L,
+                     PEV_on = 1,
+                     SMC_on = 1,
+                     tt= tt,
+                     det_mode = FALSE,
+                     t_inf_vax = runpars$t_inf_vax,
+                     VB = VB,
+                     SMC_time = smckilltime,
+                     SMC_kill_vec = smckillvec_subset,
+                     infection_start_day = runpars$inf_start
+) %>%
   format_data(tt= tt,
-              infection_start_day = inf_start,
-              n_particles = n_particles) %>%
+              infection_start_day = runpars$inf_start,
+              n_particles = runpars$n_particles) %>%
   make_plots() 
-# vaxSMC[[1]]# + xlim(c(0,100))
+vaxSMC[[1]]# + xlim(c(0,100))
 # vaxSMC[[2]]
 # vaxSMC[[3]]
 # vaxSMC[[4]]
 # vaxSMC[[7]]
-# vaxSMC[[9]]
+vaxSMC[['meroinit']] + labs(caption = NULL)
 vaxSMCplt <- plot_grid(vaxSMC[[1]] +labs(caption = NULL, x = 'Days since start of blood stage'), 
                        vaxSMC[[2]]+labs(caption = NULL, x = 'Days since start of blood stage'),
                        vaxSMC[[3]]+labs(caption = NULL, x = 'Days since start of blood stage'),
@@ -250,20 +286,24 @@ ggsave(filename = "vaccine_stoch.png", plot = vaxplt, width = 11, height = 16)
 ggsave(filename = "smc_stoch.png", plot = smcplt, width = 11, height = 16)
 ggsave(filename = "vaxsmc_stoch.png", plot = vaxSMCplt, width = 11, height = 16)
 
-saveRDS(dfnothing, file = str_glue("df_nothing_", n_particles,".rds"))
-saveRDS(dfvax, file = str_glue("df_vax_", n_particles,".rds"))
-saveRDS(dfsmc, file = str_glue("df_smc_", n_particles,".rds"))
-saveRDS(dfvaxsmc, file = str_glue("df_vaxsmc_", n_particles,".rds"))
+# saveRDS(dfnothing, file = str_glue("df_nothing_", runpars$n_particles,".rds"))
+# saveRDS(dfvax, file = str_glue("df_vax_", runpars$n_particles,".rds"))
+# saveRDS(dfsmc, file = str_glue("df_smc_", runpars$n_particles,".rds"))
+# saveRDS(dfvaxsmc, file = str_glue("df_vaxsmc_", runpars$n_particles,".rds"))
 
 # poster
-n <- nothing[[1]] + xlim(c(0,100)) + scale_color_manual(values = c("#F8766D")) +labs(caption = NULL) + theme_bw(base_size = 16) + theme(legend.position = 'none')
-v <- vax[[1]] + xlim(c(0,100)) + scale_color_manual(values = c('#7CAE00'))+labs(caption = NULL)+ theme_bw(base_size = 16) + theme(legend.position = 'none')
-s <- smc[[1]] + xlim(c(0,100)) + scale_color_manual(values = c('#00bfc4'))+labs(caption = NULL)+ theme_bw(base_size = 16) + theme(legend.position = 'none')
-vs <- vaxSMC[[1]] + xlim(c(0,100)) + scale_color_manual(values = c('#c77cff'))+labs(caption = NULL)+ theme_bw(base_size = 16) + theme(legend.position = 'none')
+n <- nothing[[1]] + xlim(c(0,400)) + scale_color_manual(values = c("#F8766D")) +labs(caption = NULL) + theme_bw(base_size = 16) + theme(legend.position = 'none')
+v <- vax[[1]] + xlim(c(0,400)) + scale_color_manual(values = c('#7CAE00'))+labs(caption = NULL)+ theme_bw(base_size = 16) + theme(legend.position = 'none')
+s <- smc[[1]] + xlim(c(0,400)) + scale_color_manual(values = c('#00bfc4'))+labs(caption = NULL)+ theme_bw(base_size = 16) + theme(legend.position = 'none')
+vs <- vaxSMC[[1]] + xlim(c(0,400)) + scale_color_manual(values = c('#c77cff'))+labs(caption = NULL)+ theme_bw(base_size = 16) + theme(legend.position = 'none')
 library(patchwork)
-plots <- n + v + s + vs
+plots <- n + v + s + vs + plot_annotation(tag_levels = 'A')
 # plots
-ggsave(filename = 'trajectories.png', plots, height = 5.5, width = 11)
+saveRDS(nothing[[6]], file = paste0('R:/Kelly/synergy_orderly/figures/data/none_trajectories', Sys.Date(), '.rds'))
+saveRDS(smc[[6]], file = paste0('R:/Kelly/synergy_orderly/figures/data/smc_trajectories', Sys.Date(), '.rds'))
+saveRDS(vax[[6]], file = paste0('R:/Kelly/synergy_orderly/figures/data/vax_trajectories', Sys.Date(), '.rds'))
+saveRDS(vaxSMC[[6]], file = paste0('R:/Kelly/synergy_orderly/figures/data/vaxSMC_trajectories', Sys.Date(), '.rds'))
+ggsave(filename = 'R:/Kelly/synergy_orderly/figures/trajectories.pdf', plots, height = 7, width = 11, dpi = 500)
 
 
 
