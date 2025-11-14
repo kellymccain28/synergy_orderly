@@ -513,7 +513,7 @@ calc_rtss_efficacy <- function(df){
     filter(!is.na(detection_day)) %>%
     # filter(infectious_bite_day>0) %>% # to get rid of the build up 
     mutate(days_since_rtss = detection_day,
-           weeks_since_rtss = floor(detection_day/7)) %>%
+           weeks_since_rtss = ceiling(detection_day/7)) %>%
     group_by(arm, sim_id, weeks_since_rtss) %>%
     summarize(cases = n(),
               .groups = 'drop') %>%
@@ -558,7 +558,7 @@ calc_rtss_efficacy_cumul <- function(df, params_row){
     filter(!is.na(detection_day)) %>%
     # filter(infectious_bite_day>0) %>% # to get rid of the build up 
     mutate(days_since_rtss = detection_day,
-           weeks_since_rtss = floor(detection_day/7)) %>%
+           weeks_since_rtss = ceiling(detection_day/7)) %>%
     group_by(arm, sim_id, weeks_since_rtss) %>%
     summarize(cases = n(),
               .groups = 'drop') %>%
@@ -568,8 +568,8 @@ calc_rtss_efficacy_cumul <- function(df, params_row){
     ungroup() %>% group_by(arm) %>%
     mutate(pop = ifelse(arm == 'none', n_none, n_rtss)) %>%
     mutate(cumulcases = cumsum(cases),
-             cumulprop = cumulcases / pop) %>%
-      ungroup() %>% select(-cases, -pop)
+           cumulprop = cumulcases / pop) %>%
+    ungroup() %>% select(-cases, -pop)
     
     # Extract no intervention  
     none <- df2 %>%
@@ -644,7 +644,7 @@ calc_smc_efficacy_cumul <- function(df, params_row, by_week = TRUE){
              cumulcases_smc = cumulcases) %>%
       select(-arm)
     
-    d <- left_join(none, smc, by = c('sim_id','weeks_since_smc'))
+    d <- left_join(none, smc, by = 'weeks_since_smc')
     d$efficacy <-  1 - (d$cumulprop_smc / d$cumulprop_none)
   }
   
@@ -677,7 +677,7 @@ calc_smc_efficacy_cumul <- function(df, params_row, by_week = TRUE){
              cumulcases_smc = cumulcases) %>%
       select(-arm)
     
-    d <- left_join(noneday, smcday, c('sim_id','weeks_since_smc'))
+    d <- left_join(noneday, smcday, 'days_since_smc')
     d$efficacy <-  1 - (d$cumulprop_smc / d$cumulprop_none)
   }
   
@@ -702,7 +702,7 @@ calc_smc_efficacy <- function(df, params_row, by_week = TRUE){
         if(length(prior) == 0) NA_real_ else max(prior)
       })) %>%
       mutate(days_since_smc = detection_day - most_recent_smc,
-             weeks_since_smc = floor(days_since_smc / 7)
+             weeks_since_smc = ceiling(days_since_smc / 7)
       ) %>%
       group_by(arm, weeks_since_smc) %>%
       summarise(cases = n(),

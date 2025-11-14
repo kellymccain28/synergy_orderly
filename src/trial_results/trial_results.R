@@ -10,6 +10,7 @@ library(SurvRegCensCov)
 library(haven)
 library(cyphr)
 library(lubridate)
+library(purrr)
 
 key <- cyphr::data_key()
 
