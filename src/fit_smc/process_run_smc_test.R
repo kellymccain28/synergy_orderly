@@ -6,18 +6,20 @@ path = "R:/Kelly/synergy_orderly"
 
 # Observed efficacy extracted from figure in SI of Hayley's paper 10.1016/S2214-109X(22)00416-8
 observed_efficacy <- read.csv(paste0(path, '/shared/smc_fits_hayley.csv'))
-lhs_parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc2025-11-10.rds")#lhs_parameters_0411.rds
+lhs_parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc_2025-11-11_2.rds")#lhs_parameters_0411.rds
 effweekly <- purrr::map_df(lhs_parameters, 'efficacy_weekly')
 effdaily <- purrr::map_df(lhs_parameters, 'efficacy_daily')
+effcumulweekly <- purrr::map_df(lhs_parameters, 'efficacy_weekly_cumul')
+effcumuldaily <- purrr::map_df(lhs_parameters, 'efficacy_daily_cumul')
 lhspars <- purrr::map_df(lhs_parameters, 'params')
 lhsparasit <- purrr::map_df(lhs_parameters, 'parasitemia', .id = "sim_id")
 lhsinfrecords <- purrr::map_df(lhs_parameters, 'infection_records', .id = 'sim_id')
 
 # # Look at efficacy output
-ggplot(effdaily %>% filter(days_since_smc < 70)) +
-  geom_point(aes(x = days_since_smc, y = efficacy, group = sim_id, color = sim_id), alpha = 0.1) +
+ggplot(effdaily %>% filter(days_since_smc < 70 & days_since_smc %% 2 == 0)) +
+  geom_point(aes(x = days_since_smc, y = efficacy, group = sim_id, color = sim_id), alpha = 0.2) +
   geom_line(aes(x = days_since_smc, y = efficacy, group = sim_id, color = sim_id), alpha = 0.2) +
-  ylim(c(-0.5, 1)) +
+  ylim(c(-0.5, 1)) + #xlim(c(115, 170)) +
   geom_line(data = observed_efficacy, aes(x = day_since_smc, y = efficacy)) +
   geom_point(data = observed_efficacy, aes(x = day_since_smc, y = efficacy)) +
   theme_minimal() +
@@ -33,8 +35,32 @@ ggplot(effweekly %>% filter(weeks_since_smc < 10)) +
   theme_minimal() +
   theme(legend.position = 'none')
 
+# # Look at efficacy output when summarizing by cumulative proportion of population infected (not total incidence)
+ggplot(effcumuldaily %>% filter(days_since_smc < 70)) +
+  geom_point(aes(x = days_since_smc, y = efficacy, group = sim_id, color = sim_id), alpha = 0.2) +
+  geom_line(aes(x = days_since_smc, y = efficacy, group = sim_id, color = sim_id), alpha = 0.2) +
+  ylim(c(-0.5, 1)) + #xlim(c(115, 170)) +
+  geom_line(data = observed_efficacy, aes(x = day_since_smc, y = efficacy)) +
+  geom_point(data = observed_efficacy, aes(x = day_since_smc, y = efficacy)) +
+  theme_minimal() +
+  theme(legend.position = 'none')
+
+ggplot(effcumulweekly %>% filter(weeks_since_smc < 10)) +
+  geom_point(data = effcumuldaily%>% filter(days_since_smc < 70), aes(x = days_since_smc/7, y = efficacy, group = sim_id), color = 'grey', alpha = 0.1) +
+  geom_line(data = effcumuldaily%>% filter(days_since_smc < 70), aes(x = days_since_smc/7, y = efficacy, group = sim_id), color = 'grey', alpha = 0.1) +
+  geom_point(aes(x = weeks_since_smc+1, y = efficacy, group = sim_id, color = sim_id), alpha = 0.1) +
+  geom_line(aes(x = weeks_since_smc+1, y = efficacy, group = sim_id, color = sim_id), alpha = 0.2) +
+  ylim(c(-0.3, 1)) +
+  geom_hline(aes(yintercept = 0), color = 'darkred', linetype = 2) +
+  geom_line(data = observed_efficacy, aes(x = day_since_smc/7+1, y = efficacy)) +
+  geom_point(data = observed_efficacy, aes(x = day_since_smc/7+1, y = efficacy)) +
+  scale_x_continuous(breaks = seq(0,9,1)) +
+  theme_minimal() +
+  labs(x = 'Weeks since SMC') +
+  theme(legend.position = 'none')
+
 # # Assume observed data has Normal measurement error
-calculate_likelihood <- function(observed, predicted, sigma = 0.1) {
+calculate_likelihood <- function(observed, predicted, sigma = 0.05) {
   # neg log-likelihood
   -sum(dnorm(observed, mean = predicted, sd = sigma, log = TRUE), na.rm = TRUE)
 }
@@ -65,9 +91,10 @@ likelihoods <- eff %>%
 top_runs <- likelihoods %>% slice_head(n = 10)
 
 # Plot them
-eff %>%
+effcumuldaily %>%
   filter(sim_id %in% top_runs$sim_id &
-           days_since_smc < 10*7
+           days_since_smc < 10*7 &
+           days_since_smc %%2 == 0
          # weeks_since_smc < 10
   ) %>%
   # ggplot(aes(x = weeks_since_smc*7, y = efficacy, group = sim_id, color = as.factor(sim_id))) +
@@ -102,7 +129,8 @@ theme_minimal() + ylim(c(-0.5, 1)) + theme(legend.position = 'none')
 
 eff %>%
   filter(sim_id %in% top_runs$sim_id &
-           days_since_smc < 10*5
+           days_since_smc < 10*5 &
+           days_since_smc %% 2== 0
          # weeks_since_smc < 10
   ) %>%
   ggplot() +
