@@ -200,14 +200,14 @@ parasites <- ggplot(dfsmc) +
   scale_x_continuous(limits = c(0, max(dfsmc$time_withinhost2)))+
   scale_color_manual(values = colorsplot) +
   labs(x = 'Days since start of blood stage',
-       y = 'PRBCs') + 
+       y = 'Parasites/uL') + 
   theme_bw() + xlim(c(0,400))+
   theme(legend.position = 'none')
 smckillplot <- ggplot(dfsmc) + 
   geom_line(aes(x = time_withinhost2, y = smcrate, group = run, color = detectable), alpha = 0.7, linewidth = 0.8) + #
   scale_x_continuous(limits = c(0, max(dfsmc$time_withinhost2)))+
   labs(x = 'Days since start of blood stage',
-       y = 'SMC kill rate') + 
+       y = 'SMC per-parasite clearance rate\nper 2-day timestep') + 
   scale_color_manual(values = c('grey','maroon') ) +
   theme_bw() + xlim(c(0,400)) +
   theme(legend.position = 'none') 
@@ -216,7 +216,7 @@ smcprobplot <- ggplot(dfsmc) +
   scale_x_continuous(breaks = c(0, 7, seq(14, max(dfsmc$time_withinhost2), 28)),
                      limits = c(0, max(dfsmc$time_withinhost2)))+
   labs(x = 'Days since start of blood stage',
-       y = 'SMC per parasite/uL kill probability') + 
+       y = 'SMC per parasite/uL\nclearance probability') + 
   scale_color_manual(values = c('grey','darkorchid4') ) +
   theme_bw() + 
   theme(legend.position = 'none') + xlim(c(0,400)) 
@@ -227,7 +227,7 @@ numkillsmcplot <- ggplot(dfsmc ) +
   geom_hline(aes(yintercept = threshold), linetype = 2, color = 'darkred', linewidth = 1) + # this is the detection limit (followiung Challenger et al.)
   geom_hline(aes(yintercept = 1e-5), linetype = 2, color = 'darkgreen', linewidth = 1) + # this is the clearance threshold
   labs(x = 'Days since start of blood stage',
-       y = 'Parasites/uL killed by SMC') + 
+       y = 'Parasites/uL cleared by SMC') + 
   scale_color_manual(values = colorsplot) +
   theme_bw() + 
   scale_y_log10(labels = scales::label_log(),
