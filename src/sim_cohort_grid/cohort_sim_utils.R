@@ -26,10 +26,14 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
   tstep <- base_inputs$tstep
   t_liverstage <- base_inputs$t_liverstage
   country_to_run <- base_inputs$country
-  country_short <- str_sub(country_to_run, 1, 1)
+  country_short <- base_inputs$country_short
+  
+  # Used when allow_superinfections = FALSE to move treated people to be no longer immune
+  treatment_probability <- 1
+  successful_treatment_probability <- 1
   
   # now, just do 100 timesteps (200 days) for each infection, which is plenty of time 
-  ts <- 100
+  ts <- trial_ts
   tt <- seq(1, ts, by = tstep)#seq(0, ((trial_ts + burnin) - t)/divide, by = tstep)
   
   # Initialize storage for this simulation
@@ -58,33 +62,15 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
   # this is time since smc where the day is relative to the first day of the simulation (not including burnin)
   if("smc_dose_days" %in% names(params_row)){ 
     metadata_df$smc_dose_days <- params_row$smc_dose_days
-    } 
+  } 
   
-  # metadata_df$time_since_smc <- lapply(smc_dose_days,
-  #                                      calc_time_since_dose,
-  #                                      days = 0:(trial_ts+burnin))
-  # # This creates a vector of smc kill rates that have 0s padded at the beginning for the number of burnin ts / 2
-  # # the entire vector is 1/2 of the length of the number of timesteps (every 2 is summed)
-  # metadata_df$smckillvec <- lapply(metadata_df$time_since_smc,
-  #                                  function(.){
-  #                                    kill <- max_SMC_kill_rate * exp(-(./ smc_lambda)^smc_kappa)  # calculate kill rate with hill function
-  #                                    # kill <- ifelse(is.na(kill), 0, kill)
-  #                                    kill[is.na(kill)] <- 0                                       # change NAs (when there is no SMC) to 0
-  #                                    kill <- c(rep(0, burnin), kill)                              # pad front of vector with 0s for burnin period so that SMC begins after burnin
-  #                                    # Sum every two consecutive days
-  #                                    n <- length(kill)
-  #                                    if (n %% 2 == 1) kill <- c(kill, kill[n])                         # pad with last value if odd length
-  #                                    colSums(matrix(kill, nrow = 2))
-  # 
-  #                                    # kill <- kill[seq_along(kill) %% 2 == 1]                      # keep only odd indices since timesteps in the within-host model are 2 days
-  #                                  })
   metadata_df$smckillvec <- lapply(metadata_df$smc_dose_days, get_smc_vectors,
-                                   ts = ts,
+                                   ts = trial_ts,
                                    burnin = base_inputs$burnin,
                                    max_SMC_kill_rate = max_SMC_kill_rate,
                                    lambda = smc_lambda,
                                    kappa = smc_kappa)
-    
+  
   # hill? plot(1 - (1/(1+(3.7/seq(0,6,0.1))^4))) plot(1 - (1/(1+(25/seq(0,60,1))^3.2)))
   message('Calculated smc kill rate vectors for each child')
   # this kill vector has 25 2-day timesteps for burnin=50, then 548 2-day timesteps for the 1095 day simulation  
@@ -123,30 +109,50 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
           ungroup()
         
         # Find who should recover today (day t)
-        recovery_today <- (most_recent$recovery_day + burnin) == t # add burnin because the recovery day calculation is the external time but for this siulation we want ot know if on time t they could be infected
+        recovery_today <- (most_recent$recovery_day + burnin) == t #????? & most_recent$treatment_successful???? #add burnin because the recovery day calculation is the external time but for this siulation we want ot know if on time t they could be infected
         # if the recovery day equals today then these are the ones that are newly susceptible 
         if (any(recovery_today)) {
           recovering_kids <- most_recent$rid[recovery_today]
           susceptibles[recovering_kids] <- TRUE
         }
+        message('recovered today: ', recovery_today)
         
+        # Children are not susceptible if within 7 days of last detectable infection
+        within_7_days <- (t - (most_recent$detection_day + burnin)) < 7
+        if (any(within_7_days)) {
+          recent_infection_kids <- most_recent$rid[within_7_days]
+          susceptibles[recent_infection_kids] <- FALSE
+        }
+        message("within 7 days: ", within_7_days)
+        
+        # Successfully treated children are not susceptible from treatment day until recovery
+        treated_and_protected <- most_recent$treatment_successful & 
+          (t >= (most_recent$treatment_day + burnin)) & 
+          (t < (most_recent$recovery_day + burnin))
+        if (any(treated_and_protected)) {
+          protected_kids <- most_recent$rid[treated_and_protected]
+          susceptibles[protected_kids] <- FALSE
+        }
+        message("treated and protected: ", treated_and_protected)
       }
     }
     
     # Avoid superinfection -- if a kid is bitten and they aren't susceptible they are not added to the list of bit_kids
-    bit_kids_t <- c()
-    j <- 1
-    for (kid in bit_kids){
-      if (susceptibles[kid]){ 
-        bit_kids_t[j] <- kid # Add this kid to the filtered list if the kid is susceptible
-        
-        j <- j + 1 # move to the next position in the filtered list 
-      }
-    }
+    # bit_kids_t <- c()
+    # j <- 1
+    # for (kid in bit_kids){
+    #   if (susceptibles[kid]){ 
+    #     bit_kids_t[j] <- kid # Add this kid to the filtered list if the kid is susceptible
+    #     
+    #     j <- j + 1 # move to the next position in the filtered list 
+    #   }
+    # }
+    bit_kids_susceptible <- bit_kids[susceptibles[bit_kids]]
     if(t %% 10 == 0){
-      message(str_glue('{length(bit_kids_t)} / {length(bit_kids)} bit kids were susceptible on time ', t, ' out of ', (trial_ts+burnin)))
+      message(str_glue('{length(bit_kids_susceptible)} / {length(bit_kids)} bit kids were susceptible on time ', t, ' out of ', (trial_ts+burnin)))
     }
-    bit_kids <- bit_kids_t
+    bit_kids <- bit_kids_susceptible
+    rm(bit_kids_susceptible)
     
     if(length(bit_kids) > 0) {
       # Estimate antibody level for each bitten child 
@@ -205,6 +211,8 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
       
       # Find time length until end of follow-up to run infection sim  
       tt_until_end_cohort <- seq(1, length(SMC_kill_vec[[1]]))#seq(1, ((trial_ts + burnin) - t)/2, by = tstep)#seq(1, 100, by = tstep)#
+      # message("timesteps to run individual sims:", tt_until_end_cohort)
+      # message('smc vector: ', SMC_kill_vec[[1]])
       
       # Run within-host simulation with current parameters
       params_df <- data.frame(
@@ -218,6 +226,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
         t_toboost1 = t_toboost1_vec,
         t_toboost2 = t_toboost2_vec
       )
+      
       
       outputs <- pmap(params_df, 
                       function(PEV_on, 
@@ -247,6 +256,37 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
                         return(result)
                       })
       
+      # Check if infections within 7 days of previous detection (continuations)
+      # is_continuation <- rep(FALSE, length(bit_kids))
+      # if (exists("infection_records") && nrow(infection_records) > 0) {
+      #   detected_records <- infection_records[!is.na(infection_records$detection_day), ]
+      #   if (nrow(detected_records) > 0) {
+      #     for (i in seq_along(bit_kids)) {
+      #       kid_history <- detected_records[detected_records$rid == bit_kids[i], ]
+      #       if (nrow(kid_history) > 0) {
+      #         most_recent_detection <- max(kid_history$detection_day)
+      #         # Check if current bite is within 7 days of last detection
+      #         is_continuation[i] <- ((t - burnin) - most_recent_detection) < 7
+      #       }
+      #     }
+      #   }
+      # }
+      
+      # Only update the susceptibility vector if allow_superinfections == FALSE
+      if(!allow_superinfections){
+        # mark as non-susceptible only those who have a valid detection_day (and thus are treated)
+        detected_kids <- bit_kids[!is.na(new_records$detection_day)]
+        # probability of treatmnet can be added here: 
+        receives_treatment <- runif(length(detected_kids)) < treatment_probability
+        treatment_efficacy <- runif(length(detected_kids)) < successful_treatment_probability
+        treatment_successful <- receives_treatment & treatment_efficacy
+        kids_treated_successfully <- detected_kids[treatment_successful]
+        # print(detected_kids)
+        if (length(kids_treated_successfully) > 0) {
+          susceptibles[kids_treated_successfully] <- FALSE
+        } 
+      }
+      
       # Vectorized data frame creation of infection records
       new_records <- data.frame(
         rid = bit_kids,
@@ -265,16 +305,6 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
       ) 
       
       infection_records <- rbind(infection_records, new_records)
-      
-      # Only update the susceptibility vector if we are not allowing superinfections 
-      if(!allow_superinfections){
-        # mark as non-susceptible only those who have a valid detection_day
-        detected_kids <- bit_kids[!is.na(new_records$detection_day)]
-        # print(detected_kids)
-        if (length(detected_kids) > 0) {
-          susceptibles[detected_kids] <- FALSE
-        } 
-      }
       
       if(return_parasitemia){
         # Vectorized parasitemia storage creation
@@ -570,23 +600,23 @@ calc_rtss_efficacy_cumul <- function(df, params_row){
     mutate(cumulcases = cumsum(cases),
            cumulprop = cumulcases / pop) %>%
     ungroup() %>% select(-cases, -pop)
-    
-    # Extract no intervention  
-    none <- df2 %>%
-      filter(arm == 'none') %>% 
-      rename(cumulprop_none = cumulprop,
-             cumulcases_none = cumulcases) %>%
-      select(-arm)
-    
-    # Extract SMC cases 
-    rtss <- df2 %>% 
-      filter(arm == 'rtss')%>% 
-      rename(cumulprop_rtss = cumulprop,
-             cumulcases_rtss = cumulcases) %>%
-      select(-arm)
-    
-    d <- left_join(none, rtss, by = c('sim_id','weeks_since_rtss'))
-    d$efficacy <-  1 - (d$cumulprop_rtss / d$cumulprop_none)
+  
+  # Extract no intervention  
+  none <- df2 %>%
+    filter(arm == 'none') %>% 
+    rename(cumulprop_none = cumulprop,
+           cumulcases_none = cumulcases) %>%
+    select(-arm)
+  
+  # Extract SMC cases 
+  rtss <- df2 %>% 
+    filter(arm == 'rtss')%>% 
+    rename(cumulprop_rtss = cumulprop,
+           cumulcases_rtss = cumulcases) %>%
+    select(-arm)
+  
+  d <- left_join(none, rtss, by = c('sim_id','weeks_since_rtss'))
+  d$efficacy <-  1 - (d$cumulprop_rtss / d$cumulprop_none)
   
   return(d)
   
@@ -598,7 +628,7 @@ calc_smc_efficacy_cumul <- function(df, params_row, by_week = TRUE){
   smc_dose_days_ <- unlist(params_row$smc_dose_days)
   n_smc <- nrow(metadata_df[metadata_df$arm == 'smc',])
   n_none <- nrow(metadata_df[metadata_df$arm == 'none',])
-
+  
   # get first infection 
   df_ <- df %>%
     filter(!is.na(detection_day)) %>%
@@ -655,7 +685,7 @@ calc_smc_efficacy_cumul <- function(df, params_row, by_week = TRUE){
       summarise(cases = n(),
                 .groups = 'drop') %>%
       tidyr::complete(arm, days_since_smc = seq(min(days_since_smc, na.rm = TRUE), 
-                                                 max(days_since_smc, na.rm = TRUE), 1), 
+                                                max(days_since_smc, na.rm = TRUE), 1), 
                       fill = list(cases = 0)) %>%
       ungroup() %>% group_by(arm) %>%
       mutate(pop = ifelse(arm == 'none', n_none, n_smc)) %>%
@@ -682,7 +712,7 @@ calc_smc_efficacy_cumul <- function(df, params_row, by_week = TRUE){
   }
   
   return(d)
-
+  
 }
 
 # function to calculate efficacy of SMC versus no intervention -- incidence based
@@ -744,7 +774,7 @@ calc_smc_efficacy <- function(df, params_row, by_week = TRUE){
       summarise(cases = n(),
                 .groups = 'drop') %>%
       tidyr::complete(arm, days_since_smc = seq(min(days_since_smc, na.rm = TRUE), 
-                                                 max(days_since_smc, na.rm = TRUE), 1), 
+                                                max(days_since_smc, na.rm = TRUE), 1), 
                       fill = list(cases = 0)) %>%
       mutate(pop = ifelse(arm == 'none', n_none, n_smc)) %>%
       mutate(inci = cases / pop) %>% ungroup() %>%
