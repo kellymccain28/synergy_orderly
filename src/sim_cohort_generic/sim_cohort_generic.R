@@ -123,7 +123,7 @@ metadata_df <- data.frame(
   mutate(t_to_boost1 = 365,
          t_to_boost2 = 730,
          country = country_to_run) %>%
-  mutate(rid_original =paste0('g', sprintf("%04d", rid)),
+  mutate(rid_original =paste0(country_short, sprintf("%04d", rid)),
          country = 'generic',
          v1_date = as.Date('2017-04-01'))
 
