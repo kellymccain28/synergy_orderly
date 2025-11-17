@@ -62,7 +62,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
   # this is time since smc where the day is relative to the first day of the simulation (not including burnin)
   if("smc_dose_days" %in% names(params_row)){ 
     metadata_df$smc_dose_days <- params_row$smc_dose_days
-  } 
+    } 
   
   metadata_df$smckillvec <- lapply(metadata_df$smc_dose_days, get_smc_vectors,
                                    ts = trial_ts,
@@ -70,7 +70,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
                                    max_SMC_kill_rate = max_SMC_kill_rate,
                                    lambda = smc_lambda,
                                    kappa = smc_kappa)
-  
+    
   # hill? plot(1 - (1/(1+(3.7/seq(0,6,0.1))^4))) plot(1 - (1/(1+(25/seq(0,60,1))^3.2)))
   message('Calculated smc kill rate vectors for each child')
   # this kill vector has 25 2-day timesteps for burnin=50, then 548 2-day timesteps for the 1095 day simulation  
@@ -600,23 +600,23 @@ calc_rtss_efficacy_cumul <- function(df, params_row){
     mutate(cumulcases = cumsum(cases),
            cumulprop = cumulcases / pop) %>%
     ungroup() %>% select(-cases, -pop)
-  
-  # Extract no intervention  
-  none <- df2 %>%
-    filter(arm == 'none') %>% 
-    rename(cumulprop_none = cumulprop,
-           cumulcases_none = cumulcases) %>%
-    select(-arm)
-  
-  # Extract SMC cases 
-  rtss <- df2 %>% 
-    filter(arm == 'rtss')%>% 
-    rename(cumulprop_rtss = cumulprop,
-           cumulcases_rtss = cumulcases) %>%
-    select(-arm)
-  
-  d <- left_join(none, rtss, by = c('sim_id','weeks_since_rtss'))
-  d$efficacy <-  1 - (d$cumulprop_rtss / d$cumulprop_none)
+    
+    # Extract no intervention  
+    none <- df2 %>%
+      filter(arm == 'none') %>% 
+      rename(cumulprop_none = cumulprop,
+             cumulcases_none = cumulcases) %>%
+      select(-arm)
+    
+    # Extract SMC cases 
+    rtss <- df2 %>% 
+      filter(arm == 'rtss')%>% 
+      rename(cumulprop_rtss = cumulprop,
+             cumulcases_rtss = cumulcases) %>%
+      select(-arm)
+    
+    d <- left_join(none, rtss, by = c('sim_id','weeks_since_rtss'))
+    d$efficacy <-  1 - (d$cumulprop_rtss / d$cumulprop_none)
   
   return(d)
   
@@ -628,7 +628,7 @@ calc_smc_efficacy_cumul <- function(df, params_row, by_week = TRUE){
   smc_dose_days_ <- unlist(params_row$smc_dose_days)
   n_smc <- nrow(metadata_df[metadata_df$arm == 'smc',])
   n_none <- nrow(metadata_df[metadata_df$arm == 'none',])
-  
+
   # get first infection 
   df_ <- df %>%
     filter(!is.na(detection_day)) %>%
@@ -685,7 +685,7 @@ calc_smc_efficacy_cumul <- function(df, params_row, by_week = TRUE){
       summarise(cases = n(),
                 .groups = 'drop') %>%
       tidyr::complete(arm, days_since_smc = seq(min(days_since_smc, na.rm = TRUE), 
-                                                max(days_since_smc, na.rm = TRUE), 1), 
+                                                 max(days_since_smc, na.rm = TRUE), 1), 
                       fill = list(cases = 0)) %>%
       ungroup() %>% group_by(arm) %>%
       mutate(pop = ifelse(arm == 'none', n_none, n_smc)) %>%
@@ -712,7 +712,7 @@ calc_smc_efficacy_cumul <- function(df, params_row, by_week = TRUE){
   }
   
   return(d)
-  
+
 }
 
 # function to calculate efficacy of SMC versus no intervention -- incidence based
@@ -774,7 +774,7 @@ calc_smc_efficacy <- function(df, params_row, by_week = TRUE){
       summarise(cases = n(),
                 .groups = 'drop') %>%
       tidyr::complete(arm, days_since_smc = seq(min(days_since_smc, na.rm = TRUE), 
-                                                max(days_since_smc, na.rm = TRUE), 1), 
+                                                 max(days_since_smc, na.rm = TRUE), 1), 
                       fill = list(cases = 0)) %>%
       mutate(pop = ifelse(arm == 'none', n_none, n_smc)) %>%
       mutate(inci = cases / pop) %>% ungroup() %>%
