@@ -27,7 +27,7 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
   # Load the within-host model
   gen_bs <- odin2::odin(paste0(path, "/shared/smc_rtss.R"))
   # Source the utils functions
-  source(paste0(path, "/src/sim_cohort_grid/cohort_sim_utils.R"))
+  source(paste0(path, "/shared/cohort_sim_utils.R"))
   # Source processing functions
   source(paste0(path, "/shared/likelihood.R"))
   
@@ -37,7 +37,7 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
   country_short = 'g'
   n_param_sets = n_param_sets
   N = N
-  vax_day = 0 # unlike hte model sim, this is in days (not timesteps)
+  vax_day = 0 # unlike the model sim, this is in days (not timesteps)
   
   n_particles = 1L
   n_threads = 1L
@@ -56,7 +56,8 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
     VB = VB,
     tstep = tstep,
     t_liverstage = t_liverstage,
-    country = country_to_run
+    country = country_to_run,
+    country_short = 'g'
   )
   
   # Set up grid of parameters
@@ -102,7 +103,7 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
   
   # Make list of parameters instead of df
   params_list <- split(parameters_df, seq(nrow(parameters_df))) #%>%
-  saveRDS(parameters_df, 'parameters_df.rds')
+  saveRDS(parameters_df, file.path(path, 'parameters_df.rds'))
   # Make metadata
   # Day of intervention (0 = start of follow-up; - values are before follow-up; + values after follow-up) - where 0 is also end of burnin
   # these get converted later to the correct directon - i.e. vaccine before follow-up will be +, smc before follow up will be -
@@ -126,6 +127,7 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
            country = 'generic',
            v1_date = as.Date('2017-04-01'))
   
+  saveRDS(metadata_df, file.path(path, "metadata_df.rds"))
   
   # Run simulation
   cluster_cores <- Sys.getenv("CCP_NUMCPUS")
@@ -142,7 +144,7 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
                          o <- run_cohort_simulation(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
                                                     metadata_df,
                                                     base_inputs,
-                                                    output_dir = 'R:/Kelly/synergy_orderly/src/fit_smc/simulation_outputs',
+                                                    output_dir = 'R:/Kelly/synergy_orderly/src/fit_smc/simulation_outputs/',
                                                     allow_superinfections = TRUE,
                                                     return_parasitemia = TRUE,
                                                     save_outputs = FALSE)
@@ -189,7 +191,7 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
       library(mgcv)
       library(umbrella)
       library(lhs)
-      # library(orderly2)
+      # library(orderly)
       library(retry)
       library(cyphr)
       library(survival)
@@ -199,7 +201,7 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
       library(purrr)
       library(stringr)
       
-      source('R:/Kelly/synergy_orderly/src/sim_cohort_grid/cohort_sim_utils.R')
+      source('R:/Kelly/synergy_orderly/shared/cohort_sim_utils.R')
       source('R:/Kelly/synergy_orderly/shared/helper_functions.R')
       source("R:/Kelly/synergy_orderly/shared/rtss.R")
       source("R:/Kelly/synergy_orderly/shared/likelihood.R")
@@ -220,7 +222,7 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
                                          o <- run_cohort_simulation(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
                                                                     metadata_df,
                                                                     base_inputs,
-                                                                    output_dir = 'R:/Kelly/synergy_orderly/src/fit_smc/simulation_outputs',
+                                                                    output_dir = 'R:/Kelly/synergy_orderly/src/fit_smc/simulation_outputs/',
                                                                     allow_superinfections = TRUE,
                                                                     return_parasitemia = TRUE,
                                                                     save_outputs = FALSE)
@@ -258,5 +260,6 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
     
     # Save all results 
     saveRDS(results2, paste0("R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc_",Sys.Date(),"_2.rds"))
+    saveRDS(metadata_df, paste0('R:Kelly/synergy_orderly/src/fit_smc/outputs/metadata_', Sys.Date(), '.rds'))
   }
 }
