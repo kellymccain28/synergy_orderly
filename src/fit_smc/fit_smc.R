@@ -25,7 +25,7 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
   # Load the within-host model
   gen_bs <- odin2::odin(paste0(path, "/shared/smc_rtss.R"))
   # Source the utils functions
-  source(paste0(path, "/src/sim_cohort_grid/cohort_sim_utils.R"))
+  source(paste0(path, "/shared/cohort_sim_utils.R"))
   # Source processing functions
   source(paste0(path, "/shared/likelihood.R"))
   source(paste0(path, "/src/fit_smc/calculate_efficacy_likelihood.R"))
@@ -60,26 +60,24 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
   
   # Set up grid of parameters
   param_ranges <- list(
-    max_SMC_kill_rate = c(5, 25),# parasites per uL per 2-day timestep
-    lambda = c(17, 50),
-    kappa = c(0.1, 10)#,
-    # season_start_day = 50#c(50, 160)  # days from start of sim
+    max_SMC_kill_rate = c(1, 10),# parasites per uL per 2-day timestep
+    lambda = c(5, 50),
+    kappa = c(0.01, 5)
   )
-  # Generate LHS samples
+  # # Generate LHS samples
   A <- randomLHS(n_param_sets, 3)
   # Scale to parameter ranges
   params_df <- data.frame(
     max_SMC_kill_rate = qunif(A[,1], param_ranges$max_SMC_kill_rate[1], param_ranges$max_SMC_kill_rate[2]),
     lambda = qunif(A[,2], param_ranges$lambda[1], param_ranges$lambda[2]),
-    kappa = qunif(A[,3], param_ranges$kappa[1], param_ranges$kappa[2])#,
-    # season_start_day = round(qunif(A[,4], param_ranges$season_start_day[1], param_ranges$season_start_day[2]))
+    kappa = qunif(A[,3], param_ranges$kappa[1], param_ranges$kappa[2])
   )
   # "fitted" parameter values for SMC
-  # params_df <- params_df <- data.frame(
-  #   max_SMC_kill_rate = rep(9.11, n_param_sets),
-  #   lambda = rep(13.08, n_param_sets),
-  #   kappa = rep(0.43, n_param_sets)
-  # )
+  params_df <- params_df <- data.frame(
+    max_SMC_kill_rate = rep(3, n_param_sets),
+    lambda = rep(13.08, n_param_sets),
+    kappa = rep(0.43, n_param_sets)
+  )
   params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", sim_allow_superinfections)
   
   prob_bite_generic <- readRDS(paste0(path, '/archive/fit_rainfall/20251009-144330-1d355186/prob_bite_generic.rds'))
@@ -130,47 +128,50 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
   
   
   # Get best LHS values from previous runs of LHS -- 
-  observed_efficacy <- read.csv(paste0(path, '/shared/smc_fits_hayley_week.csv'))
-  `efficacy_weekly_2025-10-15` <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/efficacy_weekly_2025-10-15.rds") %>%
-    mutate(sim_id = paste0(sim_id, '1015'))
-  `efficacy_weekly_2025-10-14` <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/efficacy_weekly_2025-10-14.rds") %>%
-    mutate(sim_id = paste0(sim_id, '1014'))
-  `efficacy_weekly_2025-10-14_100` <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/efficacy_weekly_2025-10-14_100.rds") %>%
-    mutate(sim_id = paste0(sim_id, '1014_1'))
-  efficacy_results <- bind_rows(`efficacy_weekly_2025-10-14`, `efficacy_weekly_2025-10-14_100`, `efficacy_weekly_2025-10-15`)
-  `parameters_2025-10-15` <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/parameters_2025-10-15.rds")%>%
-    mutate(sim_id = paste0(sim_id, '1015'))
-  `parameters_2025-10-14` <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/parameters_2025-10-14.rds") %>%
-    mutate(sim_id = paste0(sim_id, '1014'))
-  `parameters_2025-10-14_100` <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/parameters_2025-10-14_100.rds") %>%
-    mutate(sim_id = paste0(sim_id, '1014_1'))
-  pars <- bind_rows(`parameters_2025-10-14`, `parameters_2025-10-14_100`, `parameters_2025-10-15`)
+  observed_efficacy <- read.csv(paste0(path, '/shared/smc_fits_hayley.csv')) %>%
+    mutate(weeks_since_smc = ceiling(day_since_smc / 7)) %>%
+    group_by(weeks_since_smc) %>%
+    mutate(efficacy = mean(efficacy)) # because teh first week should be 1 not 0
+  # `efficacy_weekly_2025-10-15` <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/efficacy_weekly_2025-10-15.rds") %>%
+  #   mutate(sim_id = paste0(sim_id, '1015'))
+  # `efficacy_weekly_2025-10-14` <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/efficacy_weekly_2025-10-14.rds") %>%
+  #   mutate(sim_id = paste0(sim_id, '1014'))
+  # `efficacy_weekly_2025-10-14_100` <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/efficacy_weekly_2025-10-14_100.rds") %>%
+  #   mutate(sim_id = paste0(sim_id, '1014_1'))
+  # efficacy_results <- bind_rows(`efficacy_weekly_2025-10-14`, `efficacy_weekly_2025-10-14_100`, `efficacy_weekly_2025-10-15`)
+  # `parameters_2025-10-15` <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/parameters_2025-10-15.rds")%>%
+  #   mutate(sim_id = paste0(sim_id, '1015'))
+  # `parameters_2025-10-14` <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/parameters_2025-10-14.rds") %>%
+  #   mutate(sim_id = paste0(sim_id, '1014'))
+  # `parameters_2025-10-14_100` <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/parameters_2025-10-14_100.rds") %>%
+  #   mutate(sim_id = paste0(sim_id, '1014_1'))
+  # pars <- bind_rows(`parameters_2025-10-14`, `parameters_2025-10-14_100`, `parameters_2025-10-15`)
 
-  # Assume observed data has Normal measurement error
-  calculate_likelihood <- function(observed, predicted, sigma = 0.1) {
-    # neg log-likelihood
-    -sum(dnorm(observed, mean = predicted, sd = sigma, log = TRUE), na.rm = TRUE)
-  }
-
-  likelihoods <- efficacy_results %>%
-    ungroup() %>%
-    rename(predicted_efficacy = efficacy) %>%
-    left_join(observed_efficacy, by = "weeks_since_smc") %>%
-    group_by(sim_id) %>%
-    summarise(
-      neg_log_lik = calculate_likelihood(observed_efficacy,
-                                         predicted_efficacy,
-                                         sigma = 0.1),  # Adjust sigma based on your uncertainty
-      .groups = 'drop'
-    ) %>%
-    mutate(
-      likelihood = exp(-neg_log_lik),
-      weight = likelihood / sum(likelihood)  # Normalize to get weights
-    ) %>%
-    arrange(neg_log_lik)
-
-  # Get top 10 runs
-  top_runs <- likelihoods %>% slice_head(n = 5)
+  # # Assume observed data has Normal measurement error
+  # calculate_likelihood <- function(observed, predicted, sigma = 0.1) {
+  #   # neg log-likelihood
+  #   -sum(dnorm(observed, mean = predicted, sd = sigma, log = TRUE), na.rm = TRUE)
+  # }
+  # 
+  # likelihoods <- efficacy_results %>%
+  #   ungroup() %>%
+  #   rename(predicted_efficacy = efficacy) %>%
+  #   left_join(observed_efficacy, by = "weeks_since_smc") %>%
+  #   group_by(sim_id) %>%
+  #   summarise(
+  #     neg_log_lik = calculate_likelihood(observed_efficacy,
+  #                                        predicted_efficacy,
+  #                                        sigma = 0.1),  # Adjust sigma based on your uncertainty
+  #     .groups = 'drop'
+  #   ) %>%
+  #   mutate(
+  #     likelihood = exp(-neg_log_lik),
+  #     weight = likelihood / sum(likelihood)  # Normalize to get weights
+  #   ) %>%
+  #   arrange(neg_log_lik)
+  # 
+  # # Get top 10 runs
+  # top_runs <- likelihoods %>% slice_head(n = 5)
 
   # efficacy_results %>%
   #   filter(sim_id %in% top_runs$sim_id &
@@ -185,20 +186,26 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
   #   labs(title = "Top 10 runs vs observed SMC efficacy",
   #        y = "SMC efficacy", x = "Days since SMC") +
   #   theme_minimal()  + theme(legend.position = 'none')
-
-  best_lhs <- pars[pars$sim_id %in% top_runs$sim_id,]
+  best_lhs <- data.frame(
+    max_SMC_kill_rate = 3, 
+    lambda = 13.01,
+    kappa = 0.45,
+    sim_id = 'parameter_set_1_1112',
+    lag_p_bite = 0
+  )
+  # best_lhs <- pars[pars$sim_id %in% top_runs$sim_id,]
   best_lhs <- best_lhs %>%
     mutate(
       p_bite = purrr::map(lag_p_bite, ~p_bitevector[[paste0("lag_", .x)]]),
       smc_dose_days = 10
     )
-  best_lhs_list <- split(best_lhs,seq(nrow(best_lhs)))
+  best_lhs_list <- split(best_lhs, seq(nrow(best_lhs)))
   
   # Run simulation
   cluster_cores <- Sys.getenv("CCP_NUMCPUS")
-  if (cluster_cores == "") {
-    cluster_cores <- 8
-  }
+  # if (cluster_cores == "") {
+  #   cluster_cores <- 8
+  # }
   
   if (cluster_cores == "") {
     message("running in serial (on a laptop?)")
@@ -220,29 +227,34 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
 
         objective <- function(params) {
           n_evals <<- n_evals + 1
+          
+          message(sprintf("\n=== Evaluation %d ===", n_evals))
+          message(sprintf("Params: max=%.4f, lambda=%.4f, kappa=%.4f", 
+                          params[1], params[2], params[3]))
 
           params_tibble <- data.frame(
-            max_SMC_kill_rate = params[[1]],
-            lambda = params[[2]],
-            kappa = params[[3]],
+            max_SMC_kill_rate = params[1],
+            lambda = params[2],
+            kappa = params[3],
             lag_p_bite = 0,
             smc_dose_days = start$smc_dose_days,
-            sim_id = start$sim_id,
-            p_bite = I(list(start$p_bite))
+            sim_id = start$sim_id
           )
+          params_tibble$p_bite <- list(start$p_bite)
 
           negll <- calculate_efficacy_likelihood(params_tibble,
                                         metadata_df,
                                         base_inputs,
                                         observed_efficacy )
-          message('completed ', n_evals, ' evaluations')
+          
+          message('Evaluation ', n_evals, ': negll = ', round(negll, 4))
 
           # Store history with tibble
           eval_history[[n_evals]] <<- list(
             params_tibble = params_tibble,
             negll = negll
           )
-
+          
           return(negll)
         }
 
@@ -254,9 +266,9 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
           lower = lower_bounds,
           upper = upper_bounds,
           control = list(
-            maxit = 80,  # Hard limit
+            maxit = 50,  # Hard limit
             trace = 1,
-            factr = 1e8  # Loose convergence (we're time-limited)
+            factr = 1e8  # Loose convergence 
           )
         )
 
@@ -320,7 +332,7 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
       library(purrr)
       library(stringr)
       
-      source('R:/Kelly/synergy_orderly/src/sim_cohort_grid/cohort_sim_utils.R')
+      source('R:/Kelly/synergy_orderly/shared/cohort_sim_utils.R')
       source('R:/Kelly/synergy_orderly/shared/helper_functions.R')
       source("R:/Kelly/synergy_orderly/shared/rtss.R")
       source("R:/Kelly/synergy_orderly/shared/likelihood.R")
@@ -343,8 +355,8 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
                                               initial_params <- c(start$max_SMC_kill_rate,
                                                                   start$lambda,
                                                                   start$kappa)
-                                              lower_bounds <- c(5, 10, 0.1) # max, lambda, kappa
-                                              upper_bounds <- c(25, 50, 9)
+                                              lower_bounds <- c(1, 5, 0.01) # max, lambda, kappa
+                                              upper_bounds <- c(10, 50, 5)
 
                                               # Track evaluations
                                               n_evals <- 0
@@ -386,9 +398,9 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
                                                 lower = lower_bounds,
                                                 upper = upper_bounds,
                                                 control = list(
-                                                  maxit = 80,  # Hard limit
+                                                  maxit = 50,  # Hard limit
                                                   trace = 1,
-                                                  factr = 1e8  # Loose convergence
+                                                  factr = 1e8  
                                                 )
                                               )
 
@@ -591,7 +603,7 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
 # 
 # 
 # # Optimization
-# optimization_results <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/optimization_results_0511.rds") # 2210 does allow superinfections
+# optimization_results <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/optimization_results_20251113.rds") # 2210 does allow superinfections
 # 
 # best_refined <- optimization_results[[which.max(
 #   sapply(optimization_results, function(x) x$log_likelihood)
@@ -600,7 +612,7 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
 # best_refined$log_likelihood
 # best_refined$starting_point_id
 # best_refined$initial_params #9.0928452 13.0471435  0.4141795
-# best_refined$final_params #9.0739477 15.0000000  0.4586005 # when allowing lambda to go <15, 9.1078524 13.0757521  0.4277123
+# best_refined$final_params #13 nov 3.0093347 13.0480119  0.4539757 #9.0739477 15.0000000  0.4586005 # when allowing lambda to go <15, 9.1078524 13.0757521  0.4277123
 # best_refined$convergence#0
 # best_refined$n_evaluations #231
 # pars_to_test <- data.frame(
