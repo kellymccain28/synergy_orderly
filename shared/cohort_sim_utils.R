@@ -313,7 +313,8 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
           output$trajectory %>%
             mutate(
               day1_BSinfection = t - burnin,#+ t_liverstage 
-              detection_day = t + (output$threshold_day) - burnin,# do not need to multiply threshold day by 2 here since already done in run_process_model #+ t_liverstage 
+              threshold_day = output$threshold_day,
+              detection_day = t + threshold_day - burnin,# do not need to multiply threshold day by 2 here since already done in run_process_model #+ t_liverstage 
               # time_ext = time_orig*2 + (t - burnin) - 1,# + infection_start_day/2,# external time should be dependent on when infection was, relative to external time(inf_start_day aka t); time (model time) has already been multiplied by 2 and related to infection time  #time*2 + (t - 1) - burnin,#+ t_liverstage
               arm = metadata_df[metadata_df$rid == kid, ]$arm,
               t = t
