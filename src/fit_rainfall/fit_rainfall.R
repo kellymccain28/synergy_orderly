@@ -5,7 +5,7 @@ library(tidyr)
 library(terra)
 library(tidyverse)
 library(malariasimulation)
-library(orderly2)
+library(orderly)
 library(umbrella)
 
 orderly_strict_mode()
@@ -337,7 +337,8 @@ outputs_mali_all <- lapply(seq_along(outputs_mali), function(i) {
   mutate(prob_infectious_bite = ifelse(!is.na(n_bitten), 
                                        n_bitten/(n_age_0_1824 + n_age_1825_5474 + n_age_5475_36499), 0))
 
-
+saveRDS(outputs_bf_all, file = 'outputs_bf_all.rds')
+saveRDS(outputs_mali_all, file = 'outputs_mali_all.rds')
 
 
 # Plot probability of bite for each of the sites 
