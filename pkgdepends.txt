@@ -42,5 +42,5 @@ hipercow.dide
 github::mrc-ide/umbrella
 github::mrc-ide/odin2
 github::mrc-ide/dust2
-github::mrc-ide/orderly2
+github::mrc-ide/orderly
 github::mrc-ide/site
