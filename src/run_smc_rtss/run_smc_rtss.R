@@ -4,7 +4,7 @@ library(odin2)
 library(dust2)
 library(cowplot)
 library(glue)
-library(orderly2)
+library(orderly)
 
 # orderly_strict_mode()
 runpars <- orderly_parameters(n_particles = NULL,
@@ -49,20 +49,20 @@ source("helper_functions.R")
 # Without vaccination nor SMC ----
 # n_particles = 500L
 # inf_start = 0-- this is when the infection shouldl start relative to the start of follow-up time (more relevant for cohort), can change timing of SMC
-nothing <- run_model(n_particles = runpars$n_particles,
+nothing <- run_model(n_particles = n_particles,
                      n_threads = 4L,
                      PEV_on = 0,
                      SMC_on = 0,
                      tt= tt,
                      SMC_time = seq(0,100,1),
                      SMC_kill_vec = rep(0,101),
-                     t_inf_vax = runpars$t_inf_vax,
-                     infection_start_day = runpars$inf_start,
+                     t_inf_vax = t_inf_vax,
+                     infection_start_day = inf_start,
                      VB = VB,
                      det_mode = FALSE) %>%
   format_data(tt= tt,
-              infection_start_day = runpars$inf_start,
-              n_particles = runpars$n_particles) %>%
+              infection_start_day = inf_start,
+              n_particles = n_particles) %>%
   make_plots() 
 prbc <- nothing[[1]] + xlim(c(0,200))
 innate <- nothing[[2]]

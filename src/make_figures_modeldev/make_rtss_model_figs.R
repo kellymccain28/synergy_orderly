@@ -53,7 +53,7 @@ p1 <- ggplot()+
   geom_vline(aes(xintercept = n), color = '#35409C', linetype = 2) +
   scale_x_continuous(expand = c(0,0)) +
   scale_y_continuous(expand = c(0,0)) +
-  theme_minimal() + 
+  theme_minimal(base_size = 14) + 
   theme(axis.text.y = element_blank()) + 
   labs(x = 'Number of sporozoites',
        y = 'Density')
@@ -79,7 +79,7 @@ p2 <- ggplot()+
   geom_vline(aes(xintercept = mu), color = '#9C2007', linetype = 2) +
   scale_x_continuous(expand = c(0,0)) +
   scale_y_continuous(expand = c(0,0)) +
-  theme_minimal() + 
+  theme_minimal(base_size = 14) + 
   theme(axis.text.y = element_blank()) + 
   labs(x = 'Number of merozoites per sporozoite',
        y = 'Density')
@@ -106,19 +106,25 @@ shape_total2 <- mean_total2 / scale_total2
 mero30spz <- dgamma(seq(1e4, 6e5, length.out= 1e3), shape = shape_total2, scale = scale_total2)
 
 p3 <- ggplot() + 
-  geom_area(aes(x = seq(1e4, 6e5, length.out = 1e3), y = mero30spz),
-            color = '#7D359C', alpha = 0.4, fill = '#BD85D5', linewidth = 1)+
-  geom_area(aes(x = seq(1e4, 6e5, length.out = 1e3), y = mero150spz),
-            color = '#1F843F', alpha = 0.4, fill = '#28A951', linewidth = 1)+
+  geom_area(aes(x = seq(1e4, 6e5, length.out = 1e3), y = mero30spz, color = '30 sporozoites'),
+            # color = '#7D359C',
+            alpha = 0.4, fill = '#BD85D5', linewidth = 1)+
+  geom_area(aes(x = seq(1e4, 6e5, length.out = 1e3), y = mero150spz, color = '150 sporozoites'),
+            # color = '#1F843F', 
+            alpha = 0.4, fill = '#28A951', linewidth = 1)+
   geom_vline(aes(xintercept = mean_total2), color = '#7D359C', linetype = 2) +
   geom_vline(aes(xintercept = mean_total), color = '#1F843F', linetype = 2) +
-  scale_x_continuous(expand = c(0,0)) +
+  scale_x_continuous(expand = c(0,0))+
+                     #labels = scales::label_log()) +
   scale_y_continuous(expand = c(0,0)) +
-  theme_minimal() + 
-  theme(axis.text.y = element_blank()) + 
-  labs(x = 'Total number of merozoites for k sporozoites',
-       y = 'Density',
-       caption = 'purple: 30 sporozoites\ngreen: 150 sporozoites.')
+  scale_color_manual(values = c('30 sporozoites' = '#BD85D5',
+                                '150 sporozoites' = '#28A951'),
+                     name = 'k sporozoites\ninitiating infection') +
+  theme_minimal(base_size = 14) + 
+  theme(axis.text.y = element_blank(),
+        legend.position = c(0.82, 0.85)) + 
+  labs(x = 'Total number of merozoites',
+       y = 'Density')
 p3
 
 all_plots <- cowplot::plot_grid(p1, p2, p3, nrow = 1, 

@@ -27,7 +27,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
   # Load the within-host model
   gen_bs <- odin2::odin(paste0(path, "/shared/smc_rtss.R"))
   # Source the utils functions
-  source(paste0(path, "/src/sim_cohort_grid/cohort_sim_utils.R"))
+  source(paste0(path, "/shared/cohort_sim_utils.R"))
   # SOurce processing functions
   source(paste0(path, "/shared/likelihood.R"))
   
@@ -288,14 +288,20 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
 #
 # eff1020 <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2025-10-23.rds")
 # infectionrecords_rtss1023 <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/infectionrecords_rtss_2025-10-23.rds")
-# eff <- eff1020 %>%#eff1017 %>%
+
+# effcumul <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_cumul_2025-11-13.rds")
+# eff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2025-11-13.rds")
+# inferecords <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/infectionrecords_rtss_2025-11-13.rds")
+# params_row = params_list[[1]]
+# effcumul <- effcumul %>%#eff1017 %>%
 #   left_join(ve_long)
-# 
+# eff <- eff %>%
+#   left_join(ve_long)
 # eff %>% #filter(weeks_since_rtss< 365)  %>%
 #   ggplot() +
-#   geom_line(aes(x = weeks_since_rtss+8, y = ve_inf, group = sim),
+#   geom_line(aes(x = weeks_since_rtss+1.5+4, y = ve_inf, group = sim),
 #             alpha = 0.2, color = 'orange', linewidth = 1) +
 #   geom_line(aes(x = weeks_since_rtss, y = efficacy, group = sim_id), color = '#962150', alpha = 0.2) +
-#   ylim(c(0,1)) + xlim(c(0,60))+
+#   ylim(c(0,1)) + xlim(c(0,50))+
 #   theme_bw()
 # ggsave(filename = 'outputs/efficacy_comparison_20251024_0.3_0_plus10.png')
