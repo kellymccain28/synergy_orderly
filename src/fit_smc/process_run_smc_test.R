@@ -8,9 +8,9 @@ path = "R:/Kelly/synergy_orderly"
 observed_efficacy <- read.csv(paste0(path, '/shared/smc_fits_hayley.csv')) %>%
   mutate(weeks_since_smc = ceiling(day_since_smc / 7)) %>%
   group_by(weeks_since_smc) %>%
-  mutate(efficacy = mean(efficacy))
+  mutate(efficacy_week = mean(efficacy))
 observed_efficacy_week <- read.csv(paste0(path, '/shared/smc_fits_hayley_week.csv'))
-lhs_parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc_2025-11-17_2.rds")#lhs_parameters_0411.rds
+lhs_parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc_2025-11-19.rds")#lhs_parameters_0411.rds
 effweekly <- purrr::map_df(lhs_parameters, 'efficacy_weekly')
 effdaily <- purrr::map_df(lhs_parameters, 'efficacy_daily')
 effcumulweekly <- purrr::map_df(lhs_parameters, 'efficacy_weekly_cumul')
@@ -19,7 +19,7 @@ lhspars <- purrr::map_df(lhs_parameters, 'params')
 lhsparasit <- purrr::map_df(lhs_parameters, 'parasitemia', .id = "sim_id")
 lhsinfrecords <- purrr::map_df(lhs_parameters, 'infection_records', .id = 'sim_id')
 
-effcumulweekly <- calc_smc_efficacy_cumul(lhsinfrecords, params_row = lhspars[1,])
+# effcumulweekly <- calc_smc_efficacy_cumul(lhsinfrecords, params_row = lhspars[1,])
 
 # # Look at efficacy output
 # ggplot(effdaily %>% filter(days_since_smc < 70 & days_since_smc %% 2 == 0)) +
@@ -58,7 +58,6 @@ ggplot(observed_efficacy) +
   geom_line(aes(x = day_since_smc, y = efficacy), color = 'orchid4') +
   geom_point(aes(x = weeks_since_smc*7, y = eff_week), color = 'darkorange') +
   theme_bw()
-
 ggplot()+
   geom_point(data =observed_efficacy, aes(x = weeks_since_smc, y = eff_week)) + 
   geom_point(data  =observed_efficacy_week, aes(x = weeks_since_smc+1, y = observed_efficacy), color = 'blue')
@@ -76,12 +75,14 @@ ggplot(effcumuldaily %>% filter(days_since_smc < 70)) +
 ggplot(effcumulweekly %>% filter(weeks_since_smc < 10)) +
   # geom_point(data = effcumuldaily%>% filter(days_since_smc < 70), aes(x = days_since_smc/7, y = efficacy, group = sim_id), color = 'grey', alpha = 0.1) +
   # geom_line(data = effcumuldaily%>% filter(days_since_smc < 70), aes(x = days_since_smc/7, y = efficacy, group = sim_id), color = 'grey', alpha = 0.1) +
-  geom_point(aes(x = weeks_since_smc, y = efficacy, group = sim_id, color = sim_id), alpha = 0.1) +
-  geom_line(aes(x = weeks_since_smc, y = efficacy, group = sim_id, color = sim_id), alpha = 0.2) +
+  geom_point(aes(x = weeks_since_smc, y = efficacy, group = sim_id, color = sim_id), alpha = 0.4) +
+  geom_line(aes(x = weeks_since_smc, y = efficacy, group = sim_id, color = sim_id), alpha = 0.3) +
   ylim(c(-0.3, 1)) +
   geom_hline(aes(yintercept = 0), color = 'darkred', linetype = 2) +
-  geom_line(data = observed_efficacy, aes(x = weeks_since_smc, y = eff_week)) +
-  geom_point(data = observed_efficacy, aes(x = weeks_since_smc, y = eff_week)) +
+  geom_line(data = observed_efficacy, aes(x = weeks_since_smc, y = efficacy_week)) +
+  geom_point(data = observed_efficacy, aes(x = weeks_since_smc, y = efficacy_week)) +
+  geom_line(data = observed_efficacy, aes(x = day_since_smc/7, y = efficacy)) +
+  geom_point(data = observed_efficacy, aes(x = day_since_smc/7, y = efficacy)) +
   scale_x_continuous(breaks = seq(0,9,1)) +
   theme_minimal() +
   labs(x = 'Weeks since SMC') +

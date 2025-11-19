@@ -11,7 +11,7 @@ library(survminer)
 library(broom)
 library(gtsummary)
 library(cyphr)
-library(orderly2)
+library(orderly)
 library(lubridate)
 
 key <- cyphr::data_key()

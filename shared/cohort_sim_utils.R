@@ -155,21 +155,34 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
     rm(bit_kids_susceptible)
     
     if(length(bit_kids) > 0) {
-      # Estimate antibody level for each bitten child 
+      kid_metadata <- metadata_df[metadata_df$rid %in% bit_kids, ]
+      
       if(t < burnin) {
         # No interventions during burnin
         PEV_vec <- rep(0, length(bit_kids))
-        SMC_vec <- rep(0, length(bit_kids))
+        # Because the SMC vector is already made, with a padded start for the burnin, we need to have SMC on in the model for the SMC children 
+        # Make named vector of SMC and map to bit_kids order 
+        smc_lookup <- setNames(kid_metadata$SMC, kid_metadata$rid)
+        SMC_vec <- smc_lookup[as.character(bit_kids)]
         # these both need a placeholder value (won't matter if PEV = 0 or SMC = 0)
         t_since_vax_vec <- rep(0, length(bit_kids))
         t_toboost1_vec <- rep(500, length(bit_kids))
         t_toboost2_vec <- rep(1000, length(bit_kids))
         
-        SMC_kill_vec <- rep(list(rep(0, floor((trial_ts + burnin)/2))), length(bit_kids))#floor(trial_ts/2 + burnin)
-        SMC_timev <- rep(list(0:(length(SMC_kill_vec[[1]])-1)), length = length(bit_kids))
-      } else {
+        # Get the kill rate vectors for SMC
+        # Find the row index for the target rid
+        smc_kill_vec_lookup <- setNames(kid_metadata$smckillvec, kid_metadata$rid)
+        SMC_kill_vec <- smc_kill_vec_lookup[as.character(bit_kids)]
+        # subset the kill rate vector to be from the external time (t includes the burnin) to the end of the vector
+        # vector is every two days 
+        SMC_kill_vec <- lapply(SMC_kill_vec, function(smcvec){
+          subset <- smcvec[floor((t + t_liverstage) / 2) :length(smcvec)] # t_liverstage added because we want to subset from when BS infection starts + the liver stage time, to the end; +burnin removed because it is already taken into account in the t
+          return(subset)
+        })
         
-        kid_metadata <- metadata_df[metadata_df$rid %in% bit_kids, ]
+        SMC_timev <- rep(list(0:(length(SMC_kill_vec[[1]])-1)), 
+                         length = length(bit_kids))
+      } else {
         
         # Create named vectors of PEVand vaccination days 
         pev_lookup <- setNames(kid_metadata$PEV, kid_metadata$rid)
@@ -205,7 +218,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
         })
         
         SMC_timev <- rep(list(0:(length(SMC_kill_vec[[1]])-1)), 
-                         length = length(bit_kids))#rep(list(0:(trial_ts/2 + burnin)), length = length(bit_kids))
+                         length = length(bit_kids))
         
       }
       

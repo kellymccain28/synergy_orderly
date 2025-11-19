@@ -257,9 +257,8 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
                                        }
     )
     parallel::stopCluster(cl)
-    
-    # Save all results 
-    saveRDS(results2, paste0("R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc_",Sys.Date(),"_2.rds"))
-    saveRDS(metadata_df, paste0('R:Kelly/synergy_orderly/src/fit_smc/outputs/metadata_', Sys.Date(), '.rds'))
   }
+  # Save all results 
+  saveRDS(results2, paste0("R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc_",Sys.Date(),".rds"))
+  saveRDS(metadata_df, paste0('R:Kelly/synergy_orderly/src/fit_smc/outputs/metadata_', Sys.Date(), '.rds'))
 }
