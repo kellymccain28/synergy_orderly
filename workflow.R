@@ -136,14 +136,14 @@ hipercow_environment_create(name = 'generic',
                                         "shared/cohort_sim_utils.R",
                                         'src/sim_cohort_generic/sim_cohort_generic.R'
 ))
-nparams = 5
+nparams = 20
 ncores = if(nparams > 32) 32 else nparams
 generic_cohort <- task_create_expr(sim_cohort_generic(trial_ts = 365*3, 
                                                       sim_allow_superinfections = FALSE, 
                                                       country_to_run = 'generic',
                                                       n_param_sets = nparams),
                                    environment = 'generic',
-                                   resources = hipercow_resources(cores = ncores))
+                                   resources = hipercow_resources(cores = ncores)) # takes 2.12 hours
 task_log_show(generic_cohort)
 # grid_genericF <- task_create_expr(orderly::orderly_run(name = 'sim_cohort_grid',
 #                                                       parameters = list(trial_ts = 365*3,

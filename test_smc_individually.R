@@ -31,13 +31,16 @@ intervalsmc_days = 30
 smc_dose_days <- 0#c(seq(runpars$season_start_day, runpars$season_start_day + 120 - 1, intervalsmc_days),
 # seq(runpars$season_start_day + 365, runpars$season_start_day + 365 + 120 - 1, intervalsmc_days),
 # seq(runpars$season_start_day + 365*2, runpars$season_start_day  + 365*2 + 120 - 1, intervalsmc_days))
-max_SMC_kill_rate=9.07#2.43#5#6
-lambda = 15#11.6#28#11.6
-kappa = 0.459#0.173#5.42#1.81
+max_SMC_kill_rate=3.07#2.43#5#6
+lambda = 13#11.6#28#11.6
+kappa = 0.454#0.173#5.42#1.81
 ts = 100
 ratetest <- max_SMC_kill_rate * exp(-(seq(1:ts)/lambda)^kappa)
 plot(ratetest)
 plot(1-exp(-ratetest * 1))
+
+threshold = 5000
+n_particles = 100
 
 get_smc_outputs <- function(inf_start){
   tt <- seq(0:(365-inf_start))
@@ -59,21 +62,21 @@ get_smc_outputs <- function(inf_start){
   smckillvec_subset <- smc_killvec[floor((inf_start) / 2) :length(smc_killvec)]
   smckillvec_subset <- list(c(smckillvec_subset, rep(0, ts-length(smckillvec_subset))))
   
-  df <- run_model(n_particles = 100,
+  df <- run_model(n_particles = n_particles,
                    n_threads = 4L,
                    PEV_on = 0,
                    SMC_on = 1,
                    tt= tt,
                    det_mode = FALSE,
                    t_inf_vax = 0,
-                   VB = VB,
+                   VB = 1e6,
                    SMC_time = seq(0, length(smckillvec[[1]])-1,1),
                    SMC_kill_vec = smckillvec_subset,
                   infection_start_day = inf_start
   ) %>%
     format_data(tt= tt,
                 infection_start_day = inf_start,
-                n_particles = 100) %>%
+                n_particles = n_particles) %>%
     make_plots()
   
   dd <- df[[6]] %>% ungroup() %>%select(run, detectable) %>%
@@ -85,21 +88,21 @@ get_smc_outputs <- function(inf_start){
 get_none_outputs <- function(inf_start){
   tt <- seq(0:(365-inf_start))
   
-  df <- run_model(n_particles = 100,
+  df <- run_model(n_particles = n_particles,
                   n_threads = 4L,
                   PEV_on = 0,
                   SMC_on = 0,
                   tt= tt,
                   det_mode = FALSE,
                   t_inf_vax = 0,
-                  VB = VB,
+                  VB = 1e6,
                   SMC_time = seq(0,max(tt),1),
                   SMC_kill_vec = rep(0,max(tt)+1),
                   infection_start_day = inf_start
   ) %>%
     format_data(tt= tt,
                 infection_start_day = inf_start,
-                n_particles = 100) %>%
+                n_particles = n_particles) %>%
     make_plots()
   
   dd <- df[[6]] %>% ungroup() %>% select(run, detectable) %>%

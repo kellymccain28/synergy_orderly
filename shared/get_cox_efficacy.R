@@ -1,10 +1,19 @@
+# Function to get Cox PH efficacy as in Chandramohan et al. 2021
+# by year and overall 
+
 get_cox_efficacy <- function(df, 
                              ref,
                              model = FALSE){
   
   tidy_results <- vector("list", 4)
 
-  
+  # Make different columns for various ref = 
+  df <- df %>%
+    mutate(arm_smcref = factor(arm, levels = c('smc','rtss','both','none')),
+           arm_rtssref = factor(arm, levels = c('rtss','smc','both','none')),
+           arm_noneref = factor(arm, levels = c('none','rtss','smc','both')),
+           end_time = ifelse(start_time==end_time, end_time + 0.00001, end_time))
+           
   for (i in 1:4){
     
     if(i < 4){

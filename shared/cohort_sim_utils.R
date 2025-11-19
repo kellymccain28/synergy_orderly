@@ -272,21 +272,6 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
       #   }
       # }
       
-      # Only update the susceptibility vector if allow_superinfections == FALSE
-      if(!allow_superinfections){
-        # mark as non-susceptible only those who have a valid detection_day (and thus are treated)
-        detected_kids <- bit_kids[!is.na(new_records$detection_day)]
-        # probability of treatmnet can be added here: 
-        receives_treatment <- runif(length(detected_kids)) < treatment_probability
-        treatment_efficacy <- runif(length(detected_kids)) < successful_treatment_probability
-        treatment_successful <- receives_treatment & treatment_efficacy
-        kids_treated_successfully <- detected_kids[treatment_successful]
-        # print(detected_kids)
-        if (length(kids_treated_successfully) > 0) {
-          susceptibles[kids_treated_successfully] <- FALSE
-        } 
-      }
-      
       # Vectorized data frame creation of infection records
       new_records <- data.frame(
         rid = bit_kids,
@@ -305,6 +290,21 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
       ) 
       
       infection_records <- rbind(infection_records, new_records)
+      
+      # Only update the susceptibility vector if allow_superinfections == FALSE
+      if(!allow_superinfections){
+        # mark as non-susceptible only those who have a valid detection_day (and thus are treated)
+        detected_kids <- bit_kids[!is.na(new_records$detection_day)]
+        # probability of treatmnet can be added here: 
+        receives_treatment <- runif(length(detected_kids)) < treatment_probability
+        treatment_efficacy <- runif(length(detected_kids)) < successful_treatment_probability
+        treatment_successful <- receives_treatment & treatment_efficacy
+        kids_treated_successfully <- detected_kids[treatment_successful]
+        # print(detected_kids)
+        if (length(kids_treated_successfully) > 0) {
+          susceptibles[kids_treated_successfully] <- FALSE
+        } 
+      }
       
       if(return_parasitemia){
         # Vectorized parasitemia storage creation

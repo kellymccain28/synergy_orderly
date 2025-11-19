@@ -39,7 +39,7 @@ run_process_model <- function(n_particles = 1L,
                                n_particles = n_particles)
   
   # Find first day threshold is reached 
-  threshold_day <- get_ttoinf(out_formatted) %>% pull(time)
+  threshold_day <- get_ttoinf(out_formatted) %>% pull(time_withinhost2)
   
   return(list(trajectory = out_formatted, 
               threshold_day = threshold_day))
@@ -134,7 +134,7 @@ format_data <- function(out, tt, infection_start_day, n_particles){
              innate_imm = sc,
              genadaptive_imm = sm,
              varspecific_imm = sv) %>%
-      mutate(,time_withinhost = time, 
+      mutate(time_withinhost = time, 
              time_withinhost2 = time_withinhost*2,
              time = time * 2 + infection_start_day)
   }
@@ -235,9 +235,9 @@ format_data <- function(out, tt, infection_start_day, n_particles){
       left_join(nsmckill_long) %>%
       # left_join(smc_seasonon) %>%
       # Fix time to be in outside days (*2) - not including inf start day as below because it doesn't match with ts since start of bs x labels 
-      mutate(time_withinhost_orig = time, # original timing in within-host model (2-day timesteps)
-             time_withinhost2 = time_withinhost_orig*2, # converted to 1-day timesteps 
-             time_withinhost2_plusinfstart = time * 2 + infection_start_day) # 1 day timesteps + day of start of BS infection 
+      mutate(time_withinhost = time, # original timing in within-host model (2-day timesteps)
+             time_withinhost2 = time_withinhost*2, # converted to 1-day timesteps 
+             time = time * 2 + infection_start_day) # 1 day timesteps + day of start of BS infection 
       # Fix time to be dependent on when the infection was, relative to the start of the season / vaccination
       # mutate(time_ext = time*2 + t_inf_vax - 1)#,
     # infection_start = infection_start_day) # because the infection start day is in days and time is in timestpes, 
@@ -246,7 +246,7 @@ format_data <- function(out, tt, infection_start_day, n_particles){
 }
 
 make_plots <- function(df){
-  multiplier <- if(tstep == 1) 2 else if (tstep == 2) 1
+  # multiplier <- if(tstep == 1) 2 else if (tstep == 2) 1
   colorsplot <- c("#4123E8","#A6BF19")
   # 7 + time * multiplier
   df <- df %>%
@@ -407,21 +407,17 @@ make_plots <- function(df){
 }
 
 # Time to infection
+# time between start of blood-stage and the day it reaches the threshold and can be detected
+# time_withinhost2 is the external/cohort time value of the number of days since the beginning of the blood-stage
 get_ttoinf <- function(df){
   df <- df %>%
     group_by(run) %>%
     mutate(threshold_reached = any(parasites >= threshold)) %>%
-    filter(if (threshold_reached[1]) parasites >= threshold else time == max(time)) %>%# filter(parasites >=10) %>%
-    slice_min(time, n = 1) %>%
+    filter(if (threshold_reached[1]) parasites >= threshold else time_withinhost2 == max(time_withinhost2)) %>%# filter(parasites >=10) %>%
+    slice_min(time_withinhost2, n = 1) %>%
     # slice(1) %>%
     ungroup() %>%
-    mutate(time = ifelse(!threshold_reached, NA, time))
-  
-  # Below is taken into account in format_data()
-  # If timestep in model is 1, then need to multiply by 2 to get the external days, since each is by day 
-  # if(tstep == 1){
-  #   df$time <- df$time * 2
-  # }
+    mutate(time_withinhost2 = ifelse(!threshold_reached, NA_real_, as.numeric(time_withinhost2)))
   
   return(df)
 }
@@ -468,6 +464,13 @@ calc_lagged_vectors <- function(prob_data, lags, start_date = as.Date('2017-04-0
                                    prob_lagged$date_lagged < end_date & 
                                    !is.na(prob_lagged$date_lagged),]
     
+    # # Now keep only every 2 days and sum the probability over those 2 days 
+    # prob_filtered2 <- prob_filtered %>%
+    #   mutate(twodaygroup = ceiling(rownumber(date))) %>%
+    #   group_by(twodaygroup) %>%
+    #   summarize(prob_infectious_bite = sum(prob_infectious_bite)) %>%
+    #   left_join(prob_filtered)
+    
     # instead of median, am now filtering to start date - burnin above
     # c(rep(median(prob_filtered$prob_lagged, na.rm = TRUE), burnints), # this is to have a probability of bite before the burnin
     #   prob_filtered$prob_lagged)
@@ -486,6 +489,7 @@ calc_lagged_vectors <- function(prob_data, lags, start_date = as.Date('2017-04-0
 #' @param lambda Weibull parameter for SMC kill curve
 #' @param kappa Weibull parameter for SMC kill curve
 #' @param infection_start_day within cohort, this is the day relative to the start of the sim (so t+burnin); for individual runs, this will subset the SMC kill vector from this number to the end of the vector
+# output vector will be length (ts+burnin) / 2
 get_smc_vectors <- function(smc_dose_days, 
                             ts = ceiling(365/2), 
                             burnin = 0, 
