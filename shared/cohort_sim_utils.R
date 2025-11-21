@@ -4,10 +4,9 @@
 run_cohort_simulation <- function(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
                                   metadata_df, 
                                   base_inputs, 
-                                  output_dir = 'simulation_outputs',
-                                  # allow_superinfections = TRUE, 
                                   return_parasitemia = TRUE,
-                                  save_outputs = TRUE) {
+                                  output_dir = "R:/Kelly/src/fit_smc/simulation_outputs",
+                                  save_outputs = FALSE) {
   
   message('running cohort simulation for: ', params_row$sim_id)
   # Extract parameters from the row

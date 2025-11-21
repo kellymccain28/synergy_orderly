@@ -49,9 +49,12 @@ bougouni <- subset_site(
     name_1 = "Sikasso")
 )
 
+# Explore the EIRs
+# bougouni$eir$eir # 172
+# hounde$eir$eir # 90
+
 # umbrella
 # devtools::install_github("mrc-ide/umbrella")
-library(umbrella)
 
 # urls_2017 <- get_urls(2017)
 # urls_2018 <- get_urls(2018)
@@ -363,20 +366,25 @@ saveRDS(outputs_mali_all %>% select(prob_infectious_bite, date, year, rainfall_y
 
 # Get generic seasonal probability of a bite using default parameters from malariasimulation 
 seasonal <- list(c(0.285505,-0.325352,-0.0109352,0.0779865,-0.132815,0.104675,-0.013919))
+highlyseasonal <- list(c(0.284596,-0.317878,-0.0017527,0.116455,-0.331361,0.293128,-0.0617547))
 
 genericparams <- get_parameters(
   overrides = list(
     model_seasonality = TRUE,
-    g0 = unlist(seasonal)[1],
-    g = unlist(seasonal)[2:4],
-    h = unlist(seasonal)[5:7],
+    g0 = unlist(highlyseasonal)[1],
+    g = unlist(highlyseasonal)[2:4],
+    h = unlist(highlyseasonal)[5:7],
     human_population = 10000,
     age_group_rendering_min_ages = c(0, 1825, 5475),
     age_group_rendering_max_ages = c(1824, 5474, 36499)
   )
 )
 
-genericparams <- set_equilibrium(genericparams, init_EIR = 50)
+genericparams <- set_equilibrium(genericparams, init_EIR = 30) 
+# tried a lower EIR of 12 - with 12 there was an average of 8-9 bites per person per year in malsim output
+# (with 50, there were ~17-24 bites per year and mean 7.2/median 4.3 infections per year)
+# in Chandramohan, there were ~1.8/1 clincial cases per year, so divided 50 by ~4 to get 12, but this is too low with treatmnet added as well
+
 
 genericoutput <- malariasimulation::run_simulation(
   timesteps = (365*15),
@@ -389,6 +397,10 @@ generic <- genericoutput %>%
   # calculate probability of bite per day per person 
   mutate(prob_infectious_bite = ifelse(!is.na(n_bitten), 
                                        n_bitten/(n_age_0_1824 + n_age_1825_5474 + n_age_5475_36499), 0))
-
+saveRDS(generic, 'outputs_generic.rds')
 saveRDS(generic %>% select(prob_infectious_bite, date, year), 
         file = 'prob_bite_generic.rds')
+
+# bites per person per year (EIR)
+# generic %>% group_by(year) %>% summarize(n_bites = sum(n_bitten), n_bites_per_person = n_bites/10000) # ~8 per year per person with EIR 12
+generic %>% group_by(year) %>% summarize(ncases = sum(n_infections), n_infections_per_person = ncases/10000) # ~3 per year per person with EIR 12

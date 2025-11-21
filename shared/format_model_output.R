@@ -154,7 +154,11 @@ format_model_output <- function(model_data,
         cohort == 'generic' ~ start_cohort,
         TRUE ~ v1_date),
       t = NA,
-      sim_id = simulation
+      sim_id = simulation,
+      treatment_day = NA,
+      receives_treatment = NA,
+      treatment_efficacy = NA, 
+      treatment_successful = NA
     ) %>% 
     select(-year_start, -year_end) %>%
     # add children_in_group var

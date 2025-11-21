@@ -1,7 +1,8 @@
 run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
                         n_param_sets,
+                        treatment_prob = 0.9, # default is 1 (which gives children prophylaxis)
                         N = 1200){
-  path = "R:/Kelly/synergy_orderly"
+  
   # Script to fit smc parameters to Hayley's curve 
   library(lhs)
   library(odin2)
@@ -28,12 +29,11 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
   gen_bs <- odin2::odin(paste0(path, "/shared/smc_rtss.R"))
   # Source the utils functions
   source(paste0(path, "/shared/cohort_sim_utils.R"))
-  # SOurce processing functions
-  source(paste0(path, "/shared/likelihood.R"))
+  
   
   trial_ts = 365*3# trial timesteps in cohort simulation (inte)
-  sim_allow_superinfections = TRUE # TRUE or FALSE
-  country_to_run = 'generic - vaccine'
+  # sim_allow_superinfections = TRUE # TRUE or FALSE
+  country_to_run = 'generic'
   country_short = 'g'
   n_param_sets = n_param_sets
   N = N
@@ -48,6 +48,9 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
   VB = 1e6
   divide = if(tstep == 1) 2 else 1
   
+  treatment_probability = treatment_prob # in trial, everyone who was diagnosed with clincial malaria was treated 
+  successful_treatment_probability = 0.9 # AL treatment protects up to 90% for 12 days SI of Commun. 5:5606 doi: 10.1038/ncomms6606 (this is what is in malsim)
+  
   # Set up base inputs (these don't vary across parameter sweep)
   base_inputs <- list(
     trial_timesteps = trial_ts,
@@ -56,15 +59,20 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
     VB = VB,
     tstep = tstep,
     t_liverstage = t_liverstage,
-    country = country_to_run
+    country = country_to_run,
+    country_short = country_short,
+    treatment_probability = treatment_probability, 
+    successful_treatment_probability = successful_treatment_probability
   )
   
   params_df <- data.frame(
     max_SMC_kill_rate = rep(0, n_param_sets),
     lambda = rep(0, n_param_sets),
-    kappa = rep(0, n_param_sets)
+    kappa = rep(0, n_param_sets),
+    alpha_ab = 1.32, 
+    beta_ab = 6.62
   )
-  params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", sim_allow_superinfections)
+  params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", treatment_probability)
   
   prob_bite_generic <- readRDS(paste0(path, '/archive/fit_rainfall/20251009-144330-1d355186/prob_bite_generic.rds'))
   prob_bite_generic$prob_infectious_bite = 0.3
@@ -75,9 +83,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
   # SMC delivery
   params_df <- params_df %>%
     rowwise() %>%
-    mutate(smc_dose_days = 10#list(c(seq(season_start_day, season_start_day + 120 - 1, 50),
-           # seq(season_start_day + 365, season_start_day + 365 + 120 - 1, 50),
-           # seq(season_start_day + 365*2, season_start_day  + 365*2 + 120 - 1,50)))
+    mutate(smc_dose_days = 10
     ) %>%
     ungroup()
   
@@ -109,9 +115,11 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
            t_to_boost2 = 730,
            country = country_to_run) %>%
     mutate(rid_original = paste0(country_short, sprintf("%04d", rid)),
-           country = 'generic - vaccine',
+           country = 'generic',
            v1_date = as.Date('2017-04-01'))
   
+  # "Observed" efficacy from White model 
+  observed_efficacy_rtss <- readRDS(paste0(path, '/src/fit_rtss/observed_rtss_efficacy.rds'))
   
   # Run simulation
   cluster_cores <- Sys.getenv("CCP_NUMCPUS")
@@ -129,7 +137,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
                                                     metadata_df,
                                                     base_inputs,
                                                     output_dir = 'R:/Kelly/src/fit_rtss/outputs',
-                                                    allow_superinfections = TRUE,
+                                                    # allow_superinfections = TRUE,
                                                     return_parasitemia = FALSE,
                                                     save_outputs = FALSE)
                          message('finished simulation')
@@ -168,7 +176,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
       library(purrr)
       library(stringr)
       
-      source('R:/Kelly/synergy_orderly/src/sim_cohort_grid/cohort_sim_utils.R')
+      source('R:/Kelly/synergy_orderly/shared/cohort_sim_utils.R')
       source('R:/Kelly/synergy_orderly/shared/helper_functions.R')
       source("R:/Kelly/synergy_orderly/shared/rtss.R")
       source("R:/Kelly/synergy_orderly/shared/likelihood.R")
@@ -188,7 +196,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
                                                                     metadata_df,
                                                                     base_inputs,
                                                                     output_dir = 'R:/Kelly/src/fit_rtss/outputs',
-                                                                    allow_superinfections = TRUE,
+                                                                    # allow_superinfections = TRUE,
                                                                     return_parasitemia = FALSE,
                                                                     save_outputs = FALSE)
                                          message('finished simulation')
@@ -218,90 +226,3 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
 }
 
 
-# Efficacy against infection from White 2015
-# ts <- seq(1,365*3)
-# phases <- ifelse(ts < 366, 1,
-#                  ifelse(ts < 729, 2, 3))
-# csp <- list()
-# for(i in 1:50){
-#   csp[[i]] <- antibody_titre(t = ts,
-#                      phase = phases,
-#                      peak1 = c(621,0.35) ,
-#                      peak2 = c(277, 0.35),
-#                      peak3 = c(277,0.35),
-#                      duration1 = c(45,16),
-#                      duration2 = c(591,245),
-#                      rho1 = c(2.37832, 1.00813),
-#                      rho2 = c(1.034, 1.027),
-#                      rho3 = c(1.034, 1.027))
-# }
-# csp_df <- data.frame(do.call(rbind, csp))
-# colnames(csp_df) <- ts
-# csp_df$sim <- 1:50
-# 
-# csp_long <- pivot_longer(csp_df, cols = -sim,
-#                          names_to = "time", values_to = "titre")
-# csp_long$time <- as.numeric(csp_long$time)
-# 
-# # Plot
-# ggplot(csp_long, aes(x = time, y = titre, group = sim)) +
-#   geom_line(alpha = 0.3) +
-#   theme_minimal() + scale_y_log10() +
-#   labs(x = "Time", y = "Antibody Titre")
-# 
-# ve <- lapply(csp, vaccine_eff)
-# ve_df <- data.frame(do.call(rbind, ve))
-# colnames(ve_df) <- ts
-# ve_df$sim <- 1:50
-# 
-# ve_long <- pivot_longer(ve_df, cols = -sim,
-#                          names_to = "time", values_to = "ve")
-# ve_long$time <- as.numeric(ve_long$time)
-# ve_long <- ve_long %>% ungroup() %>%
-#   mutate(weeks_since_rtss = floor(time/7)) %>%
-#   filter(weeks_since_rtss < 52) %>%
-#   group_by(weeks_since_rtss, sim) %>%
-#   summarize(ve_inf = mean(ve))
-# 
-# # Plot
-# ggplot(ve_long, aes(x = weeks_since_rtss, y = ve_inf, group = sim)) +
-#   geom_line(alpha = 0.3) +
-#   theme_minimal() +
-#   labs(x = "Weeks since RTSS", y = "Efficacy")
-
-# ve_inf <- vaccine_eff(csp)
-# plot(ve_inf[0:52])
-# ve_inf <- ve_inf[seq_along(ve_inf) %% 7 == 0]
-# ve_inf_df <- data.frame(#weeks_since_rtss = seq(0,66),
-#                         days_since_rtss = ts,
-#                         ve_inf = ve_inf) %>%
-#   mutate(weeks_since_rtss = floor(days_since_rtss/7)) %>%
-#   group_by(weeks_since_rtss) %>%
-#   summarize(ve_inf = mean(ve_inf))
-# plot(ve_inf_df)
-# infectionrecords <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/infectionrecords_rtss_2025-10-16.rds")
-# infectionrecords <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/infectionrecords_rtss_2025-10-17.rds")
-# df <- infectionrecords
-#
-# eff <- calc_rtss_efficacy(df) %>%
-#   left_join(ve_inf_df)
-#
-# eff1020 <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2025-10-23.rds")
-# infectionrecords_rtss1023 <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/infectionrecords_rtss_2025-10-23.rds")
-
-# effcumul <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_cumul_2025-11-13.rds")
-# eff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2025-11-13.rds")
-# inferecords <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/infectionrecords_rtss_2025-11-13.rds")
-# params_row = params_list[[1]]
-# effcumul <- effcumul %>%#eff1017 %>%
-#   left_join(ve_long)
-# eff <- eff %>%
-#   left_join(ve_long)
-# eff %>% #filter(weeks_since_rtss< 365)  %>%
-#   ggplot() +
-#   geom_line(aes(x = weeks_since_rtss+1.5+4, y = ve_inf, group = sim),
-#             alpha = 0.2, color = 'orange', linewidth = 1) +
-#   geom_line(aes(x = weeks_since_rtss, y = efficacy, group = sim_id), color = '#962150', alpha = 0.2) +
-#   ylim(c(0,1)) + xlim(c(0,50))+
-#   theme_bw()
-# ggsave(filename = 'outputs/efficacy_comparison_20251024_0.3_0_plus10.png')
