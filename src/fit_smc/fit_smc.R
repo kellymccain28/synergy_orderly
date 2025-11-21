@@ -1,5 +1,6 @@
 run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
                         n_param_sets,
+                        treatment_prob = 0.9, # default is 1 (which gives children prophylaxis)
                         N = 1200){
   # Script to fit smc parameters to Hayley's curve 
   library(lhs)
@@ -31,7 +32,7 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
   source(paste0(path, "/src/fit_smc/calculate_efficacy_likelihood.R"))
   
   trial_ts = 80# trial timesteps in cohort simulation (inte)
-  sim_allow_superinfections = TRUE # TRUE or FALSE
+  # sim_allow_superinfections = TRUE # TRUE or FALSE
   country_to_run = 'generic'# BF or Mali, or if generic, then 'generic' which means that metadata_df is different.
   country_short = 'g'
   n_param_sets = n_param_sets
@@ -47,6 +48,9 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
   VB = 1e6
   divide = if(tstep == 1) 2 else 1
   
+  treatment_probability = treatment_prob # in trial, everyone who was diagnosed with clincial malaria was treated 
+  successful_treatment_probability = 0.9 # AL treatment protects up to 90% for 12 days SI of Commun. 5:5606 doi: 10.1038/ncomms6606 (this is what is in malsim)
+  
   # Set up base inputs (these don't vary across parameter sweep)
   base_inputs <- list(
     trial_timesteps = trial_ts,
@@ -55,7 +59,10 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
     VB = VB,
     tstep = tstep,
     t_liverstage = t_liverstage,
-    country = country_to_run
+    country = country_to_run,
+    country_short = country_short,
+    treatment_probability = treatment_probability, 
+    successful_treatment_probability = successful_treatment_probability
   )
   
   # Set up grid of parameters
@@ -65,20 +72,20 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
     kappa = c(0.01, 5)
   )
   # # Generate LHS samples
-  A <- randomLHS(n_param_sets, 3)
-  # Scale to parameter ranges
-  params_df <- data.frame(
-    max_SMC_kill_rate = qunif(A[,1], param_ranges$max_SMC_kill_rate[1], param_ranges$max_SMC_kill_rate[2]),
-    lambda = qunif(A[,2], param_ranges$lambda[1], param_ranges$lambda[2]),
-    kappa = qunif(A[,3], param_ranges$kappa[1], param_ranges$kappa[2])
-  )
+  # A <- randomLHS(n_param_sets, 3)
+  # # Scale to parameter ranges
+  # params_df <- data.frame(
+  #   max_SMC_kill_rate = qunif(A[,1], param_ranges$max_SMC_kill_rate[1], param_ranges$max_SMC_kill_rate[2]),
+  #   lambda = qunif(A[,2], param_ranges$lambda[1], param_ranges$lambda[2]),
+  #   kappa = qunif(A[,3], param_ranges$kappa[1], param_ranges$kappa[2])
+  # )
   # "fitted" parameter values for SMC
   params_df <- params_df <- data.frame(
     max_SMC_kill_rate = rep(3, n_param_sets),
     lambda = rep(13.08, n_param_sets),
     kappa = rep(0.43, n_param_sets)
   )
-  params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", sim_allow_superinfections)
+  params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", treatment_probability)
   
   prob_bite_generic <- readRDS(paste0(path, '/archive/fit_rainfall/20251009-144330-1d355186/prob_bite_generic.rds'))
   prob_bite_generic$prob_infectious_bite = 0.3
@@ -188,9 +195,9 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
   #   theme_minimal()  + theme(legend.position = 'none')
   best_lhs <- data.frame(
     max_SMC_kill_rate = 3, 
-    lambda = 13.01,
-    kappa = 0.45,
-    sim_id = 'parameter_set_1_1112',
+    lambda = 13.08,
+    kappa = 0.454,
+    sim_id = 'parameter_set_1',
     lag_p_bite = 0
   )
   # best_lhs <- pars[pars$sim_id %in% top_runs$sim_id,]
@@ -218,8 +225,8 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
         initial_params <- c(start$max_SMC_kill_rate,
                             start$lambda,
                             start$kappa)
-        lower_bounds <- c(5, 10, 0.1) # max, lambda, kappa
-        upper_bounds <- c(20, 50, 9)
+        lower_bounds <- c(5, 5, 0.1) # max, lambda, kappa
+        upper_bounds <- c(15, 40, 5)
 
         # Track evaluations
         n_evals <- 0
@@ -355,42 +362,47 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
                                               initial_params <- c(start$max_SMC_kill_rate,
                                                                   start$lambda,
                                                                   start$kappa)
-                                              lower_bounds <- c(1, 5, 0.01) # max, lambda, kappa
-                                              upper_bounds <- c(10, 50, 5)
-
+                                              lower_bounds <- c(5, 5, 0.1) # max, lambda, kappa
+                                              upper_bounds <- c(15, 40, 5)
+                                              
                                               # Track evaluations
                                               n_evals <- 0
                                               eval_history <- list()
-
+                                              
                                               objective <- function(params) {
                                                 n_evals <<- n_evals + 1
-
+                                                
+                                                message(sprintf("\n=== Evaluation %d ===", n_evals))
+                                                message(sprintf("Params: max=%.4f, lambda=%.4f, kappa=%.4f", 
+                                                                params[1], params[2], params[3]))
+                                                
                                                 params_tibble <- data.frame(
-                                                  max_SMC_kill_rate = params[[1]],
-                                                  lambda = params[[2]],
-                                                  kappa = params[[3]],
+                                                  max_SMC_kill_rate = params[1],
+                                                  lambda = params[2],
+                                                  kappa = params[3],
                                                   lag_p_bite = 0,
                                                   smc_dose_days = start$smc_dose_days,
-                                                  sim_id = start$sim_id,
-                                                  p_bite = I(list(start$p_bite))
+                                                  sim_id = start$sim_id
                                                 )
-
+                                                params_tibble$p_bite <- list(start$p_bite)
+                                                
                                                 negll <- calculate_efficacy_likelihood(params_tibble,
                                                                                        metadata_df,
                                                                                        base_inputs,
                                                                                        observed_efficacy )
-                                                message('completed ', n_evals, ' evaluations')
-
+                                                
+                                                message('Evaluation ', n_evals, ': negll = ', round(negll, 4))
+                                                
                                                 # Store history with tibble
                                                 eval_history[[n_evals]] <<- list(
-                                                  params_tibble = params_tibble[c(1:3,6),],
+                                                  params_tibble = params_tibble,
                                                   negll = negll
                                                 )
-
+                                                
                                                 return(negll)
                                               }
-
-                                              # Run optimization
+                                              
+                                              # Run optimization with STRICT iteration limit
                                               fit <- optim(
                                                 par = initial_params,
                                                 fn = objective,
@@ -400,10 +412,10 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
                                                 control = list(
                                                   maxit = 50,  # Hard limit
                                                   trace = 1,
-                                                  factr = 1e8  
+                                                  factr = 1e8  # Loose convergence 
                                                 )
                                               )
-
+                                              
                                               return(list(
                                                 starting_point_id = start$sim_id,
                                                 initial_params = initial_params,
@@ -446,7 +458,7 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
     parallel::stopCluster(cl)
     
     # Save all results 
-    saveRDS(optim_results, 'R:/Kelly/synergy_orderly/src/fit_smc/outputs/optimization_results.rds')
+    saveRDS(optim_results, 'R:/Kelly/synergy_orderly/src/fit_smc/outputs/optimization_results_20251121.rds')
     # saveRDS(results2, "R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc.rds")
   }
   

@@ -1,7 +1,7 @@
 # Script to do a generic cohort simulation 
 # almost the same as sim_cohort_grid but just separated to make clear 
 sim_cohort_generic <- function(trial_ts = 365*3, 
-                               sim_allow_superinfections = TRUE,
+                               treatment_prob = 0.9, # default is 1 (which gives children prophylaxis)
                                country_to_run = 'generic',
                                n_param_sets,
                                path = "R:/Kelly/synergy_orderly/"){
@@ -70,7 +70,10 @@ sim_cohort_generic <- function(trial_ts = 365*3,
   # these get converted later to the correct directon - i.e. vaccine before follow-up will be +, smc before follow up will be -
   # vax_day is the 3rd primary dose (when we assume that efficacy begins)
   vax_day = -10 # unlike hte model sim, this is in days (not timesteps)
-  N = 400
+  N = 800
+  
+  treatment_probability = treatment_prob # in trial, everyone who was diagnosed with clincial malaria was treated 
+  successful_treatment_probability = 0.9 # AL treatment protects up to 90% for 12 days SI of Commun. 5:5606 doi: 10.1038/ncomms6606 (this is what is in malsim)
   
   # Set up base inputs (these don't vary across parameter sweep)
   base_inputs <- list(
@@ -81,7 +84,9 @@ sim_cohort_generic <- function(trial_ts = 365*3,
     tstep = tstep,
     t_liverstage = t_liverstage,
     country = country_to_run,
-    country_short = country_short
+    country_short = country_short,
+    treatment_probability = treatment_probability, 
+    successful_treatment_probability = successful_treatment_probability
   )
   
   # Create parameter grid
@@ -92,10 +97,11 @@ sim_cohort_generic <- function(trial_ts = 365*3,
     lambda = rep(13.08, n_param_sets),
     kappa = rep(0.43, n_param_sets)
   )
-  params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", sim_allow_superinfections)
+  params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", treatment_probability)
   
   # probability of a bite is used in the cohort simulation and so is in 1-day timesteps
-  prob_bite_generic <- readRDS(paste0(path, 'archive/fit_rainfall/20251009-144330-1d355186/prob_bite_generic.rds'))
+  # prob_bite_generic <- readRDS(paste0(path, 'archive/fit_rainfall/20251009-144330-1d355186/prob_bite_generic.rds'))
+  prob_bite_generic <- readRDS('R:/Kelly/synergy_orderly/src/fit_rainfall/prob_bite_generic.rds')#with EIR of 30 and highly seasonal instead of seasonal(21/11/25)
   message('stoppedafter getting prob bite')
   p_bitevector <- calc_lagged_vectors(prob_bite_generic, 0, burnints = burnints) # no lagged values 
   
@@ -130,6 +136,7 @@ sim_cohort_generic <- function(trial_ts = 365*3,
       PEV == 1 & SMC == 0 ~ 'rtss',
       PEV == 0 & SMC == 1 ~ 'smc',
       TRUE ~ 'none')) %>%
+    # could try to reduce effective coverage of SMC -- in the fitting
     mutate(t_to_boost1 = 365,
            t_to_boost2 = 730,
            country = country_to_run) %>%
@@ -138,7 +145,18 @@ sim_cohort_generic <- function(trial_ts = 365*3,
            v1_date = as.Date('2017-04-01'))
   
   output_dir = paste0(path, 'src/sim_cohort_generic/outputs/outputs_', Sys.Date())
+  # If base directory doesn't exist, create it
   if (!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+  } else {
+    # If it exists, find an available numbered version
+    counter <- 2
+    new_dir <- paste0(output_dir, "_", counter)
+    while (dir.exists(new_dir)) {
+      counter <- counter + 1
+      new_dir <- paste0(output_dir, "_", counter)
+    }
+    output_dir <- new_dir
     dir.create(output_dir, recursive = TRUE)
   }
   # Save parameter grid
@@ -163,7 +181,7 @@ sim_cohort_generic <- function(trial_ts = 365*3,
                                                     metadata_df,
                                                     base_inputs,
                                                     output_dir = 'R:/Kelly/src/sim_cohort_generic/outputs',
-                                                    allow_superinfections = TRUE,
+                                                    # allow_superinfections = TRUE,
                                                     return_parasitemia = FALSE,
                                                     save_outputs = FALSE)
                          message('finished simulation')
@@ -217,14 +235,14 @@ sim_cohort_generic <- function(trial_ts = 365*3,
                                                                     metadata_df,
                                                                     base_inputs,
                                                                     output_dir = 'R:/Kelly/src/sim_cohort_generic/outputs',
-                                                                    allow_superinfections = TRUE,
-                                                                    return_parasitemia = TRUE,
+                                                                    # allow_superinfections = TRUE,
+                                                                    return_parasitemia = FALSE,
                                                                     save_outputs = FALSE)
                                          message('finished simulation')
                                          o$infection_records$sim_id <- params_row$sim_id
                                          
                                          return(list(infection_records = o$infection_records, 
-                                                     parasitemia = o$parasitemia_data,
+                                                     # parasitemia = o$parasitemia_data,
                                                      params = params_row))
                                        }
     )

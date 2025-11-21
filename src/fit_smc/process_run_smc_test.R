@@ -43,7 +43,8 @@ lhsinfrecords <- purrr::map_df(lhs_parameters, 'infection_records', .id = 'sim_i
 
 # Compare weekly and daily summarized observed efficacy 
 ggplot() + 
-  geom_line(data = observed_efficacy, aes(x = floor(day_since_smc/7), y = efficacy), color = 'orchid') +
+  geom_line(data = observed_efficacy, aes(x = ceiling(day_since_smc/7), y = efficacy), color = 'orchid') +
+  geom_line(data = observed_efficacy, aes(x = weeks_since_smc, y = efficacy_week), color = 'orchid4') +
   geom_line(data = observed_efficacy_week, aes(x = weeks_since_smc, y = observed_efficacy), color = 'orange') + 
   theme_bw()
 ggplot() + 
