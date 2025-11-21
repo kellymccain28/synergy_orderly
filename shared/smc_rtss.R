@@ -169,8 +169,8 @@ n <- 150 #n, mean number of successful spz per challenge ; neg bin
 sigma_n <- 194 #, sigman sd of number of successful spz per challenge 
 mu <- 2136 #30000 #10.1371/journal.pcbi.1005255 as assumed by Hayley #2136 # mean number of merozoites released per sporozoite in Michael's model; gamma distributed
 sigma_mu <- 4460 #71427 #4460 from Michael's model # sd of number of merozoites released per sporozoite; gamma distributed
-beta_ab <- 6.62 #8639 # from hayley's #6.62 # anti-CSP titre for 50% reduction in spz survival prob microgram/mL
-alpha_ab <- 1.32 #1.53 # from hayley's #1.32 # shape parameter for antibody dose-response
+beta_ab <- parameter(6.62) # anti-CSP titre for 50% reduction in spz survival prob microgram/mL
+alpha_ab <- parameter(1.32)  # shape parameter for antibody dose-response
 
 # Parameters for Negative Binomial distribution
 r <- n^2 / (sigma_n^2 - n)
