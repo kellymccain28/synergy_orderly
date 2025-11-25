@@ -1,0 +1,40 @@
+# Plot initial merozoites by intervention arm and by detectability 
+
+library(ggplot2)
+
+path <- 'R:/Kelly/synergy_orderly/src/sim_cohort_generic/outputs/'
+outputsfolder <- 'outputs_2025-11-24'
+
+sim_results <- readRDS(paste0(path, outputsfolder, "/sim_results.rds"))
+parasitemia <- purrr::map_df(sim_results, 'parasitemia')
+# for now while waiting for output from generic cohort
+parasitemia <- purrr::map_df(`test_fitted_params_smc_2025-11-24`, 'parasitemia')
+
+initial_values <- parasitemia %>% 
+  # Get initial merozoite values 
+  filter(time_withinhost2 == 2) 
+  
+  ## maybe need to use mero_init???
+
+detectability_colors <- c('#6DECAF', '#5E239D')
+lighter <-c('#C8F9E3', '#C5A3E0')
+# Adaptation of plot from helper_functions.R make_plots() function  
+ggplot(initial_values) + 
+  geom_boxplot(aes(x = as.factor(det), y = parasites*VB+0001, color = as.factor(det), fill = as.factor(det)), 
+               linewidth = 0.8, alpha = 0.8) + #
+  geom_jitter(aes(x = as.factor(det), y = parasites*VB+0.001, color = as.factor(det)), alpha = 0.1) + #
+  facet_wrap(~arm) +
+  labs(x = NULL,#'Infection status',
+       y = 'Merozoites initating infection') + 
+  scale_color_manual(values = detectability_colors) +
+  scale_fill_manual(values = lighter) +
+  scale_x_discrete(labels = c('0' = 'Cleared', '1' = 'Detectable Case')) +
+  theme_bw(base_size = 12) + 
+  scale_y_log10(labels = scales::label_log(),
+                guide = "axis_logticks") +
+  theme(legend.position = 'none')
+
+ggplot(initial_values) + 
+  geom_boxplot(aes(x = 1, y = parasites*VB+0001), alpha = 0.7) + 
+  geom_jitter(aes(x = 1, y = parasites*VB+0.001, color = as.factor(det)), alpha = 0.2) + #
+  scale_y_log10()
