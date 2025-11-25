@@ -191,7 +191,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
         # Map to bit_kids order
         PEV_vec <- pev_lookup[as.character(bit_kids)]
         # Find the time since vaccination -- time between 3rd dose (vax day) and infectious bite
-        t_since_vax_vec <- (t - burnin) - vax_day_lookup[as.character(bit_kids)] + t_liverstage # adding t_liverstage to account for the delay between bite and BS infection; a (-) value of vaxdaylookup indicates that vaccination was after BS infection
+        t_since_vax_vec <- (t - burnin) - vax_day_lookup[as.character(bit_kids)] # a (-) value of vaxdaylookup indicates that vaccination was after BS infection; t is infectious bite 
         # vaccination before the infection begins 
         # for negative values of t_since_vax_vec, which means that the vaccine was delivered after the current time t, change to 0 so that ab_user is not NA
         t_since_vax_vec <- ifelse(t_since_vax_vec<0, 0, t_since_vax_vec)
@@ -211,7 +211,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
         # subset the kill rate vector to be from the external time (t includes the burnin) to the end of the vector
         # vector is every two days 
         SMC_kill_vec <- lapply(SMC_kill_vec, function(smcvec){
-          subset <- smcvec[floor((t + t_liverstage) / 2) :length(smcvec)] # t_liverstage added because we want to subset from when BS infection starts + the liver stage time, to the end; +burnin removed because it is already taken into account in the t
+          subset <- smcvec[floor((t + t_liverstage) / 2) :length(smcvec)] # t_liverstage added because we want to subset from when BS infection starts which is the bite + the liver stage time, to the end; +burnin removed because it is already taken into account in the t
           return(subset)
         })
         
@@ -230,7 +230,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
         PEV_on = PEV_vec,
         SMC_on = SMC_vec,
         t_inf_vax = t_since_vax_vec,
-        infection_start_day = t - burnin, # t - burnin because in run_process_model it is only used for formatting the time var -- time*2 + infstartday so that value must be without the burnin period 
+        infection_start_day = t - burnin + t_liverstage, # (day of bite is t-burnin and infectionstartdayis BS infection start day) because in run_process_model it is only used for formatting the time var -- time*2 + infstartday so that value must be without the burnin period 
         SMC_time = I(SMC_timev),
         SMC_kill_vec = I(SMC_kill_vec), 
         rid = bit_kids,
@@ -273,19 +273,35 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
                       })
       
       # Vectorized data frame creation of infection records
+      # new_records <- data.frame(
+      #   rid = bit_kids,
+      #   time_ext = rep(t - burnin, length(bit_kids)),                                                      # external cohort time (t is the cohort time, then we wnat to scale to be + if after burnin)
+      #   t = t,  # simulation day
+      #   infectious_bite_day = rep((t - burnin) - t_liverstage, length(bit_kids)),                          # bitten on day t, then assuming the liver stage takes t_liverstage days
+      #   BSinfection_day = rep((t - burnin), length(bit_kids)),                                             # after liver stage, the BS begins #+ t_liverstage
+      #   threshold_day = sapply(outputs, function(x) x$threshold_day),               # days since BS starts that threshold is reached
+      #   detection_day = (t - burnin) + sapply(outputs, function(x) x$threshold_day),# day in cohort simulation that threshold is reached, threshold is the day since BS infection that reaches threshold #+ t_liverstage 
+      #   t_toreach_threshold = sapply(outputs, function(x) x$threshold_day) + t_liverstage,   # time to reach threshold value / detection since the bite  
+      #   vaccination_day =  kid_metadata$vaccination_day, #if(t < burnin) rep(NA, length(bit_kids)) else  # day of vaccination relative to the start of follow-up (day 0 external time)
+      #   prob_bite = rep(p_bite[t], length(bit_kids)),
+      #   recovery_day = ((t - burnin) + sapply(outputs, function(x) x$threshold_day)) + 12 - t_liverstage, # day that the child would be 'recovered' if we assume that a child is treated and has a period of prophylaxis for 12 days after detection day 
+      #   # (90% at 12 days in paper but here, assuming 100% for 12 days) after the day of treatment and that all infectiosn are treated with AL 10.1038/ncomms6606
+      #   country = country_to_run
+      # ) 
+      # Vectorized data frame creation of infection records with infectious bite day as central day 
       new_records <- data.frame(
         rid = bit_kids,
         time_ext = rep(t - burnin, length(bit_kids)),                                                      # external cohort time (t is the cohort time, then we wnat to scale to be + if after burnin)
         t = t,  # simulation day
-        infectious_bite_day = rep((t - burnin) - t_liverstage, length(bit_kids)),                          # bitten on day t, then assuming the liver stage takes t_liverstage days
-        BSinfection_day = rep((t - burnin), length(bit_kids)),                                             # after liver stage, the BS begins #+ t_liverstage
+        infectious_bite_day = rep((t - burnin), length(bit_kids)),                          # bitten on day t, then assuming the liver stage takes t_liverstage days
+        BSinfection_day = rep((t - burnin) + t_liverstage, length(bit_kids)),                                             # after liver stage, the BS begins #+ t_liverstage
         threshold_day = sapply(outputs, function(x) x$threshold_day),               # days since BS starts that threshold is reached
-        detection_day = (t - burnin) + sapply(outputs, function(x) x$threshold_day),# day in cohort simulation that threshold is reached, threshold is the day since BS infection that reaches threshold #+ t_liverstage 
+        detection_day = (t - burnin) + sapply(outputs, function(x) x$threshold_day) + t_liverstage,# day in cohort simulation that threshold is reached, threshold is the day since BS infection that reaches threshold #+ t_liverstage 
         t_toreach_threshold = sapply(outputs, function(x) x$threshold_day) + t_liverstage,   # time to reach threshold value / detection since the bite  
-        vaccination_day = if(t < burnin) rep(NA, length(bit_kids)) else kid_metadata$vaccination_day,   # day of vaccination relative to the start of follow-up (day 0 external time)
+        vaccination_day =  kid_metadata$vaccination_day, #if(t < burnin) rep(NA, length(bit_kids)) else  # day of vaccination relative to the start of follow-up (day 0 external time)
         prob_bite = rep(p_bite[t], length(bit_kids)),
-        recovery_day = ((t - burnin) + sapply(outputs, function(x) x$threshold_day)) + 12 - t_liverstage, # day that the child would be 'recovered' if we assume that a child is treated and has a period of prophylaxis for 12 days after detection day 
-        # (90% at 12 days in paper but here, assuming 100% for 12 days) after the day of treatment and that all infectiosn are treated with AL 10.1038/ncomms6606
+        recovery_day = ((t - burnin) + sapply(outputs, function(x) x$threshold_day)) + 12, # day that the child would be 'recovered' if we assume that a child is treated and has a period of prophylaxis for 12 days after detection day 
+        # (90% at 12 days in paper but here, assuming 100% for 12 days) after the day of treatment and that all infectiosn are treated with AL 10.1038/ncomms6606 (this is detection day  + 12 - liverstage, but detection day is threshold + t + liverstage, so the lviverstages cancel out leaving us with 12 +threshold + t)
         country = country_to_run
       ) 
       
@@ -346,9 +362,9 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
           
           output$trajectory %>%
             mutate(
-              day1_BSinfection = t - burnin,#+ t_liverstage 
+              day1_BSinfection = t - burnin + t_liverstage,
               threshold_day = output$threshold_day,
-              detection_day = t + threshold_day - burnin,# do not need to multiply threshold day by 2 here since already done in run_process_model #+ t_liverstage 
+              detection_day = t -burnin + threshold_day + t_liverstage,# do not need to multiply threshold day by 2 here since already done in run_process_model #+ t_liverstage 
               # time_ext = time_orig*2 + (t - burnin) - 1,# + infection_start_day/2,# external time should be dependent on when infection was, relative to external time(inf_start_day aka t); time (model time) has already been multiplied by 2 and related to infection time  #time*2 + (t - 1) - burnin,#+ t_liverstage
               arm = metadata_df[metadata_df$rid == kid, ]$arm,
               t = t
