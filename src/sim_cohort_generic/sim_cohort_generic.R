@@ -69,8 +69,8 @@ sim_cohort_generic <- function(trial_ts = 365*3,
   # Day of intervention (0 = start of follow-up; - values are before follow-up; + values after follow-up) - where 0 is also end of burnin
   # these get converted later to the correct directon - i.e. vaccine before follow-up will be +, smc before follow up will be -
   # vax_day is the 3rd primary dose (when we assume that efficacy begins)
-  vax_day = -10 # unlike hte model sim, this is in days (not timesteps)
-  N = 800
+  vax_day = 90 # unlike hte model sim, this is in days (not timesteps), ~90 days is the beginning of July which in the generic sim is just as the season is starting 
+  N = 1200
   
   treatment_probability = treatment_prob # in trial, everyone who was diagnosed with clincial malaria was treated 
   successful_treatment_probability = 0.9 # AL treatment protects up to 90% for 12 days SI of Commun. 5:5606 doi: 10.1038/ncomms6606 (this is what is in malsim)
@@ -108,7 +108,7 @@ sim_cohort_generic <- function(trial_ts = 365*3,
   params_df$lag_p_bite <- 0
   
   # SMC delivery 
-  season_start_day <- 122 # days between April 1 to August 1, so if the sim starts on 
+  season_start_day <- 137 # days between April 1 to August 15, so if the sim starts on 
   season_length <- 120
   params_df <- params_df %>%
     rowwise() %>%
@@ -142,7 +142,7 @@ sim_cohort_generic <- function(trial_ts = 365*3,
            country = country_to_run) %>%
     mutate(rid_original =paste0(country_short, sprintf("%04d", rid)),
            country = 'generic',
-           v1_date = as.Date('2017-04-01'))
+           v1_date = as.Date('2017-04-01') + vax_day - 60) # before was just april1, but now the first dose is dependent on the 3rd(specified by vax_day), 3rd dose is ~60 days after first
   
   output_dir = paste0(path, 'src/sim_cohort_generic/outputs/outputs_', Sys.Date())
   # If base directory doesn't exist, create it
@@ -182,7 +182,7 @@ sim_cohort_generic <- function(trial_ts = 365*3,
                                                     base_inputs,
                                                     output_dir = 'R:/Kelly/src/sim_cohort_generic/outputs',
                                                     # allow_superinfections = TRUE,
-                                                    return_parasitemia = FALSE,
+                                                    return_parasitemia = TRUE,
                                                     save_outputs = FALSE)
                          message('finished simulation')
                          o$infection_records$sim_id <- params_row$sim_id
@@ -225,7 +225,7 @@ sim_cohort_generic <- function(trial_ts = 365*3,
     
     parallel::clusterExport(cl, c("params_list", "metadata_df", "base_inputs", "gen_bs",
                                   "n_particles", "n_threads", "burnints", "threshold", "tstep",
-                                  "t_liverstage", "country_to_run", "VB", "divide"),
+                                  "t_liverstage", "country_to_run", "VB", "divide", "output_dir"),
                             envir = environment())
     
     results2 <- parallel::clusterApply(cl,
@@ -236,20 +236,27 @@ sim_cohort_generic <- function(trial_ts = 365*3,
                                                                     base_inputs,
                                                                     output_dir = 'R:/Kelly/src/sim_cohort_generic/outputs',
                                                                     # allow_superinfections = TRUE,
-                                                                    return_parasitemia = FALSE,
+                                                                    return_parasitemia = TRUE,
                                                                     save_outputs = FALSE)
                                          message('finished simulation')
                                          o$infection_records$sim_id <- params_row$sim_id
                                          
+                                         saveRDS(results2, paste0(output_dir, '/sim_results.rds'))
+                                         
                                          return(list(infection_records = o$infection_records, 
-                                                     # parasitemia = o$parasitemia_data,
+                                                     parasitemia = o$parasitemia_data,
                                                      params = params_row))
                                        }
     )
     parallel::stopCluster(cl)
   }
+  infectionrecords <- purrr::map_df(results2, "infection_records")
+  params <- purrr::map_df(results2, 'params')
+  parasitemia <- purrr::map_df(results2, 'parasitemia')
   
-  saveRDS(results2, paste0(output_dir, '/sim_results.rds'))
+  saveRDS(infectionrecords, paste0(output_dir, '/infection_records.rds'))
+  saveRDS(params, paste0(output_dir, '/parameter_df.rds'))
+  saveRDS(parasitemia, paste0(output_dir, '/parasitemia.rds'))
 }
 # sim_results <- readRDS("R:/Kelly/synergy_orderly/src/sim_cohort_generic/outputs/outputs_2025-11-19/sim_results.rds")
 # 
