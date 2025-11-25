@@ -29,6 +29,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
   gen_bs <- odin2::odin(paste0(path, "/shared/smc_rtss.R"))
   # Source the utils functions
   source(paste0(path, "/shared/cohort_sim_utils.R"))
+  source(paste0(path, "/src/fit_smc/calculate_efficacy_likelihood.R"))
   
   
   trial_ts = 365*3# trial timesteps in cohort simulation (inte)
@@ -121,6 +122,20 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
   # "Observed" efficacy from White model 
   observed_efficacy_rtss <- readRDS(paste0(path, '/src/fit_rtss/observed_rtss_efficacy.rds'))
   
+  best_lhs <- data.frame(
+    sim_id = 'parameter_set_1',
+    alpha_ab = 1.32,
+    beta_ab = 6.62,
+    lag_p_bite = 0
+  )
+  # best_lhs <- pars[pars$sim_id %in% top_runs$sim_id,]
+  best_lhs <- best_lhs %>%
+    mutate(
+      p_bite = purrr::map(lag_p_bite, ~p_bitevector[[paste0("lag_", .x)]]),
+      smc_dose_days = 10
+    )
+  best_lhs_list <- split(best_lhs, seq(nrow(best_lhs)))
+  
   # Run simulation
   cluster_cores <- Sys.getenv("CCP_NUMCPUS")
   if (cluster_cores == "") {
@@ -131,26 +146,99 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
     message("running in serial (on a laptop?)")
     message("Running ", nrow(params_df), " simulations sequentially")
     
-    results2 <- lapply(params_list,
-                       function(params_row){
-                         o <- run_cohort_simulation(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
-                                                    metadata_df,
-                                                    base_inputs,
-                                                    output_dir = 'R:/Kelly/src/fit_rtss/outputs',
-                                                    # allow_superinfections = TRUE,
-                                                    return_parasitemia = FALSE,
-                                                    save_outputs = FALSE)
-                         message('finished simulation')
-                         o$infection_records$sim_id <- params_row$sim_id
-                         
-                         eff <- calc_rtss_efficacy(o$infection_records)
-                         eff_cumul <- calc_rtss_efficacy_cumul(o$infection_records)
-                         
-                         return(list(infection_records = o$infection_records, 
-                                     efficacy_weekly = eff,
-                                     efficacy_weekly_cumul = eff_cumul,
-                                     params = params_row))
-                       })
+    # For optimization
+    optim_results <- lapply(
+      best_lhs_list,
+      function(start){
+        initial_params <- c(start$alpha_ab,
+                            start$beta_ab)
+        lower_bounds <- c(0.5, 4) # alpha, beta
+        upper_bounds <- c(3, 8)
+        
+        # Track evaluations
+        n_evals <- 0
+        eval_history <- list()
+        
+        objective <- function(params) {
+          n_evals <<- n_evals + 1
+          
+          message(sprintf("\n=== Evaluation %d ===", n_evals))
+          message(sprintf("Params: alpha=%.4f, beta=%.4f", 
+                          params[1], params[2]))
+          
+          params_tibble <- data.frame(
+            max_SMC_kill_rate = 0,
+            lambda = 0,
+            kappa = 0,
+            alpha_ab = start$alpha_ab,
+            beta_ab = start$beta_ab,
+            lag_p_bite = 0,
+            smc_dose_days = start$smc_dose_days,
+            sim_id = start$sim_id
+          )
+          params_tibble$p_bite <- list(start$p_bite)
+          
+          negll <- calculate_efficacy_likelihood_rtss(params_tibble,
+                                                      metadata_df,
+                                                      base_inputs,
+                                                      observed_efficacy_rtss )
+          
+          message('Evaluation ', n_evals, ': negll = ', round(negll, 4))
+          
+          # Store history with tibble
+          eval_history[[n_evals]] <<- list(
+            params_tibble = params_tibble,
+            negll = negll
+          )
+          
+          return(negll)
+        }
+        
+        # Run optimization with STRICT iteration limit
+        fit <- optim(
+          par = initial_params,
+          fn = objective,
+          method = "L-BFGS-B",
+          lower = lower_bounds,
+          upper = upper_bounds,
+          control = list(
+            maxit = 50,  # Hard limit
+            trace = 1,
+            factr = 1e8  # Loose convergence 
+          )
+        )
+        
+        return(list(
+          starting_point_id = start$sim_id,
+          initial_params = initial_params,
+          final_params = fit$par,
+          log_likelihood = -fit$value,
+          convergence = fit$convergence,
+          n_evaluations = n_evals,
+          eval_history = eval_history
+        ))
+        
+      })
+    # results2 <- lapply(params_list,
+    #                    function(params_row){
+    #                      o <- run_cohort_simulation(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
+    #                                                 metadata_df,
+    #                                                 base_inputs,
+    #                                                 output_dir = 'R:/Kelly/src/fit_rtss/outputs',
+    #                                                 # allow_superinfections = TRUE,
+    #                                                 return_parasitemia = FALSE,
+    #                                                 save_outputs = FALSE)
+    #                      message('finished simulation')
+    #                      o$infection_records$sim_id <- params_row$sim_id
+    #                      
+    #                      eff <- calc_rtss_efficacy(o$infection_records)
+    #                      eff_cumul <- calc_rtss_efficacy_cumul(o$infection_records)
+    #                      
+    #                      return(list(infection_records = o$infection_records, 
+    #                                  efficacy_weekly = eff,
+    #                                  efficacy_weekly_cumul = eff_cumul,
+    #                                  params = params_row))
+    #                    })
     
   } else {
     message(sprintf("running in parallel on %s (on the cluster?)", cluster_cores))
@@ -186,43 +274,119 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
     
     parallel::clusterExport(cl, c("params_list", "metadata_df", "base_inputs", "gen_bs",
                                   "n_particles", "n_threads", "burnints", "threshold", "tstep",
-                                  "t_liverstage", "country_to_run", "VB", "divide"),
+                                  "t_liverstage", "country_to_run", "VB", "divide",
+                                  "observed_efficacy_rtss", "best_lhs_list"),
                             envir = environment())
     
-    results2 <- parallel::clusterApply(cl,
-                                       params_list,
-                                       function(params_row) {
-                                         o <- run_cohort_simulation(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
-                                                                    metadata_df,
-                                                                    base_inputs,
-                                                                    output_dir = 'R:/Kelly/src/fit_rtss/outputs',
-                                                                    # allow_superinfections = TRUE,
-                                                                    return_parasitemia = FALSE,
-                                                                    save_outputs = FALSE)
-                                         message('finished simulation')
-                                         o$infection_records$sim_id <- params_row$sim_id
-                                         
-                                         eff <- calc_rtss_efficacy(o$infection_records)
-                                         eff_cumul <- calc_rtss_efficacy_cumul(o$infection_records)
-                                         
-                                         return(list(infection_records = o$infection_records, 
-                                                     efficacy_weekly = eff,
-                                                     efficacy_weekly_cumul = eff_cumul,
-                                                     params = params_row))
-                                       }
-    )
+    # For optimization
+    # For optimization
+    optim_results <- lapply(
+      best_lhs_list,
+      function(start){
+        initial_params <- c(start$alpha_ab,
+                            start$beta_ab)
+        lower_bounds <- c(0.5, 4) # alpha, beta
+        upper_bounds <- c(3, 8)
+        
+        # Track evaluations
+        n_evals <- 0
+        eval_history <- list()
+        
+        objective <- function(params) {
+          n_evals <<- n_evals + 1
+          
+          message(sprintf("\n=== Evaluation %d ===", n_evals))
+          message(sprintf("Params: alpha=%.4f, beta=%.4f", 
+                          params[1], params[2]))
+          
+          params_tibble <- data.frame(
+            max_SMC_kill_rate = 0,
+            lambda = 0,
+            kappa = 0,
+            alpha_ab = start$alpha_ab,
+            beta_ab = start$beta_ab,
+            lag_p_bite = 0,
+            smc_dose_days = start$smc_dose_days,
+            sim_id = start$sim_id
+          )
+          params_tibble$p_bite <- list(start$p_bite)
+          
+          negll <- calculate_efficacy_likelihood_rtss(params_tibble,
+                                                      metadata_df,
+                                                      base_inputs,
+                                                      observed_efficacy_rtss )
+          
+          message('Evaluation ', n_evals, ': negll = ', round(negll, 4))
+          
+          # Store history with tibble
+          eval_history[[n_evals]] <<- list(
+            params_tibble = params_tibble,
+            negll = negll
+          )
+          
+          return(negll)
+        }
+        
+        # Run optimization with STRICT iteration limit
+        fit <- optim(
+          par = initial_params,
+          fn = objective,
+          method = "L-BFGS-B",
+          lower = lower_bounds,
+          upper = upper_bounds,
+          control = list(
+            maxit = 50,  # Hard limit
+            trace = 1,
+            factr = 1e8  # Loose convergence 
+          )
+        )
+        
+        return(list(
+          starting_point_id = start$sim_id,
+          initial_params = initial_params,
+          final_params = fit$par,
+          log_likelihood = -fit$value,
+          convergence = fit$convergence,
+          n_evaluations = n_evals,
+          eval_history = eval_history
+        ))
+        
+      })
+    # results2 <- parallel::clusterApply(cl,
+    #                                    params_list,
+    #                                    function(params_row) {
+    #                                      o <- run_cohort_simulation(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
+    #                                                                 metadata_df,
+    #                                                                 base_inputs,
+    #                                                                 output_dir = 'R:/Kelly/src/fit_rtss/outputs',
+    #                                                                 # allow_superinfections = TRUE,
+    #                                                                 return_parasitemia = FALSE,
+    #                                                                 save_outputs = FALSE)
+    #                                      message('finished simulation')
+    #                                      o$infection_records$sim_id <- params_row$sim_id
+    #                                      
+    #                                      eff <- calc_rtss_efficacy(o$infection_records)
+    #                                      eff_cumul <- calc_rtss_efficacy_cumul(o$infection_records)
+    #                                      
+    #                                      return(list(infection_records = o$infection_records, 
+    #                                                  efficacy_weekly = eff,
+    #                                                  efficacy_weekly_cumul = eff_cumul,
+    #                                                  params = params_row))
+    #                                    }
+    # )
     parallel::stopCluster(cl)
   }
   
-  infectionrecords <- purrr::map_df(results2, "infection_records")
-  efficacy <- purrr::map_df(results2, 'efficacy_weekly')
-  efficacy_cumul <- purrr::map_df(results2, 'efficacy_weekly_cumul')
-  params <- purrr::map_df(results2, 'parameters')
-  
-  saveRDS(params, paste0(path, '/src/fit_rtss/outputs/parameters_', Sys.Date(), '.rds'))
-  saveRDS(infectionrecords, paste0(path, '/src/fit_rtss/outputs/infectionrecords_rtss_', Sys.Date(), '.rds'))
-  saveRDS(efficacy, paste0(path, '/src/fit_rtss/outputs/efficacy_rtss_', Sys.Date(), '.rds'))
-  saveRDS(efficacy_cumul, paste0(path, '/src/fit_rtss/outputs/efficacy_rtss_cumul_', Sys.Date(), '.rds'))
+  saveRDS(optim_results, paste0(path, '/src/fit_rtss/outputs/optimization_results_2111.rds'))
+  # infectionrecords <- purrr::map_df(results2, "infection_records")
+  # efficacy <- purrr::map_df(results2, 'efficacy_weekly')
+  # efficacy_cumul <- purrr::map_df(results2, 'efficacy_weekly_cumul')
+  # params <- purrr::map_df(results2, 'parameters')
+  # 
+  # saveRDS(params, paste0(path, '/src/fit_rtss/outputs/parameters_', Sys.Date(), '.rds'))
+  # saveRDS(infectionrecords, paste0(path, '/src/fit_rtss/outputs/infectionrecords_rtss_', Sys.Date(), '.rds'))
+  # saveRDS(efficacy, paste0(path, '/src/fit_rtss/outputs/efficacy_rtss_', Sys.Date(), '.rds'))
+  # saveRDS(efficacy_cumul, paste0(path, '/src/fit_rtss/outputs/efficacy_rtss_cumul_', Sys.Date(), '.rds'))
 }
 
 
