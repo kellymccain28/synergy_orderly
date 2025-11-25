@@ -10,7 +10,7 @@ observed_efficacy <- read.csv(paste0(path, '/shared/smc_fits_hayley.csv')) %>%
   group_by(weeks_since_smc) %>%
   mutate(efficacy_week = mean(efficacy))
 observed_efficacy_week <- read.csv(paste0(path, '/shared/smc_fits_hayley_week.csv'))
-lhs_parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc_2025-11-19.rds")#lhs_parameters_0411.rds
+lhs_parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc_2025-11-22.rds")#lhs_parameters_0411.rds
 effweekly <- purrr::map_df(lhs_parameters, 'efficacy_weekly')
 effdaily <- purrr::map_df(lhs_parameters, 'efficacy_daily')
 effcumulweekly <- purrr::map_df(lhs_parameters, 'efficacy_weekly_cumul')
@@ -18,6 +18,7 @@ effcumuldaily <- purrr::map_df(lhs_parameters, 'efficacy_daily_cumul')
 lhspars <- purrr::map_df(lhs_parameters, 'params')
 lhsparasit <- purrr::map_df(lhs_parameters, 'parasitemia', .id = "sim_id")
 lhsinfrecords <- purrr::map_df(lhs_parameters, 'infection_records', .id = 'sim_id')
+
 
 # effcumulweekly <- calc_smc_efficacy_cumul(lhsinfrecords, params_row = lhspars[1,])
 
@@ -182,6 +183,12 @@ weibull_survival <- function(t, max_SMC_kill_rate, lambda, kappa){
 t_seq = seq(0, 60, length.out = 60)
 pars <- lhspars %>% filter(sim_id %in% top_runs$sim_id)
 
+pars <- data.frame(
+  max_SMC_kill_rate = rep(3,10),
+  lambda = rep(16, 10),
+  kappa= seq(0.3,0.7, length.out = 10),
+  sim_id = paste0(seq(1,10), 'id')
+)
 plot_data <- pars %>%
   mutate(numid = readr::parse_number(sim_id)) %>%
   mutate(label = paste0(numid, "\n", round(max_SMC_kill_rate,2), ', ', round(lambda,2),', ', round(kappa,2))) %>%
@@ -196,20 +203,20 @@ plot_data <- pars %>%
   }) %>%
   ungroup()
 
-ggplot(plot_data, aes(x = time, y = survival)) +
-  geom_line(color = "steelblue", linewidth = 1) +
-  facet_wrap(~ label) +
+ggplot(plot_data, aes(x = time, y = survival, group = label, color = label)) +
+  geom_line(linewidth = 0.8) +#color = "steelblue"
+  # facet_wrap(~ label) +
   labs(
     title = "Weibull Survival Functions",
     x = "Time",
     y = "Kill rate (t))"
   ) +
-  theme_minimal() +
-  theme(
-    strip.text = element_text(size = 11, face = "bold"),
-    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-    legend.position = 'none'
-  )
+  theme_minimal() #+
+  # theme(
+  #   strip.text = element_text(size = 11, face = "bold"),
+  #   plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+  #   legend.position = 'none'
+  # )
 
 # Try to understand why the cohort sims are resulting in DROPs in efficacy all of the sudden  -- SEEMS TO BE RELATED TO THE KILL RATES THAT ARE ALL DROPPING PRECIPITOUSLY
 test <- o$parasitemia_data %>%#lhsparasit %>%
@@ -236,7 +243,7 @@ ggplot() +
 
 
 # Optimization
-optimization_results <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/optimization_results_2210.rds") # 2210 does allow superinfections
+optimization_results <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/optimization_results_20251123_2.rds") # 2210 does allow superinfections
 
 best_refined <- optimization_results[[which.max(
   sapply(optimization_results, function(x) x$log_likelihood)
@@ -248,16 +255,28 @@ best_refined$initial_params #9.0928452 13.0471435  0.4141795
 best_refined$final_params #9.0739477 15.0000000  0.4586005 # when allowing lambda to go <15, 9.1078524 13.0757521  0.4277123
 best_refined$convergence#0
 best_refined$n_evaluations #231
+reps <- 3
 pars_to_test <- data.frame(
-  max_SMC_kill_rate = rep(best_refined$final_params[1], 10),
-  lambda = rep(best_refined$final_params[2],10),
-  kappa = rep(best_refined$final_params[3],10),
-  sim_id = seq(1, 10),
-  lag_p_bite = rep(0,10),
-  season_start_day = rep(50,10),
-  smc_dose_days = rep(10,10),
-  p_bite = I(rep(params_list[[1]]$p_bite, 10))
+  max_SMC_kill_rate = rep(best_refined$initial_params[1], reps),
+  lambda = rep(best_refined$final_params[2],reps),
+  kappa = rep(best_refined$final_params[3],reps),
+  sim_id = seq(1, reps),
+  lag_p_bite = rep(0,reps),
+  season_start_day = rep(50,reps),
+  smc_dose_days = rep(reps,reps),
+  p_bite = I(rep(params_list[[1]]$p_bite, reps))
 )
+# pars_to_test <- data.frame(
+#   max_SMC_kill_rate = rep(3, 10),
+#   lambda = rep(16,10),
+#   kappa = rep(0.5,10),
+#   sim_id = seq(1, 10),
+#   lag_p_bite = rep(0,10),
+#   season_start_day = rep(50,10),
+#   smc_dose_days = rep(10,10),
+#   p_bite = I(rep(params_list[[1]]$p_bite, 10))
+# )
+# pars_to_test <- pars_to_test[1,]
 pars_to_test <- split(pars_to_test, seq(nrow(pars_to_test)))
 results2 <- lapply(pars_to_test,
                    function(params_row){
@@ -265,7 +284,7 @@ results2 <- lapply(pars_to_test,
                                                 metadata_df,
                                                 base_inputs,
                                                 output_dir = 'R:/Kelly/src/fit_smc/simulation_outputs',
-                                                allow_superinfections = TRUE,
+                                                # allow_superinfections = TRUE,
                                                 return_parasitemia = TRUE,
                                                 save_outputs = FALSE)
 
@@ -277,32 +296,57 @@ results2 <- lapply(pars_to_test,
                                                     by_week = FALSE)
                      eff$sim_id <- params_row$sim_id
                      eff_daily$sim_id <- params_row$sim_id
-
+                     # Efficacy with cumulative proportion
+                     eff_cumul <- calc_smc_efficacy_cumul(o$infection_records,
+                                                          params_row,
+                                                          by_week = TRUE)
+                     eff_daily_cumul <- calc_smc_efficacy_cumul(o$infection_records,
+                                                                params_row,
+                                                                by_week = FALSE)
+                     eff_cumul$sim_id <- params_row$sim_id
+                     eff_daily_cumul$sim_id <- params_row$sim_id
+                     
                      return(list(efficacy_weekly = eff,
                                  efficacy_daily = eff_daily,
-                                 params = params_row,
-                                 parasitemia = o$parasitemia_data,
-                                 infection_records_smc = o$infection_records))
+                                 efficacy_weekly_cumul = eff_cumul, 
+                                 efficacy_daily_cumul = eff_daily_cumul,
+                                 parasitemia = o$parasitemia_data %>% mutate(sim_id = params_row$sim_id),
+                                 infection_records = o$infection_records %>% mutate(sim_id = params_row$sim_id),
+                                 params = params_row))
                    })
 eff_weekly <- purrr::map_df(results2, 'efficacy_weekly')
 eff_daily <- purrr::map_df(results2, 'efficacy_daily')
-ggplot(eff_daily %>% filter(days_since_smc < 70)) +
-  geom_point(aes(x = days_since_smc, y = efficacy, group = sim_id, color = sim_id), alpha = 0.8) +
-  geom_line(aes(x = days_since_smc, y = efficacy, group = sim_id, color = sim_id), alpha = 0.2) +
+effcumulweekly <- purrr::map_df(results2, 'efficacy_weekly_cumul')
+infrecords <- purrr::map_df(results2, 'infection_records_smc')
+# ggplot(eff_daily %>% filter(days_since_smc < 70)) +
+#   geom_point(aes(x = days_since_smc, y = efficacy, group = sim_id, color = sim_id), alpha = 0.8) +
+#   geom_line(aes(x = days_since_smc, y = efficacy, group = sim_id, color = sim_id), alpha = 0.2) +
+#   ylim(c(-0.5, 1)) +
+#   geom_line(data = observed_efficacy, aes(x = day_since_smc, y = efficacy), alpha = 0.2) +
+#   geom_point(data = observed_efficacy, aes(x = day_since_smc, y = efficacy), alpha = 0.2) +
+#   theme_minimal() +
+#   theme(legend.position = 'none')
+# ggplot(eff_weekly %>% filter(weeks_since_smc < 10)) +
+#   ylim(c(-0.5, 1)) +
+#   geom_line(data = observed_efficacy, aes(x = day_since_smc, y = efficacy), alpha = 0.8) +
+#   geom_point(data = observed_efficacy, aes(x = day_since_smc, y = efficacy), alpha = 0.8) +
+#   geom_point(aes(x = weeks_since_smc*7, y = efficacy, group = sim_id, color = as.factor(sim_id)), alpha = 0.8) +
+#   geom_line(aes(x = weeks_since_smc*7, y = efficacy, group = sim_id, color = as.factor(sim_id)), alpha = 0.8) +
+#   theme_minimal() +
+#   theme(legend.position = 'none')
+ggplot(effcumulweekly %>% filter(weeks_since_smc < 10)) +
   ylim(c(-0.5, 1)) +
-  geom_line(data = observed_efficacy, aes(x = day_since_smc, y = efficacy), alpha = 0.2) +
-  geom_point(data = observed_efficacy, aes(x = day_since_smc, y = efficacy), alpha = 0.2) +
+  geom_line(data = observed_efficacy, aes(x = weeks_since_smc, y = efficacy_week), alpha = 0.8) +
+  geom_point(data = observed_efficacy, aes(x = weeks_since_smc, y = efficacy_week), alpha = 0.8) +
+  geom_point(aes(x = weeks_since_smc, y = efficacy, color = as.factor(sim_id)),  alpha = 0.8) +
+  geom_line(aes(x = weeks_since_smc, y = efficacy, group = as.factor(sim_id), color = as.factor(sim_id)), alpha = 0.8) +
   theme_minimal() +
   theme(legend.position = 'none')
-ggplot(eff_weekly %>% filter(weeks_since_smc < 10)) +
-  ylim(c(-0.5, 1)) +
-  geom_line(data = observed_efficacy, aes(x = day_since_smc, y = efficacy), alpha = 0.8) +
-  geom_point(data = observed_efficacy, aes(x = day_since_smc, y = efficacy), alpha = 0.8) +
-  geom_point(aes(x = weeks_since_smc*7, y = efficacy, group = sim_id, color = as.factor(sim_id)), alpha = 0.8) +
-  geom_line(aes(x = weeks_since_smc*7, y = efficacy, group = sim_id, color = as.factor(sim_id)), alpha = 0.8) +
-  theme_minimal() +
-  theme(legend.position = 'none')
-
+# observed_efficacy %>%
+#   mutate(weeks_since_smc = ceiling(day_since_smc / 7)) %>%
+#   group_by(weeks_since_smc) %>%
+#   summarize(observed_efficacy = mean(efficacy)) %>%
+#   ggplot()+geom_line(aes(x = weeks_since_smc, y = observed_efficacy))
 ggplot(eff_weekly %>% filter(weeks_since_smc < 10)) +
     geom_line(aes(x = weeks_since_smc, y = inci_none, group = sim_id, color = as.factor(sim_id)),
               alpha = 0.8, linetype = 2) +

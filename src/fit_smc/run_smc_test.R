@@ -2,6 +2,7 @@
 
 run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
                         n_param_sets,
+                        treatment_prob = 0.9, # default is 1 (which gives children prophylaxis)
                         N = 800){
   # Script to fit smc parameters to Hayley's curve 
   library(lhs)
@@ -32,7 +33,7 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
   source(paste0(path, "/shared/likelihood.R"))
   
   trial_ts = 80# trial timesteps in cohort simulation
-  sim_allow_superinfections = TRUE # TRUE or FALSE
+  # sim_allow_superinfections = TRUE # TRUE or FALSE
   country_to_run = 'generic'# BF or Mali, or if generic, then 'generic' which means that metadata_df is different.
   country_short = 'g'
   n_param_sets = n_param_sets
@@ -48,6 +49,9 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
   VB = 1e6
   divide = if(tstep == 1) 2 else 1
   
+  treatment_probability = treatment_prob # in trial, everyone who was diagnosed with clincial malaria was treated 
+  successful_treatment_probability = 0.9 # AL treatment protects up to 90% for 12 days SI of Commun. 5:5606 doi: 10.1038/ncomms6606 (this is what is in malsim)
+  
   # Set up base inputs (these don't vary across parameter sweep)
   base_inputs <- list(
     trial_timesteps = trial_ts,
@@ -57,7 +61,9 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
     tstep = tstep,
     t_liverstage = t_liverstage,
     country = country_to_run,
-    country_short = 'g'
+    country_short = 'g',
+    treatment_probability = treatment_probability, 
+    successful_treatment_probability = successful_treatment_probability
   )
   
   # Set up grid of parameters
@@ -75,12 +81,14 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
     kappa = qunif(A[,3], param_ranges$kappa[1], param_ranges$kappa[2])
   )
   # "fitted" parameter values for SMC
+  # first are the fitted parameters from before and those with the lowest negll, then second are 'best' according to optim() 
   params_df <- params_df <- data.frame(
-    max_SMC_kill_rate = rep(3.009, n_param_sets),
-    lambda = rep(13.048, n_param_sets),
-    kappa = rep(0.454, n_param_sets)
+    max_SMC_kill_rate = c(rep(2.891, n_param_sets/2), rep(2.981, n_param_sets/2)),
+    lambda = c(rep(17.3, n_param_sets/2),rep(17.392, n_param_sets/2)),
+    kappa = c(rep(0.278, n_param_sets/2),rep(0.2998, n_param_sets/2))#,
+    # sim_id = c(rep('parameter_set_3max',n_param_sets/2), rep('parameter_set_6max', n_param_sets/2))
   )
-  params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", sim_allow_superinfections)
+  params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", params_df$max_SMC_kill_rate, country_to_run, "_", treatment_probability)
   
   prob_bite_generic <- readRDS(paste0(path, '/archive/fit_rainfall/20251009-144330-1d355186/prob_bite_generic.rds'))
   prob_bite_generic$prob_infectious_bite = 0.3
@@ -127,7 +135,7 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
            country = 'generic',
            v1_date = as.Date('2017-04-01'))
   
-  saveRDS(metadata_df, file.path(path, "metadata_df.rds"))
+  saveRDS(metadata_df, "R:/Kelly/synergy_orderly/src/fit_smc/outputs/metadata_df.rds")
   
   # Run simulation
   cluster_cores <- Sys.getenv("CCP_NUMCPUS")
@@ -145,7 +153,7 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
                                                     metadata_df,
                                                     base_inputs,
                                                     output_dir = 'R:/Kelly/synergy_orderly/src/fit_smc/simulation_outputs/',
-                                                    allow_superinfections = TRUE,
+                                                    # allow_superinfections = TRUE,
                                                     return_parasitemia = TRUE,
                                                     save_outputs = FALSE)
                          message('finished simulation')
@@ -223,7 +231,7 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
                                                                     metadata_df,
                                                                     base_inputs,
                                                                     output_dir = 'R:/Kelly/synergy_orderly/src/fit_smc/simulation_outputs/',
-                                                                    allow_superinfections = TRUE,
+                                                                    # allow_superinfections = TRUE,
                                                                     return_parasitemia = TRUE,
                                                                     save_outputs = FALSE)
                                          message('finished simulation')
@@ -260,5 +268,5 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
   }
   # Save all results 
   saveRDS(results2, paste0("R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc_",Sys.Date(),".rds"))
-  saveRDS(metadata_df, paste0('R:Kelly/synergy_orderly/src/fit_smc/outputs/metadata_', Sys.Date(), '.rds'))
+  saveRDS(metadata_df, paste0('R:/Kelly/synergy_orderly/src/fit_smc/outputs/metadata_', Sys.Date(), '.rds'))
 }

@@ -194,11 +194,11 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
   #        y = "SMC efficacy", x = "Days since SMC") +
   #   theme_minimal()  + theme(legend.position = 'none')
   best_lhs <- data.frame(
-    max_SMC_kill_rate = 3, 
-    lambda = 13.08,
-    kappa = 0.454,
-    sim_id = 'parameter_set_1',
-    lag_p_bite = 0
+    max_SMC_kill_rate = 2.89,#c(3,3,4,4,3,3,4,4) ,
+    lambda = 17.3,# c(13.08,14,13.08,14,13.08,14,13.08,14),
+    kappa = 0.278,#c(0.454,0.454,0.454,0.454, 0.5,0.5, 0.5,0.5),
+    sim_id = 1,#seq(1,4),
+    lag_p_bite = 0#0
   )
   # best_lhs <- pars[pars$sim_id %in% top_runs$sim_id,]
   best_lhs <- best_lhs %>%
@@ -225,8 +225,8 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
         initial_params <- c(start$max_SMC_kill_rate,
                             start$lambda,
                             start$kappa)
-        lower_bounds <- c(5, 5, 0.1) # max, lambda, kappa
-        upper_bounds <- c(15, 40, 5)
+        lower_bounds <- c(1, 10, 0.01) # max, lambda, kappa
+        upper_bounds <- c(16, 25, 2)
 
         # Track evaluations
         n_evals <- 0
@@ -273,9 +273,9 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
           lower = lower_bounds,
           upper = upper_bounds,
           control = list(
-            maxit = 50,  # Hard limit
+            maxit = 500,  # Hard limit
             trace = 1,
-            factr = 1e8  # Loose convergence 
+            factr = 1e7  # Loose convergence 
           )
         )
 
@@ -362,8 +362,8 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
                                               initial_params <- c(start$max_SMC_kill_rate,
                                                                   start$lambda,
                                                                   start$kappa)
-                                              lower_bounds <- c(5, 5, 0.1) # max, lambda, kappa
-                                              upper_bounds <- c(15, 40, 5)
+                                              lower_bounds <- c(1, 10, 0.01) # max, lambda, kappa
+                                              upper_bounds <- c(16, 25, 2)
                                               
                                               # Track evaluations
                                               n_evals <- 0
@@ -410,13 +410,13 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
                                                 lower = lower_bounds,
                                                 upper = upper_bounds,
                                                 control = list(
-                                                  maxit = 50,  # Hard limit
+                                                  maxit = 500,  # Hard limit
                                                   trace = 1,
-                                                  factr = 1e8  # Loose convergence 
+                                                  factr = 1e6   
                                                 )
                                               )
                                               
-                                              return(list(
+                                              optim_results <- list(
                                                 starting_point_id = start$sim_id,
                                                 initial_params = initial_params,
                                                 final_params = fit$par,
@@ -424,8 +424,8 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
                                                 convergence = fit$convergence,
                                                 n_evaluations = n_evals,
                                                 eval_history = eval_history
-                                              ))
-
+                                              )
+                                              
                                             })
     
     # results2 <- parallel::clusterApply(cl,
@@ -458,7 +458,7 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
     parallel::stopCluster(cl)
     
     # Save all results 
-    saveRDS(optim_results, 'R:/Kelly/synergy_orderly/src/fit_smc/outputs/optimization_results_20251121.rds')
+    saveRDS(optim_results, 'R:/Kelly/synergy_orderly/src/fit_smc/outputs/optimization_results_20251124.rds')
     # saveRDS(results2, "R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc.rds")
   }
   
