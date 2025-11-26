@@ -4,16 +4,19 @@ calculate_efficacy_likelihood <- function(params_row,
                                           observed_efficacy  #by week 
                                           ){
   tryCatch({
+    startsim <- Sys.time()
     o <- run_cohort_simulation(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
                                metadata_df,
                                base_inputs,
                                output_dir = 'R:/Kelly/src/fit_smc/simulation_outputs',
                                # allow_superinfections = TRUE,
-                               return_parasitemia = FALSE,
+                               return_parasitemia = TRUE,
                                save_outputs = FALSE)
+    endsim <- Sys.time()
+    message('time to do sim: ', endsim - startsim)
     message('finished simulation')
-    
-    eff <- calc_smc_efficacy_cumul(o$infection_records,
+    filt <- o$infection_records %>% filter(time_ext >=0)
+    eff <- calc_smc_efficacy_cumul(filt,#o$infection_records,
                                    params_row,
                                    by_week = TRUE)
     
@@ -23,6 +26,7 @@ calculate_efficacy_likelihood <- function(params_row,
       mutate(weeks_since_smc = ceiling(day_since_smc / 7)) %>%
       group_by(weeks_since_smc) %>%
       summarize(observed_efficacy = mean(efficacy)) %>%
+      mutate(observed_efficacy = ifelse(observed_efficacy == 1, 0.999, observed_efficacy)) %>%
       left_join(eff %>% select(weeks_since_smc, efficacy) %>%
                   rename(predicted_efficacy = efficacy), 
                 by = 'weeks_since_smc') %>% ungroup()
@@ -39,29 +43,38 @@ calculate_efficacy_likelihood <- function(params_row,
       return(1e10)  # Return large penalty, not -Inf
     }
     
-    # Calculate log-likelihood
-    sigma <- 0.05  # Assumed measurement error (5%)
+    # Calculate mean least squares
+    mls <- mean((matched_complete$observed_efficacy - matched_complete$predicted_efficacy)^2)
     
-    ll <- sum(dnorm(
-      x = matched_complete$observed_efficacy,          # Observed from paper
-      mean = matched_complete$predicted_efficacy,  # Predicted from model
-      sd = sigma,
-      log = TRUE
-    ))
+    message("Mean Least Squares: ", mls)
     
-    message("Log-likelihood: ", ll, " | Negative LL: ", -ll)
-    
+    # # Calculate log-likelihood
+    # sigma <- 0.05  # Assumed measurement error (5%)
+    # 
+    # logit_obs <- qlogis(matched_complete$observed_efficacy)
+    # logit_pred <- qlogis(matched_complete$predicted_efficacy)
+    # 
+    # ll <- sum(dnorm(
+    #   x = logit_obs[2:9],#matched_complete$observed_efficacy,          # Observed from paper
+    #   mean = logit_pred[2:9],#matched_complete$predicted_efficacy,  # Predicted from model
+    #   sd = sigma,
+    #   log = TRUE
+    # ))
+    # 
+    # message("Log-likelihood: ", ll, " | Negative LL: ", -ll)
+    # 
     # Check for invalid values
-    if(is.na(ll) || is.infinite(ll)) {
-      warning("Invalid log-likelihood calculated: ", ll)
-      return(1e10)
-    }
+    # if(is.na(ll) || is.infinite(ll)) {
+    #   warning("Invalid log-likelihood calculated: ", ll)
+    #   return(1e10)
+    # }
+    # 
+    # return(-ll) # we will minimize the negative log likelihood
     
-    return(-ll) # we will minimize the negative log likelihood
-    
+    return(mls)
   },
   error = function(e) {
-    warning(paste("Error in likelihood calculation:", e$message))
+    warning(paste("Error:", e$message))
     return(1e10)
   })
 }
@@ -110,29 +123,34 @@ calculate_efficacy_likelihood_rtss <- function(params_row,
       return(1e10)  # Return large penalty, not -Inf
     }
     
-    # Calculate log-likelihood
-    sigma <- 0.05  # Assumed measurement error (5%)
+    # # Calculate log-likelihood
+    # sigma <- 0.05  # Assumed measurement error (5%)
+    # 
+    # ll <- sum(dnorm(
+    #   x = matched_complete$observed_efficacy,          # Observed from paper
+    #   mean = matched_complete$predicted_efficacy,  # Predicted from model
+    #   sd = sigma,
+    #   log = TRUE
+    # ))
+    # 
+    # message("Log-likelihood: ", ll, " | Negative LL: ", -ll)
+    # 
+    # # Check for invalid values
+    # if(is.na(ll) || is.infinite(ll)) {
+    #   warning("Invalid log-likelihood calculated: ", ll)
+    #   return(1e10)
+    # }
+    # 
+    # return(-ll) # we will minimize the negative log likelihood
     
-    ll <- sum(dnorm(
-      x = matched_complete$observed_efficacy,          # Observed from paper
-      mean = matched_complete$predicted_efficacy,  # Predicted from model
-      sd = sigma,
-      log = TRUE
-    ))
+    # Calculate mean least squares
+    mls <- mean((matched_complete$observed_efficacy - matched_complete$predicted_efficacy)^2)
     
-    message("Log-likelihood: ", ll, " | Negative LL: ", -ll)
-    
-    # Check for invalid values
-    if(is.na(ll) || is.infinite(ll)) {
-      warning("Invalid log-likelihood calculated: ", ll)
-      return(1e10)
-    }
-    
-    return(-ll) # we will minimize the negative log likelihood
+    message("Mean Least Squares: ", mls)
     
   },
   error = function(e) {
-    warning(paste("Error in likelihood calculation:", e$message, e$warning))
+    warning(paste("Error:", e$message, e$warning))
     return(1e10)
   })
 }

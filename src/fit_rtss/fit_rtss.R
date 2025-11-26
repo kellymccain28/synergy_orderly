@@ -178,20 +178,20 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
           )
           params_tibble$p_bite <- list(start$p_bite)
           
-          negll <- calculate_efficacy_likelihood_rtss(params_tibble,
+          mls <- calculate_efficacy_likelihood_rtss(params_tibble,
                                                       metadata_df,
                                                       base_inputs,
                                                       observed_efficacy_rtss )
           
-          message('Evaluation ', n_evals, ': negll = ', round(negll, 4))
+          message('Evaluation ', n_evals, ': mls = ', round(mls, 4))
           
           # Store history with tibble
           eval_history[[n_evals]] <<- list(
             params_tibble = params_tibble,
-            negll = negll
+            mls = mls
           )
           
-          return(negll)
+          return(mls)
         }
         
         # Run optimization with STRICT iteration limit
@@ -202,9 +202,9 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
           lower = lower_bounds,
           upper = upper_bounds,
           control = list(
-            maxit = 50,  # Hard limit
+            maxit = 150,  # Hard limit
             trace = 1,
-            factr = 1e8  # Loose convergence 
+            factr = 1e7  # Loose convergence 
           )
         )
         
@@ -212,10 +212,11 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
           starting_point_id = start$sim_id,
           initial_params = initial_params,
           final_params = fit$par,
-          log_likelihood = -fit$value,
+          mls = fit$value,
           convergence = fit$convergence,
           n_evaluations = n_evals,
-          eval_history = eval_history
+          eval_history = eval_history,
+          fit = fit
         ))
         
       })
@@ -286,7 +287,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
         initial_params <- c(start$alpha_ab,
                             start$beta_ab)
         lower_bounds <- c(0.5, 4) # alpha, beta
-        upper_bounds <- c(3, 8)
+        upper_bounds <- c(4, 8)
         
         # Track evaluations
         n_evals <- 0
@@ -303,28 +304,28 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
             max_SMC_kill_rate = 0,
             lambda = 0,
             kappa = 0,
-            alpha_ab = start$alpha_ab,
-            beta_ab = start$beta_ab,
+            alpha_ab = params[1],
+            beta_ab = params[2],
             lag_p_bite = 0,
             smc_dose_days = start$smc_dose_days,
             sim_id = start$sim_id
           )
           params_tibble$p_bite <- list(start$p_bite)
           
-          negll <- calculate_efficacy_likelihood_rtss(params_tibble,
-                                                      metadata_df,
-                                                      base_inputs,
-                                                      observed_efficacy_rtss )
+          mls <- calculate_efficacy_likelihood_rtss(params_tibble,
+                                                    metadata_df,
+                                                    base_inputs,
+                                                    observed_efficacy_rtss )
           
-          message('Evaluation ', n_evals, ': negll = ', round(negll, 4))
+          message('Evaluation ', n_evals, ': mls = ', round(mls, 4))
           
           # Store history with tibble
           eval_history[[n_evals]] <<- list(
-            params_tibble = params_tibble,
-            negll = negll
+            params_tibble = params_tibble[4:5],
+            mls = mls
           )
           
-          return(negll)
+          return(mls)
         }
         
         # Run optimization with STRICT iteration limit
@@ -335,9 +336,9 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
           lower = lower_bounds,
           upper = upper_bounds,
           control = list(
-            maxit = 50,  # Hard limit
+            maxit = 150,  # Hard limit
             trace = 1,
-            factr = 1e8  # Loose convergence 
+            factr = 1e7  # Loose convergence 
           )
         )
         
@@ -345,10 +346,11 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
           starting_point_id = start$sim_id,
           initial_params = initial_params,
           final_params = fit$par,
-          log_likelihood = -fit$value,
+          mls = fit$value,
           convergence = fit$convergence,
           n_evaluations = n_evals,
-          eval_history = eval_history
+          eval_history = eval_history,
+          fit = fit
         ))
         
       })

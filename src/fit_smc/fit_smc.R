@@ -81,9 +81,9 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
   # )
   # "fitted" parameter values for SMC
   params_df <- params_df <- data.frame(
-    max_SMC_kill_rate = rep(3, n_param_sets),
-    lambda = rep(13.08, n_param_sets),
-    kappa = rep(0.43, n_param_sets)
+    max_SMC_kill_rate = rep(2.89, n_param_sets),#rep(3, n_param_sets),
+    lambda =rep(17, n_param_sets),# rep(13.08, n_param_sets),
+    kappa = rep(0.28, n_param_sets)#rep(0.43, n_param_sets)
   )
   params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", treatment_probability)
   
@@ -249,20 +249,20 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
           )
           params_tibble$p_bite <- list(start$p_bite)
 
-          negll <- calculate_efficacy_likelihood(params_tibble,
+          mls <- calculate_efficacy_likelihood(params_tibble,
                                         metadata_df,
                                         base_inputs,
                                         observed_efficacy )
           
-          message('Evaluation ', n_evals, ': negll = ', round(negll, 4))
+          message('Evaluation ', n_evals, ': mls = ', round(mls, 4))
 
           # Store history with tibble
           eval_history[[n_evals]] <<- list(
-            params_tibble = params_tibble,
-            negll = negll
+            params_tibble = params_tibble[1:3],
+            mls = mls
           )
           
-          return(negll)
+          return(mls)
         }
 
         # Run optimization with STRICT iteration limit
@@ -273,7 +273,7 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
           lower = lower_bounds,
           upper = upper_bounds,
           control = list(
-            maxit = 500,  # Hard limit
+            maxit = 800,  # Hard limit
             trace = 1,
             factr = 1e7  # Loose convergence 
           )
@@ -283,10 +283,11 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
           starting_point_id = start$sim_id,
           initial_params = initial_params,
           final_params = fit$par,
-          log_likelihood = -fit$value,
+          mean_least_squares = fit$value,
           convergence = fit$convergence,
           n_evaluations = n_evals,
-          eval_history = eval_history
+          eval_history = eval_history,
+          fit = fit
         ))
 
       })
@@ -386,20 +387,20 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
                                                 )
                                                 params_tibble$p_bite <- list(start$p_bite)
                                                 
-                                                negll <- calculate_efficacy_likelihood(params_tibble,
-                                                                                       metadata_df,
-                                                                                       base_inputs,
-                                                                                       observed_efficacy )
+                                                mls <- calculate_efficacy_likelihood(params_tibble,
+                                                                                     metadata_df,
+                                                                                     base_inputs,
+                                                                                     observed_efficacy )
                                                 
-                                                message('Evaluation ', n_evals, ': negll = ', round(negll, 4))
+                                                message('Evaluation ', n_evals, ': mls = ', round(mls, 4))
                                                 
                                                 # Store history with tibble
                                                 eval_history[[n_evals]] <<- list(
-                                                  params_tibble = params_tibble,
-                                                  negll = negll
+                                                  params_tibble = params_tibble[1:3],
+                                                  mls = mls
                                                 )
                                                 
-                                                return(negll)
+                                                return(mls)
                                               }
                                               
                                               # Run optimization with STRICT iteration limit
@@ -410,21 +411,22 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
                                                 lower = lower_bounds,
                                                 upper = upper_bounds,
                                                 control = list(
-                                                  maxit = 500,  # Hard limit
+                                                  maxit = 800,  # Hard limit
                                                   trace = 1,
-                                                  factr = 1e6   
+                                                  factr = 1e7  # Loose convergence 
                                                 )
                                               )
                                               
-                                              optim_results <- list(
+                                              return(list(
                                                 starting_point_id = start$sim_id,
                                                 initial_params = initial_params,
                                                 final_params = fit$par,
-                                                log_likelihood = -fit$value,
+                                                mean_least_squares = fit$value,
                                                 convergence = fit$convergence,
                                                 n_evaluations = n_evals,
-                                                eval_history = eval_history
-                                              )
+                                                eval_history = eval_history,
+                                                fit = fit
+                                              ))
                                               
                                             })
     
@@ -458,7 +460,7 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
     parallel::stopCluster(cl)
     
     # Save all results 
-    saveRDS(optim_results, 'R:/Kelly/synergy_orderly/src/fit_smc/outputs/optimization_results_20251124.rds')
+    saveRDS(optim_results, 'R:/Kelly/synergy_orderly/src/fit_smc/outputs/optimization_results_20251125_logitnormal.rds')
     # saveRDS(results2, "R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc.rds")
   }
   
