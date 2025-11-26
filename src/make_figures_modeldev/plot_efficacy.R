@@ -11,7 +11,7 @@ source("R:/Kelly/synergy_orderly/shared/get_cox_efficacy.R")
 source("R:/Kelly/synergy_orderly/shared/likelihood.R")
 
 path <- 'R:/Kelly/synergy_orderly/src/sim_cohort_generic/outputs/'
-outputsfolder <- 'outputs_2025-11-24'
+outputsfolder <- 'outputs_2025-11-26'
 
 # Using the outputs from monthly_incidence_plot.R
 formatted <- readRDS(paste0(path, outputsfolder, '/formatted_infrecords.rds'))
@@ -51,11 +51,15 @@ tidy_results <- rbind(smcrefresults,
                       labels = c("Year 1", "Year 2", "Year 3", "Overall")))
   # filter(term %in% c("Both vs. RTSS",'RTSS vs. SMC','Both vs. SMC'))
 
+# expected:
+tidy_results %>% filter(year == 'Overall')
+0.521*(1-0.501)+0.501 # this should be lower than the both vs none if there is synergy
+
 efficacy_plot <- ggplot(tidy_results %>% filter(year == 'Overall')) +
   geom_point(aes(x = term, y = VE, color = reference), size = 2) +
   geom_errorbar(aes(x = term, ymin = VE_lower, ymax = VE_upper, color = reference), width = 0.2, linewidth = 1) +
   geom_hline(aes(yintercept = 0)) +
-  labs(y = "Vaccine efficacy",
+  labs(y = "Efficacy",
        x = NULL, 
        color = 'Comparison group') +
   scale_color_manual(values = c(

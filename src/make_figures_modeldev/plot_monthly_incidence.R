@@ -14,15 +14,16 @@ source("R:/Kelly/synergy_orderly/shared/get_cox_efficacy.R")
 source("R:/Kelly/synergy_orderly/shared/likelihood.R")
 
 path <- 'R:/Kelly/synergy_orderly/src/sim_cohort_generic/outputs/'
-outputsfolder <- 'outputs_2025-11-24'
+outputsfolder <- 'outputs_2025-11-26'
 
-sim_results <- readRDS(paste0(path, outputsfolder, "/sim_results.rds"))
+# sim_results <- readRDS(paste0(path, outputsfolder, "/sim_results.rds"))
+infectionrecords <-  readRDS(paste0(path, outputsfolder, "/infection_records.rds"))#purrr::map_df(sim_results, "infection_records")
 metadata_df <- readRDS(paste0(path, outputsfolder, "/metadata_df.rds"))
 base_inputs <- readRDS(paste0(path, outputsfolder, "/base_inputs.rds"))
-parameter_grid <- readRDS(paste0(path, outputsfolder, "/parameter_grid.rds"))
+params <- readRDS(paste0(path, outputsfolder, "/parameter_grid.rds"))
 
-infectionrecords <- purrr::map_df(sim_results, "infection_records")
-params <- purrr::map_df(sim_results, 'params')
+# infectionrecords <- purrr::map_df(sim_results, "infection_records")
+# params <- purrr::map_df(sim_results, 'params')
 
 # Format for incidence calculation 
 formattedinfrecords <- lapply(params$sim_id, function(x){
@@ -71,8 +72,9 @@ smc_lines <- data.frame(
   arm = rep(c('smc', 'both'), each = length(smc_dates)),
   color = '#4D9DE0'
 )
+# metadata_df$vaccination_day[1] = 90
 rtss_lines <- data.frame(
-  xintercept = as.Date(rep(c(metadata_df$vaccination_day[1], metadata_df$vaccination_day[1]+364, metadata_df$vaccination_day[1]+729),2), origin = '2017-04-01'),
+  xintercept = as.Date(rep(c(metadata_df$vaccination_day[1], metadata_df$vaccination_day[1]+364, metadata_df$vaccination_day[1]+730),2), origin = '2017-04-01'),
   arm = rep(c('rtss','both'), length(6)),
   color = '#59114D'
 )

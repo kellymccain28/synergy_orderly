@@ -11,7 +11,7 @@ arm_colors <- c('#E1BC29',
 lighter_arm_colors <- colorspace::lighten(arm_colors, amount = 0.3)
 
 path <- 'R:/Kelly/synergy_orderly/src/sim_cohort_generic/outputs/'
-outputsfolder <- 'outputs_2025-11-24'
+outputsfolder <- 'outputs_2025-11-26'
 
 # Using the outputs from monthly_incidence_plot.R
 formatted <- readRDS(paste0(path, outputsfolder, '/formatted_infrecords.rds')) %>%
@@ -29,4 +29,4 @@ ggplot(formatted) +
        y = "Days to reach threshold of detection",
        color = 'Intervention arm',
        fill = 'Intervention arm') +
-  theme_bw(base_size = 12)
+  theme_bw(base_size = 14)
