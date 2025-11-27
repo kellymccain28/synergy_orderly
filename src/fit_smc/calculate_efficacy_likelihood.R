@@ -15,7 +15,7 @@ calculate_efficacy_likelihood <- function(params_row,
     endsim <- Sys.time()
     message('time to do sim: ', endsim - startsim)
     message('finished simulation')
-    filt <- o$infection_records %>% filter(time_ext >=0)
+    filt <- o$infection_records %>% filter(time_ext >=0) # filtering out the bites that happened before the start of FU
     eff <- calc_smc_efficacy_cumul(filt,#o$infection_records,
                                    params_row,
                                    by_week = TRUE)
@@ -38,11 +38,11 @@ calculate_efficacy_likelihood <- function(params_row,
     matched_complete <- matched %>%
       filter(!is.na(observed_efficacy), !is.na(predicted_efficacy))
     
-    if(nrow(matched_complete) == 0) {
-      warning("No matching timepoints between observed and predicted!")
-      return(1e10)  # Return large penalty, not -Inf
-    }
-    
+    # if(nrow(matched_complete) == 0) {
+    #   warning("No matching timepoints between observed and predicted!")
+    #   return(1e10)  # Return large penalty, not -Inf
+    # }
+    # 
     # Calculate mean least squares
     mls <- mean((matched_complete$observed_efficacy - matched_complete$predicted_efficacy)^2)
     
@@ -75,7 +75,7 @@ calculate_efficacy_likelihood <- function(params_row,
   },
   error = function(e) {
     warning(paste("Error:", e$message))
-    return(1e10)
+    # return(1e10)
   })
 }
 
@@ -86,6 +86,8 @@ calculate_efficacy_likelihood_rtss <- function(params_row,
                                                observed_efficacy_rtss  #by week 
 ){
   tryCatch({
+    message('starting simulation now')
+    
     o <- run_cohort_simulation(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
                                metadata_df,
                                base_inputs,
@@ -118,10 +120,10 @@ calculate_efficacy_likelihood_rtss <- function(params_row,
     matched_complete <- matched %>%
       filter(!is.na(observed_efficacy), !is.na(predicted_efficacy))
     
-    if(nrow(matched_complete) == 0) {
-      warning("No matching timepoints between observed and predicted!")
-      return(1e10)  # Return large penalty, not -Inf
-    }
+    # if(nrow(matched_complete) == 0) {
+    #   warning("No matching timepoints between observed and predicted!")
+    #   return(1e10)  # Return large penalty, not -Inf
+    # }
     
     # # Calculate log-likelihood
     # sigma <- 0.05  # Assumed measurement error (5%)
@@ -147,11 +149,12 @@ calculate_efficacy_likelihood_rtss <- function(params_row,
     mls <- mean((matched_complete$observed_efficacy - matched_complete$predicted_efficacy)^2)
     
     message("Mean Least Squares: ", mls)
+    return(mls)
     
   },
   error = function(e) {
     warning(paste("Error:", e$message, e$warning))
-    return(1e10)
+    # return(1e10)
   })
 }
 
