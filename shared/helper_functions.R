@@ -224,14 +224,14 @@ format_data <- function(out, tt, infection_start_day, n_particles){
                    names_to = 'run',
                    values_to = 'nkillsmc')
     
-    # smc_seasonon <- as.data.frame(t(out$in_season_out))
-    # colnames(smc_seasonon) <- paste0('run',seq(1:n_particles))
-    # smc_seasonon$time <- tt
-    # smc_seasonon_long <- smc_seasonon %>% 
-    #   pivot_longer(cols = starts_with('run'),
-    #                names_to = 'run',
-    #                values_to = 'smc_seasonon')
-    
+    meros <- as.data.frame(t(out$mero_init_out))
+    colnames(meros) <- paste0('run',seq(1:n_particles))
+    meros$time <- tt
+    meros_long <- meros %>% 
+      pivot_longer(cols = starts_with('run'),
+                   names_to = 'run',
+                   values_to = 'mero_init_out')
+
     df <- df_long %>% 
       left_join(sc_long) %>% 
       left_join(sm_long) %>%
@@ -241,7 +241,7 @@ format_data <- function(out, tt, infection_start_day, n_particles){
       left_join(smc_long) %>%
       left_join(psmckill_long) %>%
       left_join(nsmckill_long) %>%
-      # left_join(smc_seasonon) %>%
+      left_join(meros_long) %>%
       # Fix time to be in outside days (*2) - not including inf start day as below because it doesn't match with ts since start of bs x labels 
       mutate(time_withinhost = time, # original timing in within-host model (2-day timesteps)
              time_withinhost2 = time_withinhost*2, # converted to 1-day timesteps 
