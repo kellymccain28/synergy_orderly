@@ -30,7 +30,7 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
   # Source the utils functions
   source(paste0(path, "/shared/cohort_sim_utils.R"))
   # Source processing functions
-  source(paste0(path, "/shared/likelihood.R"))
+  source(paste0(path, "/src/fit_smc/calculate_efficacy_likelihood.R"))
   
   trial_ts = 80# trial timesteps in cohort simulation
   # sim_allow_superinfections = TRUE # TRUE or FALSE
@@ -67,29 +67,47 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
   )
   
   # Set up grid of parameters
-  param_ranges <- list(
-    max_SMC_kill_rate = c(1, 10),# parasites per uL per 2-day timestep
-    lambda = c(5, 50),
-    kappa = c(0.1, 9)
-  )
-  # Generate LHS samples
-  A <- randomLHS(n_param_sets, 3)
-  # Scale to parameter ranges
-  params_df <- data.frame(
-    max_SMC_kill_rate = qunif(A[,1], param_ranges$max_SMC_kill_rate[1], param_ranges$max_SMC_kill_rate[2]),
-    lambda = qunif(A[,2], param_ranges$lambda[1], param_ranges$lambda[2]),
-    kappa = qunif(A[,3], param_ranges$kappa[1], param_ranges$kappa[2])
-  )
+  # param_ranges <- list(
+  #   max_SMC_kill_rate = c(1, 3),# parasites per uL per 2-day timestep
+  #   lambda = c(15, 19),
+  #   kappa = c(0.1, 9)
+  # )
+  # # Generate LHS samples
+  # A <- randomLHS(n_param_sets, 3)
+  # # Scale to parameter ranges
+  # params_df <- data.frame(
+  #   max_SMC_kill_rate = qunif(A[,1], param_ranges$max_SMC_kill_rate[1], param_ranges$max_SMC_kill_rate[2]),
+  #   lambda = qunif(A[,2], param_ranges$lambda[1], param_ranges$lambda[2]),
+  #   kappa = qunif(A[,3], param_ranges$kappa[1], param_ranges$kappa[2])
+  # )
   # "fitted" parameter values for SMC
-  # first are the fitted parameters from before and those with the lowest negll, then second are 'best' according to optim() 
-  params_df <- params_df <- data.frame(
-    max_SMC_kill_rate = c(rep(2.891, n_param_sets/2), rep(2.981, n_param_sets/2)),
-    lambda = c(rep(17.3, n_param_sets/2),rep(17.392, n_param_sets/2)),
-    kappa = c(rep(0.278, n_param_sets/2),rep(0.2998, n_param_sets/2))#,
-    # sim_id = c(rep('parameter_set_3max',n_param_sets/2), rep('parameter_set_6max', n_param_sets/2))
-  )
-  params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", params_df$max_SMC_kill_rate, country_to_run, "_", treatment_probability)
+  # first are the fitted parameters from 29 nov 
+  # params_df <- data.frame(
+  #   max_SMC_kill_rate = rep(c(2.333333, 2.333333, 2.333333, 1.888889, 2.333333, 
+  #                         # now the best one from original optimization on 28th
+  #                         2.447318,
+  #                         # from old grid search 
+  #                         2.071429), 5),
+  #   lambda = rep(c(16.6667, 16.66667, 15, 25, 18.33333,
+  #              # now the best one from original optimization on 28th
+  #              17.06041, 
+  #              # from old grid search 
+  #              20.71429),5),
+  #   kappa = rep(c(0.3444444, 0.2222222, 0.2222222, 0.5888889, 0.3444444,
+  #             # now the best one from original optimization on 28th
+  #             0.893555,
+  #             # from old grid search 
+  #             0.500000 ),5),
+  #   sim_id = seq(1:35),
+  #   repnum = rep(seq(1:7),5))
+  params_df <- data.frame(
+    max_SMC_kill_rate = rep(c(2.333333, 2.333333, 2.333333), 10),
+    lambda = rep(c(16.6667, 16.66667, 18.33333),10),
+    kappa = rep(c(0.3444444, 0.2222222, 0.3444444),10),
+    sim_id = seq(1:30),
+    repnum = rep(seq(1:3),10))
   
+  # params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", treatment_probability)
   prob_bite_generic <- readRDS(paste0(path, '/archive/fit_rainfall/20251009-144330-1d355186/prob_bite_generic.rds'))
   prob_bite_generic$prob_infectious_bite = 0.3
   p_bitevector <- calc_lagged_vectors(prob_bite_generic, 0, burnints = burnints) # no lagged values
@@ -135,7 +153,31 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
            country = 'generic',
            v1_date = as.Date('2017-04-01'))
   
-  saveRDS(metadata_df, "R:/Kelly/synergy_orderly/src/fit_smc/outputs/metadata_df.rds")
+  # saveRDS(metadata_df, "R:/Kelly/synergy_orderly/src/fit_smc/outputs/metadata_df.rds")
+  
+  
+  # Make grid search list 
+  # Define ranges
+  kill_vals  <- seq(2, 3,  length.out = 10)
+  lambda_vals <- seq(15, 19, length.out = 10)
+  kappa_vals  <- seq(0.1, 0.5,  length.out = 10)
+
+  # Cartesian product
+  grid <- expand.grid(
+    max_SMC_kill_rate = kill_vals,
+    lambda            = lambda_vals,
+    kappa             = kappa_vals
+  ) %>%
+    mutate(lag_p_bite = 0,
+           smc_dose_days = 10,
+           p_bite = parameters_df$p_bite[1])
+  params_list <- split(grid, seq(nrow(grid)))
+  
+  # Get the observed efficacy to compare to 
+  observed_efficacy <- read.csv(paste0(path, '/shared/smc_fits_hayley.csv')) %>%
+    mutate(weeks_since_smc = ceiling(day_since_smc / 7)) %>%
+    group_by(weeks_since_smc) %>%
+    mutate(efficacy = mean(efficacy))
   
   # Run simulation
   cluster_cores <- Sys.getenv("CCP_NUMCPUS")
@@ -147,43 +189,86 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
     message("running in serial (on a laptop?)")
     message("Running ", nrow(params_df), " simulations sequentially")
     
-    results2 <- lapply(params_list,
-                       function(params_row){
-                         o <- run_cohort_simulation(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
-                                                    metadata_df,
-                                                    base_inputs,
-                                                    output_dir = 'R:/Kelly/synergy_orderly/src/fit_smc/simulation_outputs/',
-                                                    # allow_superinfections = TRUE,
-                                                    return_parasitemia = TRUE,
-                                                    save_outputs = FALSE)
-                         message('finished simulation')
-                         eff <- calc_smc_efficacy(o$infection_records,
-                                                  params_row,
-                                                  by_week = TRUE)
-                         eff_daily <- calc_smc_efficacy(o$infection_records,
-                                                        params_row,
-                                                        by_week = FALSE)
-                         eff$sim_id <- params_row$sim_id
-                         eff_daily$sim_id <- params_row$sim_id
-                         
-                         # Efficacy with cumulative proportion
-                         eff_cumul <- calc_smc_efficacy_cumul(o$infection_records,
-                                                              params_row,
-                                                              by_week = TRUE)
-                         eff_daily_cumul <- calc_smc_efficacy_cumul(o$infection_records,
-                                                                    params_row,
-                                                                    by_week = FALSE)
-                         eff_cumul$sim_id <- params_row$sim_id
-                         eff_daily_cumul$sim_id <- params_row$sim_id
-                         
-                         return(list(efficacy_weekly = eff,
-                                     efficacy_daily = eff_daily,
-                                     efficacy_weekly_cumul = eff_cumul, 
-                                     efficacy_daily_cumul = eff_daily_cumul,
-                                     parasitemia = o$parasitemia_data %>% mutate(sim_id = params_row$sim_id),
-                                     infection_records = o$infection_records %>% mutate(sim_id = params_row$sim_id),
-                                     params = params_row))
-                       })
+    # Grid search 
+    grid_search_outputs <- lapply(
+      params_list, 
+      function(params_row){
+        startsim <- Sys.time()
+        o <- run_cohort_simulation(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
+                                   metadata_df,
+                                   base_inputs,
+                                   output_dir = 'R:/Kelly/src/fit_smc/simulation_outputs',
+                                   return_parasitemia = TRUE,
+                                   save_outputs = FALSE)
+        endsim <- Sys.time()
+        message('time to do sim: ', endsim - startsim)
+        message('finished simulation')
+        filt <- o$infection_records %>% filter(time_ext >=0) # filtering out the bites that happened before the start of FU
+        eff <- calc_smc_efficacy_cumul(filt,#o$infection_records,
+                                       params_row,
+                                       by_week = TRUE)
+        
+        eff$sim_id <- params_row$sim_id
+        
+        matched <- observed_efficacy %>%
+          mutate(weeks_since_smc = ceiling(day_since_smc / 7)) %>%
+          group_by(weeks_since_smc) %>%
+          summarize(observed_efficacy = mean(efficacy)) %>%
+          mutate(observed_efficacy = ifelse(observed_efficacy == 1, 0.999, observed_efficacy)) %>%
+          left_join(eff %>% select(weeks_since_smc, efficacy) %>%
+                      rename(predicted_efficacy = efficacy), 
+                    by = 'weeks_since_smc') %>% ungroup()
+        
+        # Remove NAs before calculating likelihood
+        matched_complete <- matched %>%
+          filter(!is.na(observed_efficacy), !is.na(predicted_efficacy))
+        
+        # Calculate mean least squares
+        mls <- mean((matched_complete$observed_efficacy - matched_complete$predicted_efficacy)^2)
+        
+        return(list(mls = mls, 
+                    efficacy = eff,
+                    params = params_row))
+      }
+    )
+    # 
+    # results2 <- lapply(params_list,
+    #                    function(params_row){
+    #                      o <- run_cohort_simulation(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
+    #                                                 metadata_df,
+    #                                                 base_inputs,
+    #                                                 output_dir = 'R:/Kelly/synergy_orderly/src/fit_smc/simulation_outputs/',
+    #                                                 # allow_superinfections = TRUE,
+    #                                                 return_parasitemia = TRUE,
+    #                                                 save_outputs = FALSE)
+    #                      message('finished simulation')
+    #                      eff <- calc_smc_efficacy(o$infection_records,
+    #                                               params_row,
+    #                                               by_week = TRUE)
+    #                      eff_daily <- calc_smc_efficacy(o$infection_records,
+    #                                                     params_row,
+    #                                                     by_week = FALSE)
+    #                      eff$sim_id <- params_row$sim_id
+    #                      eff_daily$sim_id <- params_row$sim_id
+    #                      
+    #                      # Efficacy with cumulative proportion
+    #                      eff_cumul <- calc_smc_efficacy_cumul(o$infection_records,
+    #                                                           params_row,
+    #                                                           by_week = TRUE)
+    #                      eff_daily_cumul <- calc_smc_efficacy_cumul(o$infection_records,
+    #                                                                 params_row,
+    #                                                                 by_week = FALSE)
+    #                      eff_cumul$sim_id <- params_row$sim_id
+    #                      eff_daily_cumul$sim_id <- params_row$sim_id
+    #                      
+    #                      return(list(efficacy_weekly = eff,
+    #                                  efficacy_daily = eff_daily,
+    #                                  efficacy_weekly_cumul = eff_cumul, 
+    #                                  efficacy_daily_cumul = eff_daily_cumul,
+    #                                  parasitemia = o$parasitemia_data %>% mutate(sim_id = params_row$sim_id),
+    #                                  infection_records = o$infection_records %>% mutate(sim_id = params_row$sim_id),
+    #                                  params = params_row))
+    #                    })
     
   } else {
     message(sprintf("running in parallel on %s (on the cluster?)", cluster_cores))
@@ -220,53 +305,99 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
     
     parallel::clusterExport(cl, c("params_list", "metadata_df", "base_inputs", "gen_bs",
                                   "n_particles", "n_threads", "burnints", "threshold", "tstep",
-                                  "t_liverstage", "country_to_run", "VB", "divide"
-    ),
+                                  "t_liverstage", "country_to_run", "VB", "divide", 
+                                  # 'grid_search_list', 
+                                  'observed_efficacy'
+                                  ),
     envir = environment())
     
-    results2 <- parallel::clusterApply(cl,
-                                       params_list,
-                                       function(params_row) {
-                                         o <- run_cohort_simulation(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
-                                                                    metadata_df,
-                                                                    base_inputs,
-                                                                    output_dir = 'R:/Kelly/synergy_orderly/src/fit_smc/simulation_outputs/',
-                                                                    # allow_superinfections = TRUE,
-                                                                    return_parasitemia = TRUE,
-                                                                    save_outputs = FALSE)
-                                         message('finished simulation')
-                                         eff <- calc_smc_efficacy(o$infection_records,
-                                                                  params_row,
-                                                                  by_week = TRUE)
-                                         eff_daily <- calc_smc_efficacy(o$infection_records,
-                                                                        params_row,
-                                                                        by_week = FALSE)
-                                         eff$sim_id <- params_row$sim_id
-                                         eff_daily$sim_id <- params_row$sim_id
-                                         
-                                         # Efficacy with cumulative proportion
-                                         eff_cumul <- calc_smc_efficacy_cumul(o$infection_records,
-                                                                  params_row,
-                                                                  by_week = TRUE)
-                                         eff_daily_cumul <- calc_smc_efficacy_cumul(o$infection_records,
-                                                                        params_row,
-                                                                        by_week = FALSE)
-                                         eff_cumul$sim_id <- params_row$sim_id
-                                         eff_daily_cumul$sim_id <- params_row$sim_id
-
-                                         return(list(efficacy_weekly = eff,
-                                                     efficacy_daily = eff_daily,
-                                                     efficacy_weekly_cumul = eff_cumul, 
-                                                     efficacy_daily_cumul = eff_daily_cumul,
-                                                     parasitemia = o$parasitemia_data %>% mutate(sim_id = params_row$sim_id),
-                                                     infection_records = o$infection_records %>% mutate(sim_id = params_row$sim_id),
-                                                     params = params_row))
-
-                                       }
+    # Grid search 
+    grid_search_outputs <- parallel::clusterApply(cl,
+                                                  params_list, 
+                                                  function(params_row){
+                                                    startsim <- Sys.time()
+                                                    o <- run_cohort_simulation(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
+                                                                               metadata_df,
+                                                                               base_inputs,
+                                                                               output_dir = 'R:/Kelly/src/fit_smc/simulation_outputs',
+                                                                               return_parasitemia = TRUE,
+                                                                               save_outputs = FALSE)
+                                                    endsim <- Sys.time()
+                                                    message('time to do sim: ', endsim - startsim)
+                                                    message('finished simulation')
+                                                    filt <- o$infection_records %>% filter(time_ext >=0) # filtering out the bites that happened before the start of FU
+                                                    eff <- calc_smc_efficacy_cumul(filt,
+                                                                                   params_row,
+                                                                                   by_week = TRUE)
+                                                    
+                                                    eff$sim_id <- params_row$sim_id
+                                                    eff$repnum <- params_row$repnum
+                                                    
+                                                    matched <- observed_efficacy %>%
+                                                      mutate(weeks_since_smc = ceiling(day_since_smc / 7)) %>%
+                                                      group_by(weeks_since_smc) %>%
+                                                      summarize(observed_efficacy = mean(efficacy)) %>%
+                                                      mutate(observed_efficacy = ifelse(observed_efficacy == 1, 0.999, observed_efficacy)) %>%
+                                                      left_join(eff %>% select(weeks_since_smc, efficacy) %>%
+                                                                  rename(predicted_efficacy = efficacy), 
+                                                                by = 'weeks_since_smc') %>% ungroup()
+                                                    
+                                                    # Remove NAs before calculating likelihood
+                                                    matched_complete <- matched %>%
+                                                      filter(!is.na(observed_efficacy), !is.na(predicted_efficacy))
+                                                    
+                                                    # Calculate mean least squares
+                                                    mls <- mean((matched_complete$observed_efficacy - matched_complete$predicted_efficacy)^2)
+                                                    
+                                                    return(list(mls = mls, 
+                                                                efficacy = eff,
+                                                                params = params_row))
+                                                  }
     )
+    # results2 <- parallel::clusterApply(cl,
+    #                                    params_list,
+    #                                    function(params_row) {
+    #                                      o <- run_cohort_simulation(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
+    #                                                                 metadata_df,
+    #                                                                 base_inputs,
+    #                                                                 output_dir = 'R:/Kelly/synergy_orderly/src/fit_smc/simulation_outputs/',
+    #                                                                 # allow_superinfections = TRUE,
+    #                                                                 return_parasitemia = TRUE,
+    #                                                                 save_outputs = FALSE)
+    #                                      message('finished simulation')
+    #                                      eff <- calc_smc_efficacy(o$infection_records,
+    #                                                               params_row,
+    #                                                               by_week = TRUE)
+    #                                      eff_daily <- calc_smc_efficacy(o$infection_records,
+    #                                                                     params_row,
+    #                                                                     by_week = FALSE)
+    #                                      eff$sim_id <- params_row$sim_id
+    #                                      eff_daily$sim_id <- params_row$sim_id
+    #                                      
+    #                                      # Efficacy with cumulative proportion
+    #                                      eff_cumul <- calc_smc_efficacy_cumul(o$infection_records,
+    #                                                               params_row,
+    #                                                               by_week = TRUE)
+    #                                      eff_daily_cumul <- calc_smc_efficacy_cumul(o$infection_records,
+    #                                                                     params_row,
+    #                                                                     by_week = FALSE)
+    #                                      eff_cumul$sim_id <- params_row$sim_id
+    #                                      eff_daily_cumul$sim_id <- params_row$sim_id
+    # 
+    #                                      return(list(efficacy_weekly = eff,
+    #                                                  efficacy_daily = eff_daily,
+    #                                                  efficacy_weekly_cumul = eff_cumul, 
+    #                                                  efficacy_daily_cumul = eff_daily_cumul,
+    #                                                  parasitemia = o$parasitemia_data %>% mutate(sim_id = params_row$sim_id),
+    #                                                  infection_records = o$infection_records %>% mutate(sim_id = params_row$sim_id),
+    #                                                  params = params_row))
+    # 
+    #                                    }
+    # )
     parallel::stopCluster(cl)
   }
   # Save all results 
-  saveRDS(results2, paste0("R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc_",Sys.Date(),".rds"))
+  saveRDS(grid_search_outputs, paste0("R:/Kelly/synergy_orderly/src/fit_smc/outputs/grid_search",Sys.Date(),".rds"))
+  # saveRDS(results2, paste0("R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc_",Sys.Date(),".rds"))
   saveRDS(metadata_df, paste0('R:/Kelly/synergy_orderly/src/fit_smc/outputs/metadata_', Sys.Date(), '.rds'))
 }

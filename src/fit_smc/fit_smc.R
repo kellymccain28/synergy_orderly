@@ -194,11 +194,11 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
   #        y = "SMC efficacy", x = "Days since SMC") +
   #   theme_minimal()  + theme(legend.position = 'none')
   best_lhs <- data.frame(
-    max_SMC_kill_rate = 2.89,#c(3,3,4,4,3,3,4,4) ,
-    lambda = 17.3,# c(13.08,14,13.08,14,13.08,14,13.08,14),
-    kappa = 0.278,#c(0.454,0.454,0.454,0.454, 0.5,0.5, 0.5,0.5),
-    sim_id = 1,#seq(1,4),
-    lag_p_bite = 0#0
+    max_SMC_kill_rate = c(2.89, 3),#c(3,3,4,4,3,3,4,4) ,
+    lambda = c(17.3,15),# c(13.08,14,13.08,14,13.08,14,13.08,14),
+    kappa = c(0.278,0.454),#c(0.454,0.454,0.454,0.454, 0.5,0.5, 0.5,0.5),
+    sim_id = c(1,2),#seq(1,4),
+    lag_p_bite = rep(0, 2)#0
   )
   # best_lhs <- pars[pars$sim_id %in% top_runs$sim_id,]
   best_lhs <- best_lhs %>%
@@ -354,7 +354,7 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
                                   "t_liverstage", "country_to_run", "VB", "divide",
                                   "observed_efficacy",
                                   "best_lhs_list",  "param_ranges"
-                                  ),
+    ),
                             envir = environment())
     # for optimization
     optim_results <- parallel::clusterApply(cl,
@@ -407,13 +407,14 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
                                               fit <- optim(
                                                 par = initial_params,
                                                 fn = objective,
-                                                method = "L-BFGS-B",
+                                                method = "L-BFGS-B",#"L-BFGS-B",
                                                 lower = lower_bounds,
                                                 upper = upper_bounds,
                                                 control = list(
                                                   maxit = 800,  # Hard limit
                                                   trace = 1,
-                                                  factr = 1e7  # Loose convergence 
+                                                  factr = 1e5,      # Tighter tolerance
+                                                  pgtol = 1e-8      # Gradient tolerance
                                                 )
                                               )
                                               
@@ -460,7 +461,7 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
     parallel::stopCluster(cl)
     
     # Save all results 
-    saveRDS(optim_results, 'R:/Kelly/synergy_orderly/src/fit_smc/outputs/optimization_results_20251125_logitnormal.rds')
+    saveRDS(optim_results, paste0('R:/Kelly/synergy_orderly/src/fit_smc/outputs/optimization_results_',Sys.Date(), '.rds'))
     # saveRDS(results2, "R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc.rds")
   }
   
