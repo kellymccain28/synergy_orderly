@@ -160,38 +160,44 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
         eval_history <- list()
         
         objective <- function(params) {
-          n_evals <<- n_evals + 1
-          
-          message(sprintf("\n=== Evaluation %d ===", n_evals))
-          message(sprintf("Params: alpha=%.4f, beta=%.4f", 
-                          params[1], params[2]))
-          
-          params_tibble <- data.frame(
-            max_SMC_kill_rate = 0,
-            lambda = 0,
-            kappa = 0,
-            alpha_ab = start$alpha_ab,
-            beta_ab = start$beta_ab,
-            lag_p_bite = 0,
-            smc_dose_days = start$smc_dose_days,
-            sim_id = start$sim_id
-          )
-          params_tibble$p_bite <- list(start$p_bite)
-          
-          mls <- calculate_efficacy_likelihood_rtss(params_tibble,
+          tryCatch({
+            n_evals <<- n_evals + 1
+            
+            message(sprintf("\n=== Evaluation %d ===", n_evals))
+            message(sprintf("Params: alpha=%.4f, beta=%.4f", 
+                            params[1], params[2]))
+            
+            params_tibble <- data.frame(
+              max_SMC_kill_rate = 0,
+              lambda = 0,
+              kappa = 0,
+              alpha_ab = params[1],
+              beta_ab = params[2],
+              lag_p_bite = 0,
+              smc_dose_days = start$smc_dose_days,
+              sim_id = start$sim_id
+            )
+            params_tibble$p_bite <- list(start$p_bite)
+            
+            mls <- calculate_efficacy_likelihood_rtss(params_tibble,
                                                       metadata_df,
                                                       base_inputs,
                                                       observed_efficacy_rtss )
-          
-          message('Evaluation ', n_evals, ': mls = ', round(mls, 4))
-          
-          # Store history with tibble
-          eval_history[[n_evals]] <<- list(
-            params_tibble = params_tibble,
-            mls = mls
-          )
-          
-          return(mls)
+            
+            message('Evaluation ', n_evals, ': mls = ', round(mls, 4))
+            
+            # Store history with tibble
+            eval_history[[n_evals]] <<- list(
+              params_tibble = params_tibble[4:5],
+              mls = mls
+            )
+            
+            return(mls)
+          }, error = function(e) {
+            message("Error in objective function: ", e$message)
+            print(traceback())
+            stop(e)
+          })
         }
         
         # Run optimization with STRICT iteration limit
@@ -202,9 +208,9 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
           lower = lower_bounds,
           upper = upper_bounds,
           control = list(
-            maxit = 150,  # Hard limit
+            maxit = 100,  # Hard limit
             trace = 1,
-            factr = 1e7  # Loose convergence 
+            factr = 1e6  # Loose convergence 
           )
         )
         
@@ -268,7 +274,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
       source('R:/Kelly/synergy_orderly/shared/cohort_sim_utils.R')
       source('R:/Kelly/synergy_orderly/shared/helper_functions.R')
       source("R:/Kelly/synergy_orderly/shared/rtss.R")
-      source("R:/Kelly/synergy_orderly/shared/likelihood.R")
+      source("R:/Kelly/synergy_orderly/src/fit_smc/calculate_efficacy_likelihood.R")
       
       TRUE
     })
@@ -279,81 +285,88 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
                                   "observed_efficacy_rtss", "best_lhs_list"),
                             envir = environment())
     
+    message('starting optimization')
     # For optimization
     # For optimization
-    optim_results <- lapply(
-      best_lhs_list,
-      function(start){
-        initial_params <- c(start$alpha_ab,
-                            start$beta_ab)
-        lower_bounds <- c(0.5, 4) # alpha, beta
-        upper_bounds <- c(4, 8)
-        
-        # Track evaluations
-        n_evals <- 0
-        eval_history <- list()
-        
-        objective <- function(params) {
-          n_evals <<- n_evals + 1
-          
-          message(sprintf("\n=== Evaluation %d ===", n_evals))
-          message(sprintf("Params: alpha=%.4f, beta=%.4f", 
-                          params[1], params[2]))
-          
-          params_tibble <- data.frame(
-            max_SMC_kill_rate = 0,
-            lambda = 0,
-            kappa = 0,
-            alpha_ab = params[1],
-            beta_ab = params[2],
-            lag_p_bite = 0,
-            smc_dose_days = start$smc_dose_days,
-            sim_id = start$sim_id
-          )
-          params_tibble$p_bite <- list(start$p_bite)
-          
-          mls <- calculate_efficacy_likelihood_rtss(params_tibble,
-                                                    metadata_df,
-                                                    base_inputs,
-                                                    observed_efficacy_rtss )
-          
-          message('Evaluation ', n_evals, ': mls = ', round(mls, 4))
-          
-          # Store history with tibble
-          eval_history[[n_evals]] <<- list(
-            params_tibble = params_tibble[4:5],
-            mls = mls
-          )
-          
-          return(mls)
-        }
-        
-        # Run optimization with STRICT iteration limit
-        fit <- optim(
-          par = initial_params,
-          fn = objective,
-          method = "L-BFGS-B",
-          lower = lower_bounds,
-          upper = upper_bounds,
-          control = list(
-            maxit = 150,  # Hard limit
-            trace = 1,
-            factr = 1e7  # Loose convergence 
-          )
-        )
-        
-        return(list(
-          starting_point_id = start$sim_id,
-          initial_params = initial_params,
-          final_params = fit$par,
-          mls = fit$value,
-          convergence = fit$convergence,
-          n_evaluations = n_evals,
-          eval_history = eval_history,
-          fit = fit
-        ))
-        
-      })
+    optim_results <- parallel::clusterApply(cl,
+                                            best_lhs_list,
+                                            function(start){
+                                              initial_params <- c(start$alpha_ab,
+                                                                  start$beta_ab)
+                                              lower_bounds <- c(0.5, 4) # alpha, beta
+                                              upper_bounds <- c(4, 8)
+                                              
+                                              # Track evaluations
+                                              n_evals <- 0
+                                              eval_history <- list()
+                                              
+                                              objective <- function(params) {
+                                                tryCatch({
+                                                  n_evals <<- n_evals + 1
+                                                  
+                                                  message(sprintf("\n=== Evaluation %d ===", n_evals))
+                                                  message(sprintf("Params: alpha=%.4f, beta=%.4f", 
+                                                                  params[1], params[2]))
+                                                  
+                                                  params_tibble <- data.frame(
+                                                    max_SMC_kill_rate = 0,
+                                                    lambda = 0,
+                                                    kappa = 0,
+                                                    alpha_ab = params[1],
+                                                    beta_ab = params[2],
+                                                    lag_p_bite = 0,
+                                                    smc_dose_days = start$smc_dose_days,
+                                                    sim_id = start$sim_id
+                                                  )
+                                                  params_tibble$p_bite <- list(start$p_bite)
+                                                  
+                                                  mls <- calculate_efficacy_likelihood_rtss(params_tibble,
+                                                                                            metadata_df,
+                                                                                            base_inputs,
+                                                                                            observed_efficacy_rtss )
+                                                  
+                                                  message('Evaluation ', n_evals, ': mls = ', round(mls, 4))
+                                                  
+                                                  # Store history with tibble
+                                                  eval_history[[n_evals]] <<- list(
+                                                    params_tibble = params_tibble[4:5],
+                                                    mls = mls
+                                                  )
+                                                  
+                                                  return(mls)
+                                                }, error = function(e) {
+                                                  message("Error in objective function: ", e$message)
+                                                  print(traceback())
+                                                  stop(e)
+                                                })
+                                              }
+                                              
+                                              # Run optimization with STRICT iteration limit
+                                              fit <- optim(
+                                                par = initial_params,
+                                                fn = objective,
+                                                method = "L-BFGS-B",
+                                                lower = lower_bounds,
+                                                upper = upper_bounds,
+                                                control = list(
+                                                  maxit = 100,  # Hard limit
+                                                  trace = 1,
+                                                  factr = 1e7  # Loose convergence 
+                                                )
+                                              )
+                                              
+                                              return(list(
+                                                starting_point_id = start$sim_id,
+                                                initial_params = initial_params,
+                                                final_params = fit$par,
+                                                mls = fit$value,
+                                                convergence = fit$convergence,
+                                                n_evaluations = n_evals,
+                                                eval_history = eval_history,
+                                                fit = fit
+                                              ))
+                                              
+                                            })
     # results2 <- parallel::clusterApply(cl,
     #                                    params_list,
     #                                    function(params_row) {
