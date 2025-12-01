@@ -64,10 +64,10 @@ calculate_efficacy_likelihood <- function(params_row,
     # message("Log-likelihood: ", ll, " | Negative LL: ", -ll)
     # 
     # Check for invalid values
-    # if(is.na(ll) || is.infinite(ll)) {
-    #   warning("Invalid log-likelihood calculated: ", ll)
-    #   return(1e10)
-    # }
+    if(is.na(mls) || is.infinite(mls)) {
+      warning("Invalid MLS calculated: ", mls)
+      return(1e10)
+    }
     # 
     # return(-ll) # we will minimize the negative log likelihood
     
@@ -137,11 +137,7 @@ calculate_efficacy_likelihood_rtss <- function(params_row,
     # 
     # message("Log-likelihood: ", ll, " | Negative LL: ", -ll)
     # 
-    # # Check for invalid values
-    # if(is.na(ll) || is.infinite(ll)) {
-    #   warning("Invalid log-likelihood calculated: ", ll)
-    #   return(1e10)
-    # }
+    
     # 
     # return(-ll) # we will minimize the negative log likelihood
     
@@ -149,6 +145,12 @@ calculate_efficacy_likelihood_rtss <- function(params_row,
     mls <- mean((matched_complete$observed_efficacy - matched_complete$predicted_efficacy)^2)
     
     message("Mean Least Squares: ", mls)
+    
+    # # Check for invalid values
+    if(is.na(mls) || is.infinite(mls)) {
+      warning("Invalid MLS calculated: ", mls)
+      return(1e10)
+    }
     return(mls)
     
   },
