@@ -124,12 +124,14 @@ vaccine_eff <- function(csp,
                         alpha = 0.74,  
                         beta = 99.2){ 
   
+  # Convert antibiody titre csp to vaccine efficacy using a Hill function 
   v_t = vmax * (1 - (1 / (1 + (csp / beta) ^ alpha)))
   return(v_t)
   
 }
 
 #' Vaccine efficacy per sporozoite following White et al. 
+#' https://github.com/ht1212/quality_quantity_modelling/blob/master/R3_Efficacy_Function_IR/3_VE_per_Sporozoite
 p_spz_surv <- function(ab, beta_ab = 6.62,
                        alpha_ab = 1.32){
   

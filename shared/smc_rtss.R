@@ -157,24 +157,27 @@ lambdav <- 0.9996 # part of f(t) that governs duration of EVSR memory
 
 
 ########
-
+# https://github.com/mrc-ide/rtss_vacc_antibody_model
 # Draw number of surviving sporozoites and subsequent merozoites initiating blood stage infection
 #Dose response
 ab <- if(PEV_on == 1) ab_user else 0
-DR <- 1 / (1 + (ab / beta_ab)^alpha_ab) # prob of survival of single spz
+DR <- 1 / (1 + (ab / beta_ab)^alpha_ab) # prob of survival of single spz from page 4 of white 2013
 
 # Parameters for spz model initial merozoites 
 # estimated and fixed parameters  
 n <- 150 #n, mean number of successful spz per challenge ; neg bin
 sigma_n <- 194 #, sigman sd of number of successful spz per challenge 
-mu <- 2136 #30000 #10.1371/journal.pcbi.1005255 as assumed by Hayley #2136 # mean number of merozoites released per sporozoite in Michael's model; gamma distributed
-sigma_mu <- 4460 #71427 #4460 from Michael's model # sd of number of merozoites released per sporozoite; gamma distributed
+mu <- 2136  #10.1371/journal.pcbi.1005255 as assumed by Hayley #2136 # mean number of merozoites released per sporozoite in Michael's model; gamma distributed
+sigma_mu <- 4460  #4460 from Michael's model # sd of number of merozoites released per sporozoite; gamma distributed
 beta_ab <- parameter(6.62) # anti-CSP titre for 50% reduction in spz survival prob microgram/mL
 alpha_ab <- parameter(1.32)  # shape parameter for antibody dose-response
 
-# Parameters for Negative Binomial distribution
-r <- n^2 / (sigma_n^2 - n)
-p <- n*DR / (n*DR + r) # p here is probability that a sporozoite dies (which is 1-prob of survival, so need to use 1-p in negbinom call)
+# Parameters for Negative Binomial distribution 
+# adapted from : https://github.com/ht1212/quality_quantity_modelling/blob/master/R3_Efficacy_Function_IR/3_VE_per_Sporozoite
+r <- n^2 / (sigma_n^2 - n) 
+p <- n*DR / (n*DR + r) # p here is probability that a sporozoite dies (which is 1-prob of survival, so need to use 1-p in negbinom call) - this is from https://github.com/ht1212/quality_quantity_modelling/blob/master/R2_Model_Fitting/1_MCMC_Models 
+# r / (n*DR + r) - this is 1- n*DR / (n*DR + r) https://stat.ethz.ch/R-manual/R-devel/library/stats/html/NegBinomial.html
+# the negbin function returns the number of failures before r successes, so for it to output the number of successful spz we need to invert p (I think)
 
 # Draw number of successful sporozoites
 kspz <- NegativeBinomial(r / 5, 1-p) #/ 5 bites
