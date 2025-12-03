@@ -371,9 +371,9 @@ highlyseasonal <- list(c(0.284596,-0.317878,-0.0017527,0.116455,-0.331361,0.2931
 genericparams <- get_parameters(
   overrides = list(
     model_seasonality = TRUE,
-    g0 = unlist(highlyseasonal)[1],
-    g = unlist(highlyseasonal)[2:4],
-    h = unlist(highlyseasonal)[5:7],
+    g0 = unlist(seasonal)[1],
+    g = unlist(seasonal)[2:4],
+    h = unlist(seasonal)[5:7],
     human_population = 10000,
     age_group_rendering_min_ages = c(0, 1825, 5475),
     age_group_rendering_max_ages = c(1824, 5474, 36499)
