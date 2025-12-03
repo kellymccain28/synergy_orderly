@@ -23,26 +23,24 @@ csp <- antibody_titre(t = ts,
                      t_boost1 = tboost1,
                      t_boost2 = tboost2)
 #Dose response
-ab <- 0#csp
+ab <- 0#
 beta_ab <- 6.62 #(1.34-16.29) # anti-CSP titre for 50% reduction in spz survival prob microgram/mL
 alpha_ab <- 1.32 #(0.85-1.77) # shape parameter for antibody dose-response
 
 DR <- 1 / (1 + (ab / beta_ab)^alpha_ab) # prob of survival of single spz
-ggplot()+geom_point(aes(x = ts, y = ab))+scale_y_log10()
-
+# ggplot()+geom_point(aes(x = ts, y = ab))+scale_y_log10()
+plot(DR)
 
 # Parameters for spz model initial merozoites 
 # estimated and fixed parameters  
-n <- 150/5 #n, mean number of successful spz per challenge / 5 bites; neg bin
-sigma_n <- 194/5 #, sigman sd of number of successful spz per challenge / 5 bites
+n <- 150 #n, mean number of successful spz per challenge / 5 bites; neg bin
+sigma_n <- 194 #, sigman sd of number of successful spz per challenge / 5 bites
 mu <- 2136 #30000 #10.1371/journal.pcbi.1005255 as assumed by Hayley #2136 # mean number of merozoites released per sporozoite in Michael's model; gamma distributed
 sigma_mu <- 4460 #71427 #4460 from Michael's model # sd of number of merozoites released per sporozoite; gamma distributed
-beta_ab <- 6.62 # anti-CSP titre for 50% reduction in spz survival prob microgram/mL
-alpha_ab <- 1.32 # shape parameter for antibody dose-response
 
 # Parameters for Negative Binomial distribution
 r <- n^2 / (sigma_n^2 - n)
-p <- r / (n*DR + r) 
+p <- r / (n*DR + r) #n*DR / (n*DR + r)- this is 1- r / (n*DR + r) # should be probability of success aka prob of survival 
 
 # Draw number of successful sporozoites 
 xspz <- seq(0, 300)

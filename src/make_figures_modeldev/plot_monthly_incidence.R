@@ -17,7 +17,13 @@ plot_monthly_incidence <- function(outputsfolder){
   # outputsfolder <- 'outputs_2025-12-01_2'
   
   # sim_results <- readRDS(paste0(path, outputsfolder, "/sim_results.rds"))
-  infectionrecords <-  readRDS(paste0(path, outputsfolder, "/infection_records.rds"))#purrr::map_df(sim_results, "infection_records")
+  infectionrecords <-  readRDS(paste0(path, outputsfolder, "/infection_records.rds")) %>%
+    # remove any infections that occurred within 7 days 
+    group_by(rid, sim_id) %>%
+    arrange(rid, sim_id, detection_day) %>%
+    mutate(previous_detday = lag(detection_day),
+           diff = detection_day - previous_detday) %>%
+    filter(diff > 7 | is.na(diff)) %>% select(-diff, -previous_detday)
   metadata_df <- readRDS(paste0(path, outputsfolder, "/metadata_df.rds"))
   base_inputs <- readRDS(paste0(path, outputsfolder, "/base_inputs.rds"))
   params <- readRDS(paste0(path, outputsfolder, "/parameter_grid.rds"))
@@ -106,40 +112,40 @@ plot_monthly_incidence <- function(outputsfolder){
   
   
   # Plot efficacy over time using incidence curves 
-  none <- inci %>%
-    filter(arm == 'none') %>%
-    rename(incidence_per_1000pm_none = incidence_per_1000pm,
-           rate_none = rate, 
-           person_months_none = person_months) %>% 
-    select(sim_id, year, month, yearmonth, incidence_per_1000pm_none, rate_none, person_months_none)
-  rtss <- inci %>%
-    filter(arm == 'rtss') %>%
-    rename(incidence_per_1000pm_rtss = incidence_per_1000pm,
-           rate_rtss = rate, 
-           person_months_rtss = person_months) %>% 
-    select(sim_id, year, month, yearmonth, incidence_per_1000pm_rtss, rate_rtss, person_months_rtss)
-  smc <- inci %>%
-    filter(arm == 'smc') %>%
-    rename(incidence_per_1000pm_smc = incidence_per_1000pm,
-           rate_smc = rate, 
-           person_months_smc = person_months) %>% 
-    select(sim_id, year, month, yearmonth, incidence_per_1000pm_smc, rate_smc, person_months_smc)
-  
-  df <- inci %>%
-    filter(arm == 'both') %>%
-    left_join(none) %>%
-    left_join(rtss) %>%
-    left_join(smc) %>%
-    # Calculate efficacy
-    mutate(rtss_none_eff = 1 - (incidence_per_1000pm_rtss / incidence_per_1000pm_none),
-           smc_none_eff = 1 - (incidence_per_1000pm_smc / incidence_per_1000pm_none),
-           both_none_eff = 1 - (incidence_per_1000pm / incidence_per_1000pm_none),
-           both_rtss_eff = 1 - (incidence_per_1000pm / incidence_per_1000pm_rtss),
-           both_smc_eff = 1 - (incidence_per_1000pm / incidence_per_1000pm_smc)) %>%
-    pivot_longer(cols = rtss_none_eff:both_smc_eff,
-                 names_to = 'efficacy_type',
-                 values_to = 'efficacy')
-  
-  ggplot(df %>% filter(sim_id == 'parameter_set_6_generic_0.9')) + 
-    geom_line(aes(x = yearmonth, y = efficacy, color = efficacy_type)) + ylim(c(0,1))
+  # none <- inci %>%
+  #   filter(arm == 'none') %>%
+  #   rename(incidence_per_1000pm_none = incidence_per_1000pm,
+  #          rate_none = rate, 
+  #          person_months_none = person_months) %>% 
+  #   select(sim_id, year, month, yearmonth, incidence_per_1000pm_none, rate_none, person_months_none)
+  # rtss <- inci %>%
+  #   filter(arm == 'rtss') %>%
+  #   rename(incidence_per_1000pm_rtss = incidence_per_1000pm,
+  #          rate_rtss = rate, 
+  #          person_months_rtss = person_months) %>% 
+  #   select(sim_id, year, month, yearmonth, incidence_per_1000pm_rtss, rate_rtss, person_months_rtss)
+  # smc <- inci %>%
+  #   filter(arm == 'smc') %>%
+  #   rename(incidence_per_1000pm_smc = incidence_per_1000pm,
+  #          rate_smc = rate, 
+  #          person_months_smc = person_months) %>% 
+  #   select(sim_id, year, month, yearmonth, incidence_per_1000pm_smc, rate_smc, person_months_smc)
+  # 
+  # df <- inci %>%
+  #   filter(arm == 'both') %>%
+  #   left_join(none) %>%
+  #   left_join(rtss) %>%
+  #   left_join(smc) %>%
+  #   # Calculate efficacy
+  #   mutate(rtss_none_eff = 1 - (incidence_per_1000pm_rtss / incidence_per_1000pm_none),
+  #          smc_none_eff = 1 - (incidence_per_1000pm_smc / incidence_per_1000pm_none),
+  #          both_none_eff = 1 - (incidence_per_1000pm / incidence_per_1000pm_none),
+  #          both_rtss_eff = 1 - (incidence_per_1000pm / incidence_per_1000pm_rtss),
+  #          both_smc_eff = 1 - (incidence_per_1000pm / incidence_per_1000pm_smc)) %>%
+  #   pivot_longer(cols = rtss_none_eff:both_smc_eff,
+  #                names_to = 'efficacy_type',
+  #                values_to = 'efficacy')
+  # 
+  # ggplot(df %>% filter(sim_id == 'parameter_set_6_generic_0.9')) + 
+  #   geom_line(aes(x = yearmonth, y = efficacy, color = efficacy_type)) + ylim(c(0,1))
 }
