@@ -59,7 +59,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
   N <- nrow(metadata_df)
   
   # Make weights to prevent homogeneous transmission 
-  weights <- runif(N)#rexp(N) # Generate random weights to sample children at different probabilities (could also use rpois(N) or rexp(N))
+  weights <- rexp(N) # Generate random weights to sample children at different probabilities (could also use rpois(N) or rexp(N))
   weights <- weights / sum(weights) # normalize to sum to 1
   
   message('calculating time since smc and parasite kill rate vector')
@@ -85,6 +85,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
   
   susceptibles <- rep(TRUE, N)
   
+  message('starting main sim loop')
   # Main simulation loop 
   for (t in 1:(trial_ts + burnin)) {
     # Determine number of new infectious bites on time t
@@ -119,7 +120,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
           recovering_kids <- most_recent$rid[recovery_today]
           susceptibles[recovering_kids] <- TRUE
         }
-        message(cat(c('recovered today: ', most_recent$rid[recovery_today]), sep = ','))
+        # message(cat(c('recovered today: ', most_recent$rid[recovery_today]), sep = ','))
         
         # Successfully treated children are not susceptible from treatment day until recovery
         treated_and_protected <- most_recent$treatment_successful & 
@@ -129,7 +130,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
           protected_kids <- most_recent$rid[treated_and_protected]
           susceptibles[protected_kids] <- FALSE
         }
-        message(cat("treated and protected: ", most_recent$rid[treated_and_protected], sep = ','))
+        # message(cat("treated and protected: ", most_recent$rid[treated_and_protected], sep = ','))
       }
     }
     
@@ -586,6 +587,7 @@ save_simulation_outputs <- function(results, output_dir) {
 calc_rtss_efficacy <- function(df){
   n_rtss <- nrow(metadata_df[metadata_df$arm == 'rtss',])
   n_none <- nrow(metadata_df[metadata_df$arm == 'none',])
+  vax_day <- metadata_df$vaccination_day[1] # this will not work with the trial modelling when everyone has a different vccination day
   
   # This is for use with output of fit_rtss.R which is the infection records dataset 
   # and where all children are given the 3rd dose of the vaccine on day 0 of simulation 
@@ -593,8 +595,8 @@ calc_rtss_efficacy <- function(df){
   df2 <- df %>%
     filter(!is.na(detection_day)) %>%
     # filter(infectious_bite_day>0) %>% # to get rid of the build up 
-    mutate(days_since_rtss = detection_day,
-           weeks_since_rtss = ceiling(detection_day/7)) %>%
+    mutate(days_since_rtss = detection_day - vax_day,
+           weeks_since_rtss = ceiling(days_since_rtss/7)) %>%
     group_by(arm, sim_id, weeks_since_rtss) %>%
     summarize(cases = n(),
               .groups = 'drop') %>%
@@ -627,6 +629,7 @@ calc_rtss_efficacy <- function(df){
 calc_rtss_efficacy_cumul <- function(df, params_row){
   n_rtss <- nrow(metadata_df[metadata_df$arm == 'rtss',])
   n_none <- nrow(metadata_df[metadata_df$arm == 'none',])
+  vax_day <- metadata_df$vaccination_day[1] # this will not work with the trial modelling when everyone has a different vccination day
   
   # get first infection 
   df_ <- df %>%
@@ -638,8 +641,8 @@ calc_rtss_efficacy_cumul <- function(df, params_row){
   df2 <- df_ %>%
     filter(!is.na(detection_day)) %>%
     # filter(infectious_bite_day>0) %>% # to get rid of the build up 
-    mutate(days_since_rtss = detection_day,
-           weeks_since_rtss = ceiling(detection_day/7)) %>%
+    mutate(days_since_rtss = detection_day - vax_day,
+           weeks_since_rtss = ceiling(days_since_rtss/7)) %>%
     group_by(arm, sim_id, weeks_since_rtss) %>%
     summarize(cases = n(),
               .groups = 'drop') %>%
