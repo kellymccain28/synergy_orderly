@@ -2,6 +2,8 @@
 # almost the same as sim_cohort_grid but just separated to make clear 
 sim_cohort_generic <- function(trial_ts = 365*3, 
                                treatment_prob = 0.9, # default is 1 (which gives children prophylaxis)
+                               season_start_day = 137, # default is 137 to start on August 15 (days since April 1)
+                               threshold = 5000, # default is 5000 parasites per microL
                                country_to_run = 'generic',
                                n_param_sets,
                                path = "R:/Kelly/synergy_orderly/",
@@ -19,7 +21,9 @@ sim_cohort_generic <- function(trial_ts = 365*3,
   source("R:/Kelly/synergy_orderly/shared/likelihood.R")
   source("R:/Kelly/synergy_orderly/src/fit_smc/calculate_efficacy_likelihood.R")
 
-  # Load the within-host model 
+  sim_pars <- paste0("_treat_", treatment_prob, "start_", season_start_day, "threshold", threshold)
+
+    # Load the within-host model 
   gen_bs <- odin2::odin("R:/Kelly/synergy_orderly/shared/smc_rtss.R")
   message('got model')
 
@@ -27,7 +31,7 @@ sim_cohort_generic <- function(trial_ts = 365*3,
   n_particles = 1L
   n_threads = 1L
   burnints = 50#90
-  threshold = 5000
+  # threshold = 5000
   tstep = 1
   t_liverstage = 8
   country_short = str_sub(country_to_run, 1, 1)
@@ -68,7 +72,7 @@ sim_cohort_generic <- function(trial_ts = 365*3,
   
   # probability of a bite is used in the cohort simulation and so is in 1-day timesteps
   # prob_bite_generic <- readRDS(paste0(path, 'archive/fit_rainfall/20251009-144330-1d355186/prob_bite_generic.rds'))
-  prob_bite_generic <- readRDS('R:/Kelly/synergy_orderly/src/fit_rainfall/prob_bite_generic.rds')#with EIR of 30 and highly seasonal instead of seasonal(21/11/25)
+  prob_bite_generic <- readRDS("R:/Kelly/synergy_orderly/archive/fit_rainfall/20251203-121008-03d1b614/prob_bite_generic.rds")#with EIR of 30 and seasonal instead of seasonal(03/12/25)
   # prob_bite_generic$prob_infectious_bite <- ifelse(prob_bite_generic$prob_infectious_bite < 0.01, prob_bite_generic$prob_infectious_bite, prob_bite_generic$prob_infectious_bite/3)
   message('stoppedafter getting prob bite')
   p_bitevector <- calc_lagged_vectors(prob_bite_generic, 0, burnints = burnints) # no lagged values 
@@ -76,7 +80,7 @@ sim_cohort_generic <- function(trial_ts = 365*3,
   params_df$lag_p_bite <- 0
   
   # SMC delivery 
-  season_start_day <- 137 # days between April 1 to August 15, so if the sim starts on 1 April, then SMC is delivered for 4 months Aug,Sep,Oct,Nov
+  # season_start_day <- 137 # days between April 1 to August 15, so if the sim starts on 1 April, then SMC is delivered for 4 months Aug,Sep,Oct,Nov
   season_length <- 120
   params_df <- params_df %>%
     rowwise() %>%
@@ -113,26 +117,26 @@ sim_cohort_generic <- function(trial_ts = 365*3,
            country = 'generic',
            v1_date = as.Date('2017-04-01') + vax_day - 60) # before was just april1 (start of), but now the first dose is dependent on the 3rd(specified by vax_day), 3rd dose is ~60 days after first
   
-  output_dir = paste0(path, 'src/sim_cohort_generic/outputs/outputs_', Sys.Date())
+  output_dir = paste0(path, 'src/sim_cohort_generic/outputs/outputs_', Sys.Date(), sim_pars)
   # If base directory doesn't exist, create it
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
-  } else {
-    # If it exists, find an available numbered version
-    counter <- 2
-    new_dir <- paste0(output_dir, "_", counter)
-    while (dir.exists(new_dir)) {
-      counter <- counter + 1
-      new_dir <- paste0(output_dir, "_", counter)
-    }
-    output_dir <- new_dir
-    dir.create(output_dir, recursive = TRUE)
-  }
+  } #else {
+  #   # If it exists, find an available numbered version
+  #   counter <- 2
+  #   new_dir <- paste0(output_dir, "_", counter)
+  #   while (dir.exists(new_dir)) {
+  #     counter <- counter + 1
+  #     new_dir <- paste0(output_dir, "_", counter)
+  #   }
+  #   output_dir <- new_dir
+  #   dir.create(output_dir, recursive = TRUE)
+  # }
   # Save parameter grid
-  saveRDS(parameters_df, file.path(output_dir, "parameter_grid.rds"))
-  saveRDS(base_inputs, file.path(output_dir, "base_inputs.rds"))
-  saveRDS(metadata_df, file.path(output_dir, "metadata_df.rds"))
-  writeLines(notes, "sim_notes.txt")
+  saveRDS(parameters_df, paste0(output_dir, "/parameter_grid.rds"))
+  saveRDS(base_inputs, paste0(output_dir, "/base_inputs.rds"))
+  saveRDS(metadata_df, paste0(output_dir, "/metadata_df.rds"))
+  writeLines(notes, paste0(output_dir, "/sim_notes.txt"))
   message('stopped here after saving')
   
   # Run simulation
@@ -220,11 +224,11 @@ sim_cohort_generic <- function(trial_ts = 365*3,
   }
   infectionrecords <- purrr::map_df(results2, "infection_records")
   params <- purrr::map_df(results2, 'params')
-  parasitemia <- purrr::map_df(results2, 'parasitemia')
+  # parasitemia <- purrr::map_df(results2, 'parasitemia')
   
   saveRDS(infectionrecords, paste0(output_dir, '/infection_records.rds'))
-  saveRDS(params, paste0(output_dir, '/parameter_df.rds'))
-  saveRDS(parasitemia, paste0(output_dir, '/parasitemia.rds'))
+  saveRDS(params, paste0(output_dir, "/parameter_df.rds"))
+  # saveRDS(parasitemia, paste0(output_dir, "/parasitemia.rds'))
 }
 # sim_results <- readRDS("R:/Kelly/synergy_orderly/src/sim_cohort_generic/outputs/outputs_2025-11-19/sim_results.rds")
 # 
