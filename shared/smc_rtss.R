@@ -161,7 +161,7 @@ lambdav <- 0.9996 # part of f(t) that governs duration of EVSR memory
 # Draw number of surviving sporozoites and subsequent merozoites initiating blood stage infection
 #Dose response
 ab <- if(PEV_on == 1) ab_user else 0
-DR <- 1 / (1 + (ab / beta_ab)^alpha_ab) # prob of survival of single spz from page 4 of white 2013
+DR <- vmin + (1 - vmin) * (1 / (1 + (ab / beta_ab)^alpha_ab)) # prob of survival of single spz from page 4 of white 2013
 
 # Parameters for spz model initial merozoites 
 # estimated and fixed parameters  
@@ -171,6 +171,7 @@ mu <- 2136  #10.1371/journal.pcbi.1005255 as assumed by Hayley #2136 # mean numb
 sigma_mu <- 4460  #4460 from Michael's model # sd of number of merozoites released per sporozoite; gamma distributed
 beta_ab <- parameter(6.62) # anti-CSP titre for 50% reduction in spz survival prob microgram/mL
 alpha_ab <- parameter(1.32)  # shape parameter for antibody dose-response
+vmin <- parameter(0) # minimum survival probability  (addition to white model to reduce effectiveness of the )
 
 # Parameters for Negative Binomial distribution 
 # adapted from : https://github.com/ht1212/quality_quantity_modelling/blob/master/R3_Efficacy_Function_IR/3_VE_per_Sporozoite

@@ -16,6 +16,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
   p_bite <- unlist(params_row$p_bite)
   alpha_ab_value <- if(any(names(params_row) == 'alpha_ab')) params_row$alpha_ab else 1.32
   beta_ab_value <- if(any(names(params_row) == 'beta_ab')) params_row$beta_ab else 6.62
+  vmin_value <- if(any(names(params_row) == 'vmin')) params_row$vmin else 0
   
   message("Running simulation: ", params_row$sim_id)
   
@@ -237,6 +238,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
         rid = bit_kids,
         alpha_ab = alpha_ab_value, # default values from White 2013 
         beta_ab = beta_ab_value, # default values from White 2013
+        vmin = vmin_value,
         t_toboost1 = t_toboost1_vec,
         t_toboost2 = t_toboost2_vec
       )
@@ -251,6 +253,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
                                rid,
                                alpha_ab, 
                                beta_ab,
+                               vmin,
                                t_toboost1,
                                t_toboost2) {
                         result <- run_process_model(
@@ -264,6 +267,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
                           SMC_kill_vec = unlist(SMC_kill_vec),
                           alpha_ab = alpha_ab, # default values from White 2013 
                           beta_ab = beta_ab, # default values from White 2013
+                          vmin = vmin, 
                           tboost1 = t_toboost1,
                           tboost2 = t_toboost2
                         )
