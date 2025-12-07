@@ -5,6 +5,8 @@
 src/fit_rainfall/chirps/*
 src/fit_smc/outputs/*
 src/fit_smc/simulation_outputs/*
+src/fit_rtss/outputs/*
+src/sim_cohort_generic/outputs/*
 
 
 # ---VVV--- added by orderly ---VVV----------------
