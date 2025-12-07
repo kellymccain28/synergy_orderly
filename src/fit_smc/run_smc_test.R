@@ -100,12 +100,23 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
   #             0.500000 ),5),
   #   sim_id = seq(1:35),
   #   repnum = rep(seq(1:7),5))
+  # params_df <- data.frame(
+  #   max_SMC_kill_rate = rep(c(2.333333, 2.333333, 2.333333), 10),
+  #   lambda = rep(c(16.6667, 16.66667, 18.33333),10),
+  #   kappa = rep(c(0.3444444, 0.2222222, 0.3444444),10),
+  #   sim_id = seq(1:30),
+  #   repnum = rep(seq(1:3),10))
+  # params_df <- readRDS(paste0(path, '/src/fit_smc/outputs/top_20params_1201.rds'))
+  # params_df$repnum <- rownames(params_df)
+  # params_df <- rbind(params_df, params_df, params_df)
+  # params_df$sim_id <- rownames(params_df)
+  
+  # Do multiple repetitionso f the final parameters 
   params_df <- data.frame(
-    max_SMC_kill_rate = rep(c(2.333333, 2.333333, 2.333333), 10),
-    lambda = rep(c(16.6667, 16.66667, 18.33333),10),
-    kappa = rep(c(0.3444444, 0.2222222, 0.3444444),10),
-    sim_id = seq(1:30),
-    repnum = rep(seq(1:3),10))
+    max_SMC_kill_rate = rep(2.333333, n_param_sets),
+      lambda = rep(16.6667,n_param_sets),
+      kappa = rep(0.2222222, n_param_sets),
+      sim_id = seq(1:n_param_sets)) 
   
   # params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", treatment_probability)
   prob_bite_generic <- readRDS(paste0(path, '/archive/fit_rainfall/20251009-144330-1d355186/prob_bite_generic.rds'))
@@ -158,20 +169,20 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
   
   # Make grid search list 
   # Define ranges
-  kill_vals  <- seq(2, 3,  length.out = 10)
-  lambda_vals <- seq(15, 19, length.out = 10)
-  kappa_vals  <- seq(0.1, 0.5,  length.out = 10)
-
-  # Cartesian product
-  grid <- expand.grid(
-    max_SMC_kill_rate = kill_vals,
-    lambda            = lambda_vals,
-    kappa             = kappa_vals
-  ) %>%
-    mutate(lag_p_bite = 0,
-           smc_dose_days = 10,
-           p_bite = parameters_df$p_bite[1])
-  params_list <- split(grid, seq(nrow(grid)))
+  # kill_vals  <- seq(2, 3,  length.out = 10)
+  # lambda_vals <- seq(15, 19, length.out = 10)
+  # kappa_vals  <- seq(0.1, 0.5,  length.out = 10)
+  # 
+  # # Cartesian product
+  # grid <- expand.grid(
+  #   max_SMC_kill_rate = kill_vals,
+  #   lambda            = lambda_vals,
+  #   kappa             = kappa_vals
+  # ) %>%
+  #   mutate(lag_p_bite = 0,
+  #          smc_dose_days = 10,
+  #          p_bite = parameters_df$p_bite[1])
+  # params_list <- split(grid, seq(nrow(grid)))
   
   # Get the observed efficacy to compare to 
   observed_efficacy <- read.csv(paste0(path, '/shared/smc_fits_hayley.csv')) %>%
@@ -325,7 +336,14 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
                                                     endsim <- Sys.time()
                                                     message('time to do sim: ', endsim - startsim)
                                                     message('finished simulation')
-                                                    filt <- o$infection_records %>% filter(time_ext >=0) # filtering out the bites that happened before the start of FU
+                                                    filt <- o$infection_records %>% filter(time_ext >=0) %>% # filtering out the bites that happened before the start of FU
+                                                      # remove any infections that occurred within 7 days 
+                                                      group_by(rid) %>%
+                                                      arrange(rid, detection_day) %>%
+                                                      mutate(previous_detday = lag(detection_day),
+                                                             diff = detection_day - previous_detday) %>%
+                                                      filter(diff > 7 | is.na(diff)) %>% select(-diff, -previous_detday)
+                                                    
                                                     eff <- calc_smc_efficacy_cumul(filt,
                                                                                    params_row,
                                                                                    by_week = TRUE)
@@ -397,7 +415,7 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
     parallel::stopCluster(cl)
   }
   # Save all results 
-  saveRDS(grid_search_outputs, paste0("R:/Kelly/synergy_orderly/src/fit_smc/outputs/grid_search",Sys.Date(),".rds"))
+  saveRDS(grid_search_outputs, paste0("R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars",Sys.Date(),".rds"))
   # saveRDS(results2, paste0("R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc_",Sys.Date(),".rds"))
   saveRDS(metadata_df, paste0('R:/Kelly/synergy_orderly/src/fit_smc/outputs/metadata_', Sys.Date(), '.rds'))
 }

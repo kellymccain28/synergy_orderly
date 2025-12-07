@@ -1,7 +1,7 @@
 run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
-                         n_param_sets,
-                         treatment_prob = 0.9, # default is 1 (which gives children prophylaxis)
-                         N = 1200){
+                          n_param_sets,
+                          treatment_prob = 0.9, # default is 1 (which gives children prophylaxis)
+                          N = 1200){
   
   # Script to fit SMC parameters to Hayley's curve 
   library(lhs)
@@ -38,7 +38,7 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
   country_short = 'g'
   n_param_sets = n_param_sets
   N = N
-  vax_day = -1 # unlike the model sim, this is in days (not timesteps)
+  vax_day = 15 # unlike the model sim, this is in days (not timesteps)
   
   n_particles = 1L
   n_threads = 1L
@@ -69,8 +69,8 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
   # # Generate LHS samples
   # Set up grid of parameter ranges
   param_ranges <- list(
-    alpha_ab = c(1.1, 1.6),
-    beta_ab = c(3, 7),
+    alpha_ab = c(1, 1.6),
+    beta_ab = c(3, 8),
     vmin = c(0, 0.25)
   )
   A <- randomLHS(n_param_sets, 3)
@@ -155,16 +155,22 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
                                                     output_dir = 'R:/Kelly/src/fit_rtss/outputs',
                                                     return_parasitemia = FALSE,
                                                     save_outputs = FALSE)
+                         o$infection_records$sim_id <- params_row$sim_id
                          message('finished simulation')
                          infs <- o$infection_records %>%
-                           filter(infectious_bite_day >= 0)
+                           # filter so that the follow-up time starts from 21 days post-vaccination (here, vax_day must be -21)
+                           filter(detection_day - vaccination_day >= 21) %>%
+                           # remove any infections that occurred within 7 days 
+                           group_by(rid) %>%
+                           arrange(rid, detection_day) %>%
+                           mutate(previous_detday = lag(detection_day),
+                                  diff = detection_day - previous_detday) %>%
+                           filter(diff > 7 | is.na(diff)) %>% select(-diff, -previous_detday)
                          
                          eff <- calc_rtss_efficacy(infs)
-                         eff_cumul <- calc_rtss_efficacy_cumul(infs)
-
+                         
                          return(list(infection_records = o$infection_records,
                                      efficacy_weekly = eff,
-                                     efficacy_weekly_cumul = eff_cumul,
                                      params = params_row %>% select(-p_bite)))
                        })
     
@@ -220,12 +226,18 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
                                                                     save_outputs = FALSE)
                                          message('finished simulation')
                                          o$infection_records$sim_id <- params_row$sim_id
+                                         
                                          infs <- o$infection_records %>%
-                                           # filter(BSinfection_day >= 0)
-                                           filter(infectious_bite_day >= 0)
-
+                                           # filter so that the follow-up time starts from 21 days post-vaccination 
+                                           filter(detection_day - vax_day >= 21) %>%
+                                           # remove any infections that occurred within 7 days 
+                                           group_by(rid) %>%
+                                           arrange(rid, detection_day) %>%
+                                           mutate(previous_detday = lag(detection_day),
+                                                  diff = detection_day - previous_detday) %>%
+                                           filter(diff > 7 | is.na(diff)) %>% select(-diff, -previous_detday)
+                                         
                                          eff <- calc_rtss_efficacy(infs)
-                                         # eff_cumul <- calc_rtss_efficacy_cumul(infs)
                                          
                                          matched <- observed_efficacy_rtss %>%
                                            left_join(eff %>% select(weeks_since_rtss, efficacy) %>%
@@ -237,10 +249,7 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
                                            filter(!is.na(observed_efficacy), !is.na(predicted_efficacy))
                                          
                                          # Calculate mean least squares
-                                         mls <- mean((matched_complete$observed_efficacy - matched_complete$predicted_efficacy)^2)
-                                         
-                                         # saveRDS(o$infection_records,
-                                         #         paste0(path, '/src/fit_rtss/outputs/individual_outputs/infectionrecords_rtss_', params_row$sim_id, Sys.Date(), '.rds'))
+                                         mls <- mean((matched_complete$observed_efficacy - matched_complete$predicted_efficacy)^2, na.rm = TRUE)
                                          
                                          return(list(#infection_records = o$infection_records,
                                                      efficacy_weekly = eff,
@@ -253,16 +262,16 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
   }
   
   # saveRDS(results2, paste0(path, '/src/fit_rtss/outputs/rtss_grid_',Sys.Date(),'.rds'))
-  infectionrecords <- purrr::map_df(results2, "infection_records")
+  # infectionrecords <- purrr::map_df(results2, "infection_records")
   efficacy <- purrr::map_df(results2, 'efficacy_weekly')
   efficacy_cumul <- purrr::map_df(results2, 'efficacy_weekly_cumul')
   params <- purrr::map_df(results2, 'params')
   mls <- lapply(results2, function(x) x$mls)
 
   saveRDS(params, paste0(path, '/src/fit_rtss/outputs/parameters_', Sys.Date(), '.rds'))
-  saveRDS(infectionrecords, paste0(path, '/src/fit_rtss/outputs/infectionrecords_rtss_', Sys.Date(), '.rds'))
+  # saveRDS(infectionrecords, paste0(path, '/src/fit_rtss/outputs/infectionrecords_rtss_', Sys.Date(), '.rds'))
   saveRDS(efficacy, paste0(path, '/src/fit_rtss/outputs/efficacy_rtss_', Sys.Date(), '.rds'))
-  saveRDS(efficacy_cumul, paste0(path, '/src/fit_rtss/outputs/efficacy_rtss_cumul_', Sys.Date(), '.rds'))
+  # saveRDS(efficacy_cumul, paste0(path, '/src/fit_rtss/outputs/efficacy_rtss_cumul_', Sys.Date(), '.rds'))
   saveRDS(mls, paste0(path, '/src/fit_rtss/outputs/mls_', Sys.Date(), '.rds'))
 }
 
