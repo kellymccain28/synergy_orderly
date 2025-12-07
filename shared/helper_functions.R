@@ -13,8 +13,9 @@ run_process_model <- function(n_particles = 1L,
                               infection_start_day, # external time that infection begins
                               SMC_time, # vector with same length as smc_kill_vec
                               SMC_kill_vec, # per-parasite kill rate per 2-day timestep
-                              alpha_ab = 6.62, # default values from White 2013 
-                              beta_ab = 1.32, # default values from White 2013
+                              alpha_ab = 1.32, # default values from White 2013 
+                              beta_ab = 6.62, # default values from White 2013
+                              vmin = 0, # additional parameter for White 2013
                               tboost1 = 364,
                               tboost2 = 729
                               ){ 
@@ -33,6 +34,7 @@ run_process_model <- function(n_particles = 1L,
                    SMC_kill_vec = SMC_kill_vec, 
                    alpha_ab = alpha_ab, # default values from White 2013 
                    beta_ab = beta_ab, # default values from White 2013
+                   vmin = vmin, 
                    tboost1 = tboost1,
                    tboost2 = tboost2)
   
@@ -69,8 +71,9 @@ run_model <- function(n_particles = 1L,
                       infection_start_day = 0, # external time that infection begins 
                       SMC_time, 
                       SMC_kill_vec,
-                      alpha_ab = 6.62, # default values from White 2013 
-                      beta_ab = 1.32, # default values from White 2013
+                      alpha_ab = 1.32, # default values from White 2013 
+                      beta_ab = 6.62, # default values from White 2013
+                      vmin = 0, # additional parameter for White 2013
                       tboost1 = 364, # timesteps after 3rd dose that the first booster is delivered
                       tboost2 = 729# timesteps after 1st booster that the second booster is delivered 
 ){
@@ -103,7 +106,8 @@ run_model <- function(n_particles = 1L,
                SMC_time = unlist(SMC_time),
                SMC_kill_vec = unlist(SMC_kill_vec),
                alpha_ab = alpha_ab, # default values from White 2013 
-               beta_ab = beta_ab # default values from White 2013
+               beta_ab = beta_ab, # default values from White 2013
+               vmin = 0 # additional parameter for White 2013
   )
   
   sys <- dust_system_create(gen_bs, 
@@ -115,7 +119,7 @@ run_model <- function(n_particles = 1L,
   # Set initial values using initial() equations in model
   dust_system_set_state_initial(sys)
   # Get starting states 
-  # init_states <- dust_unpack_state(sys, dust_system_state(sys))
+  init_states <- dust_unpack_state(sys, dust_system_state(sys))
   # Calculate the median value of merozoites initiating infection across all particles
   # median_mero_init <- median(init_states$PB)
   # Get number of infections blocked 
@@ -125,6 +129,7 @@ run_model <- function(n_particles = 1L,
   bs_model <- dust_system_simulate(sys, tt)
   
   out <- dust_unpack_state(sys, bs_model)
+  out$mero_init_out <- init_states$mero_init_out
   
   return(out)
 }
@@ -226,7 +231,7 @@ format_data <- function(out, tt, infection_start_day, n_particles){
     
     meros <- as.data.frame(t(out$mero_init_out))
     colnames(meros) <- paste0('run',seq(1:n_particles))
-    meros$time <- tt
+    meros$time <- 1
     meros_long <- meros %>% 
       pivot_longer(cols = starts_with('run'),
                    names_to = 'run',
@@ -386,9 +391,9 @@ make_plots <- function(df){
                   guide = "axis_logticks") +
     theme(legend.position = 'none')
   
-  meroinitplt <- ggplot(df %>% filter(time_withinhost2 == min(df$time_withinhost2))) + 
-    geom_boxplot(aes(x = detectable, y = parasites*VB, color = detectable), alpha = 0.7) + #
-    geom_jitter(aes(x = detectable, y = parasites*VB, color = detectable), alpha = 0.7) + #
+  meroinitplt <- ggplot(df) + 
+    geom_boxplot(aes(x = detectable, y = mero_init_out, color = detectable), alpha = 0.7) + #
+    geom_jitter(aes(x = detectable, y = mero_init_out, color = detectable), alpha = 0.7) + #
     labs(x = 'Infection status',
          y = 'Merozoites initating infection',
          caption = paste0('proportion of bites that do not lead to infection at time 0 = ', 

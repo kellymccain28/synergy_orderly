@@ -12,9 +12,9 @@ runpars <- orderly_parameters(n_particles = NULL,
                    t_inf_vax = NULL,# if before infection, then + number; time of infectious bite relative to vaccination, influences AB titre and also influences the length of SMC kill vec -- t_inf/2:end
                    ts = NULL,
                    tstep = NULL,
-                   max_SMC_kill_rate = 5,
-                   lambda = 13, 
-                   kappa = 0.45, 
+                   max_SMC_kill_rate = 2.333333,
+                   lambda = 16.66667, 
+                   kappa = 0.2222222, 
                    # SMC_decay = NULL,
                    season_start_day = NULL, # influences when SMC is delivered relative to the start of the infection/sim 
                    # season_length = NULL,
@@ -43,7 +43,7 @@ gen_bs <- odin2::odin("smc_rtss.R")
 source("rtss.R")
 source("helper_functions.R")
 
-# set.seed(1234)
+set.seed(1234)
 
 # Stochastic runs ----
 # Without vaccination nor SMC ----
@@ -71,7 +71,8 @@ varspec <- nothing[[4]]
 growthr <- nothing[[5]]
 # nothing[[6]]
 mplot <- nothing[[7]]
-# nothing[[11]]
+nothing[[11]] 
+
 plot_grid(prbc+labs(caption = NULL, x = 'Days'),
           growthr+labs(caption = NULL, x = 'Days'),
           innate+labs(caption = NULL, x = 'Days'),
@@ -105,6 +106,9 @@ vax <- run_model(n_particles = runpars$n_particles,
                  infection_start_day = runpars$inf_start,
                  SMC_time = seq(0,100,1),
                  SMC_kill_vec = rep(0,101),
+                 alpha_ab = 1.32, 
+                 beta_ab = 6.62,
+                 vmin = 0, # higher vmin means that the probability of a sporozoite surviving is higher, so should have more infections
                  tt= tt,
                  VB = VB,
                  det_mode = FALSE) %>%
@@ -244,16 +248,19 @@ ggsave('R:/Kelly/synergy_orderly/figures/smcdynamics_plot.pdf', height = 6, widt
 
 # Both vaccination and SMC
 vaxSMC <- run_model(n_particles = runpars$n_particles,
-                     n_threads = 4L,
-                     PEV_on = 1,
-                     SMC_on = 1,
-                     tt= tt,
-                     det_mode = FALSE,
-                     t_inf_vax = runpars$t_inf_vax,
-                     VB = VB,
-                     SMC_time = smckilltime,
-                     SMC_kill_vec = smckillvec_subset,
-                     infection_start_day = runpars$inf_start
+                    n_threads = 4L,
+                    PEV_on = 1,
+                    SMC_on = 1,
+                    tt= tt,
+                    det_mode = FALSE,
+                    t_inf_vax = runpars$t_inf_vax,
+                    VB = VB,
+                    alpha_ab = 1.32,
+                    beta_ab = 6.62,
+                    # vmin = 0, # higher vmin means that the probability of a sporozoite surviving is higher, so should have more infections
+                    SMC_time = smckilltime,
+                    SMC_kill_vec = smckillvec_subset,
+                    infection_start_day = runpars$inf_start
 ) %>%
   format_data(tt= tt,
               infection_start_day = runpars$inf_start,
@@ -264,7 +271,7 @@ vaxSMC[[1]]# + xlim(c(0,100))
 # vaxSMC[[3]]
 # vaxSMC[[4]]
 # vaxSMC[[7]]
-vaxSMC[['meroinit']] + labs(caption = NULL)
+vaxSMC[[11]] + labs(caption = NULL)
 vaxSMCplt <- plot_grid(vaxSMC[[1]] +labs(caption = NULL, x = 'Days since start of blood stage'), 
                        vaxSMC[[2]]+labs(caption = NULL, x = 'Days since start of blood stage'),
                        vaxSMC[[3]]+labs(caption = NULL, x = 'Days since start of blood stage'),

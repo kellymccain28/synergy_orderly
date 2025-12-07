@@ -610,6 +610,10 @@ calc_rtss_efficacy <- function(df){
     mutate(pop = ifelse(arm == 'none', n_none, n_rtss)) %>% # I ran this with a pop of 1200 divided by rtss and no intervention 
     mutate(inci = cases / pop) %>% ungroup()
   
+  # Filter so that it is at least 21 days since RTSS 
+  df2 <- df2 %>%
+    filter(weeks_since_rtss >= 3)
+  
   # Extract no intervention  
   none <- df2 %>%
     filter(arm == 'none') %>% 
