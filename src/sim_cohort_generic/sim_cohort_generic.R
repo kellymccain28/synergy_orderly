@@ -215,18 +215,56 @@ sim_cohort_generic <- function(trial_ts = 365*3,
                                          message('finished simulation')
                                          o$infection_records$sim_id <- params_row$sim_id
                                          
-                                         return(list(infection_records = o$infection_records, 
+                                         # remove any infections that occurred within 7 days 
+                                         infs <- o$infection_records %>% 
+                                           group_by(rid) %>%
+                                           arrange(rid, detection_day) %>%
+                                           mutate(previous_detday = lag(detection_day),
+                                                  diff = detection_day - previous_detday) %>%
+                                           filter(diff > 7 | is.na(diff)) %>% select(-diff, -previous_detday)
+                                         
+                                         infs_formatted <- format_model_output(model_data = infs, 
+                                                                               cohort = 'generic', 
+                                                                               start_cohort = as.Date('2017-04-01'),
+                                                                               simulation = params_row$sim_id)
+                                         
+                                         inci <- get_incidence(df_children = metadata_df,
+                                                       casedata = infs_formatted) %>%
+                                           mutate(sim_id = params_row$sim_id)
+                                         
+                                         return(list(infection_records_formatted = infs_formatted, 
+                                                     incidence_df = inci,
                                                      # parasitemia = o$parasitemia_data,
                                                      params = params_row))
                                        }
     )
     parallel::stopCluster(cl)
   }
-  infectionrecords <- purrr::map_df(results2, "infection_records")
-  params <- purrr::map_df(results2, 'params')
-  # parasitemia <- purrr::map_df(results2, 'parasitemia')
+  # Determine number of batches
+  n_results <- length(results2)
+  batch_size <- 16
+  n_batches <- ceiling(n_results / batch_size)
   
-  saveRDS(infectionrecords, paste0(output_dir, '/infection_records.rds'))
+  # Loop through batches and save each one
+  for(batch in 1:n_batches) {
+    # Calculate start and end indices for this batch
+    start_idx <- (batch - 1) * batch_size + 1
+    end_idx <- min(batch * batch_size, n_results)
+    
+    # Extract for this batch
+    infectionsformatted_batch <- purrr::map_df(results2[start_idx:end_idx], "infection_records_formatted")#"infection_records")
+    incidence_batch <- purrr::map_df(results2[start_idx:end_idx], "incidence_df")#"infection_records")
+    
+    # Save this batch
+    saveRDS(infectionsformatted_batch, paste0(output_dir, '/infs_formatted_batch', batch, '.rds'))
+    saveRDS(incidence_batch, paste0(output_dir, '/incidence_batch', batch, '.rds'))
+  }
+  
+  # infectionrecords <- purrr::map_df(results2, "infection_records")
+  params <- purrr::map_df(results2, 'params')
+  # # parasitemia <- purrr::map_df(results2, 'parasitemia')
+  # 
+  # saveRDS(infectionrecords, paste0(output_dir, '/infection_records.rds'))
   saveRDS(params, paste0(output_dir, "/parameter_df.rds"))
   # saveRDS(parasitemia, paste0(output_dir, "/parasitemia.rds'))
 }
