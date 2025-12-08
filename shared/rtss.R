@@ -133,9 +133,12 @@ vaccine_eff <- function(csp,
 #' Vaccine efficacy per sporozoite following White et al. 
 #' https://github.com/ht1212/quality_quantity_modelling/blob/master/R3_Efficacy_Function_IR/3_VE_per_Sporozoite
 p_spz_surv <- function(ab, beta_ab = 6.62,
-                       alpha_ab = 1.32){
+                       alpha_ab = 1.32,
+                       vmin = 0.05
+                        ){
   
-  1 / (1 + (ab / beta_ab)^alpha_ab) 
+  # vmin + (1 - vmin) * (1 / (1 + (ab / beta_ab)^alpha_ab) )
+  1 / (1 + (ab / beta_ab)^alpha_ab)
   
 }
 

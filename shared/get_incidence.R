@@ -36,16 +36,16 @@ get_incidence <- function(model = TRUE,
   #   bind_rows()
   # 
   
-  person_months_df2 <- person_months_df %>%
-    left_join(df_children %>% 
-                select(rid, country), by = 'rid')
+  # person_months_df2 <- person_months_df %>%
+  #   left_join(df_children %>% 
+  #               select(rid, country), by = c('country','rid'))
   
   # Calculate actual person-time per child-month
   # for each month, we need to find max an dmin -- so if the start date is=or > the floor date of the month and < last day of that month, 
   # then we take either the first day of the month or the start date. if the start date is > last da of taht month, then we take the 
   # last day of that month (I think????)
   # for the end date, i think it's fine 
-  person_months_df3 <- person_months_df2 %>%
+  person_months_df3 <- person_months_df %>%
     mutate(
       month_start = pmax(floor_date(month, "month"), v1_date),
       month_end = pmin(ceiling_date(month, "month") - days(1), fu_end_date),
@@ -97,7 +97,7 @@ get_incidence <- function(model = TRUE,
       rate = n_cases / person_months, 
       se = sqrt(n_cases) / person_months,
       lower = (qchisq(0.025, 2 * n_cases) / 2) / person_months, 
-      upper = (qchisq(0.975, 2 * n_cases + 1) / 2) / person_months,
+      upper = (qchisq(0.975, 2 * n_cases + 2) / 2) / person_months,
       incidence_per_1000pm = rate * 1000,
       lower_per_1000 = lower * 1000,
       upper_per_1000 = upper * 1000,

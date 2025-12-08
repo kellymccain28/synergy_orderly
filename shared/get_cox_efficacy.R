@@ -18,7 +18,7 @@ get_cox_efficacy <- function(df,
     
     if(i < 4){
       d <- df %>% 
-        filter(year == i)
+        dplyr::filter(year == i)
     } else d <- df
     
     # Create formula dynamically using the ref argument
@@ -78,3 +78,9 @@ get_cox_efficacy <- function(df,
   
   return(tidy_results)
 }
+
+
+# to get the monthly efficacy, i think i'll need to reformat the data to be grouped by month, to have person time 
+# in each month over the whole study period -- or since we are assuming no loss of follow up here, could just use 
+# n as person time and have the number of cases per month / personmonths (just n)?
+
