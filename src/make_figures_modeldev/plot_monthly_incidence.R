@@ -6,6 +6,7 @@ plot_monthly_incidence <- function(outputsfolder){
   library(survminer)
   library(broom)
   library(ggplot2)
+  library(tidyverse)
   
   source("R:/Kelly/synergy_orderly/shared/format_model_output.R")
   source("R:/Kelly/synergy_orderly/shared/get_incidence.R")
@@ -17,13 +18,20 @@ plot_monthly_incidence <- function(outputsfolder){
   # outputsfolder <- 'outputs_2025-12-01_2'
   
   # sim_results <- readRDS(paste0(path, outputsfolder, "/sim_results.rds"))
-  infectionrecords <-  readRDS(paste0(path, outputsfolder, "/infection_records.rds")) %>%
-    # remove any infections that occurred within 7 days 
-    group_by(rid, sim_id) %>%
-    arrange(rid, sim_id, detection_day) %>%
-    mutate(previous_detday = lag(detection_day),
-           diff = detection_day - previous_detday) %>%
-    filter(diff > 7 | is.na(diff)) %>% select(-diff, -previous_detday)
+  files <- list.files(paste0(path, outputsfolder),
+                      full.names = TRUE)
+  files_inci <- files[grepl('incidence', files)]
+  files_formatted <- files[grepl('formatted', files)]
+  inci_all <- lapply(files_inci, readRDS)
+  formatted_all <- lapply(files_formatted, readRDS)
+  
+  # infectionrecords <-  readRDS(paste0(path, outputsfolder, "/infection_records.rds")) %>%
+  #   # remove any infections that occurred within 7 days 
+  #   group_by(rid, sim_id) %>%
+  #   arrange(rid, sim_id, detection_day) %>%
+  #   mutate(previous_detday = lag(detection_day),
+  #          diff = detection_day - previous_detday) %>%
+  #   filter(diff > 7 | is.na(diff)) %>% select(-diff, -previous_detday)
   metadata_df <- readRDS(paste0(path, outputsfolder, "/metadata_df.rds"))
   base_inputs <- readRDS(paste0(path, outputsfolder, "/base_inputs.rds"))
   params <- readRDS(paste0(path, outputsfolder, "/parameter_grid.rds"))
@@ -32,11 +40,11 @@ plot_monthly_incidence <- function(outputsfolder){
   # params <- purrr::map_df(sim_results, 'params')
   
   # Format for incidence calculation 
-  formattedinfrecords <- lapply(params$sim_id, function(x){
-    format_model_output(model_data = infectionrecords,
-                        cohort = 'generic',
-                        simulation = x)})
-  all <- bind_rows(formattedinfrecords)
+  # formatted_all <- lapply(params$sim_id, function(x){
+  #   format_model_output(model_data = infectionrecords,
+  #                       cohort = 'generic',
+  #                       simulation = x)})
+  all <- bind_rows(formatted_all)
   saveRDS(all, paste0(path, outputsfolder, '/formatted_infrecords.rds'))
   
   # formattedinfrecords_monthly <- lapply(params$sim_id, function(x){
@@ -48,14 +56,14 @@ plot_monthly_incidence <- function(outputsfolder){
   # allmonths <- bind_rows(formattedinfrecords_monthly)
   
   # Calculate incidence 
-  testinci <- lapply(params$sim_id, function(x){
-    aa <- all %>% filter(sim_id == x)
-    
-    get_incidence(df_children = metadata_df,
-                  casedata = aa) %>%
-      mutate(sim_id = x)
-  })
-  inci <- bind_rows(testinci)
+  # inci_all <- lapply(params$sim_id, function(x){
+  #   aa <- all %>% filter(sim_id == x)
+  #   
+  #   get_incidence(df_children = metadata_df,
+  #                 casedata = aa) %>%
+  #     mutate(sim_id = x)
+  # })
+  inci <- bind_rows(inci_all)
   saveRDS(inci, paste0(path, outputsfolder, '/incidence.rds'))
   
   
@@ -72,7 +80,7 @@ plot_monthly_incidence <- function(outputsfolder){
   
   # Plot incidence with p_bite overlaid 
   pbite <- params$p_bite[[1]]
-  smc_dates <- as.Date(unlist(all$smc_dose_days[1][1:4]), origin = '2017-04-01')
+  smc_dates <- as.Date(unlist(all$smc_dose_days[10][1:4]), origin = '2017-04-01')
   smc_lines <- data.frame(
     xintercept = rep(smc_dates,2),
     arm = rep(c('smc', 'both'), each = length(smc_dates)),

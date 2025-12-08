@@ -32,8 +32,9 @@ plot_time_to_threshold <- function(outputsfolder){
          y = "Days to reach threshold of detection",
          color = 'Intervention arm',
          fill = 'Intervention arm') +
-    theme_bw(base_size = 14)
-  ggsave('R:/Kelly/synergy_orderly/figures/time_to_threshold.pdf', plot = last_plot())
+    theme_bw(base_size = 14) +
+    theme(legend.position = 'none') 
+  ggsave('R:/Kelly/synergy_orderly/figures/time_to_threshold.pdf', plot = last_plot(), height = 4, width = 6)
   
   formatted %>%
     group_by(arm) %>%

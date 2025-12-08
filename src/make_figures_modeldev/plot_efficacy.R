@@ -78,12 +78,12 @@ plot_efficacy <- function(outputsfolder){
   efficacy_plot <- ggplot(tidy_results %>% filter(year == 'Overall')) +
     geom_point(aes(x = term, y = VE, color = reference), size = 1.5) +
     geom_errorbar(aes(x = term, ymin = VE_lower, ymax = VE_upper, color = reference), width = 0.1, linewidth = 0.8) +
-    geom_point(aes(x = term, y = VE_expected, color = 'Expected efficacy'), 
+    geom_point(aes(x = term, y = VE_expected, color = 'Expected protective efficacy'), 
                size = 1.5) +
-    geom_errorbar(aes(x = term, ymin = VE_lower_expected, ymax = VE_upper_expected, color = 'Expected efficacy'), 
+    geom_errorbar(aes(x = term, ymin = VE_lower_expected, ymax = VE_upper_expected, color = 'Expected protectiveefficacy'), 
                   width = 0.1, linewidth = 0.8) +
     geom_hline(aes(yintercept = 0)) +
-    labs(y = "Efficacy",
+    labs(y = "Protective efficacy",
          x = NULL, 
          color = 'Comparison group') +
     scale_color_manual(values = c(
