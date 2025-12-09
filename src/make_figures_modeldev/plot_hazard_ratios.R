@@ -1,4 +1,4 @@
-# Plot hazards ratios by year
+# Plot hazard ratios by year
 plot_hazard_ratios <- function(outputsfolder){
   # Load packages
   library(zoo)

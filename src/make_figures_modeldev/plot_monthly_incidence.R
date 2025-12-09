@@ -21,8 +21,11 @@ plot_monthly_incidence <- function(outputsfolder){
   files <- list.files(paste0(path, outputsfolder),
                       full.names = TRUE)
   files_inci <- files[grepl('incidence', files)]
-  files_formatted <- files[grepl('formatted', files)]
+  files_inci <- files_inci[grepl('batch', files_inci)]
   inci_all <- lapply(files_inci, readRDS)
+  
+  files_formatted <- files[grepl('formatted', files)]
+  files_formatted <- files_formatted[grepl('batch', files_formatted)]
   formatted_all <- lapply(files_formatted, readRDS)
   
   # infectionrecords <-  readRDS(paste0(path, outputsfolder, "/infection_records.rds")) %>%
