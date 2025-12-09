@@ -66,7 +66,13 @@ get_cox_efficacy <- function(df,
         VE_lower = 1 - conf.high,       # Lower CI for VE = 1 - Upper CI for HR
         VE_upper = 1 - conf.low ,        # Upper CI for VE = 1 - Lower CI for HR
         year = ifelse(i == 4, 'overall',as.character(i))
-      ) %>% mutate(
+      ) %>% 
+      rename(
+        HR = estimate, 
+        HR_lower = conf.low, 
+        HR_upper = conf.high,
+      ) %>%
+      mutate(
         n_events = coxmodel$nevent,
         n_obs = coxmodel$n
       )

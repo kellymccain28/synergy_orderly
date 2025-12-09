@@ -1,5 +1,5 @@
-# Plot efficacy by year
-plot_efficacy <- function(outputsfolder){
+# Plot hazards ratios by year
+plot_hazard_ratios <- function(outputsfolder){
   # Load packages
   library(zoo)
   library(survival)
@@ -55,48 +55,54 @@ plot_efficacy <- function(outputsfolder){
   
   # expected:
   rtssnone <- tidy_results[tidy_results$term == 'RTSS vs None', c('VE', "VE_lower", "VE_upper")]
-  smcnone <- tidy_results[tidy_results$term == 'SMC vs None',c('VE', "VE_lower", "VE_upper")]#$VE
+  smcnone <- tidy_results[tidy_results$term == 'SMC vs None', c('VE', "VE_lower", "VE_upper")]#$VE
   years <- tidy_results[tidy_results$term == 'RTSS vs None',]$year
   
-  expected_efficacy <- rtssnone * (1 - smcnone) + smcnone
-  expected_efficacy$year <- tidy_results[tidy_results$term == 'RTSS vs None',]$year
+  expected_hr <- 1 - (rtssnone * (1 - smcnone) + smcnone)
+  expected_hr$year <- tidy_results[tidy_results$term == 'RTSS vs None',]$year
   
   tidy_results <- tidy_results %>%
-    left_join(expected_efficacy %>%
-                rename(VE_expected = VE, 
-                       VE_lower_expected = VE_lower, 
-                       VE_upper_expected = VE_upper), by = 'year') %>%
-    mutate(VE_expected = ifelse(term == 'Both vs None', VE_expected, NA),
-           VE_lower_expected = ifelse(term == 'Both vs None', VE_lower_expected, NA),
-           VE_upper_expected = ifelse(term == 'Both vs None', VE_upper_expected, NA))
+    left_join(expected_hr %>%
+                rename(HR_expected = VE, 
+                       HR_lower_expected = VE_lower, 
+                       HR_upper_expected = VE_upper), by = 'year') %>%
+                # rename(VE_expected = VE, 
+                #        VE_lower_expected = VE_lower, 
+    #        VE_upper_expected = VE_upper), by = 'year') %>%
+    mutate(HR_expected = ifelse(term == 'Both vs None', HR_expected, NA),
+           HR_lower_expected = ifelse(term == 'Both vs None', HR_lower_expected, NA),
+           HR_upper_expected = ifelse(term == 'Both vs None', HR_upper_expected, NA))
+    # mutate(VE_expected = ifelse(term == 'Both vs None', VE_expected, NA),
+    #        VE_lower_expected = ifelse(term == 'Both vs None', VE_lower_expected, NA),
+    #        VE_upper_expected = ifelse(term == 'Both vs None', VE_upper_expected, NA))
   # tidy_results %>% filter(year == 'Overall', reference == 'No intervention\nreference') 
     
   # 0.44892964*(1-0.53744008) +0.53744008
   # [1] 0.7450969  -- synergy this time! 12-01_2 with updated SMC -- what changed is the smc parameters (#2), population size 
   # # this should be lower than the both vs none if there is synergy
   
-  efficacy_plot <- ggplot(tidy_results %>% filter(year == 'Overall')) +
-    geom_point(aes(x = term, y = VE, color = reference), size = 1.5) +
-    geom_errorbar(aes(x = term, ymin = VE_lower, ymax = VE_upper, color = reference), width = 0.1, linewidth = 0.8) +
-    geom_point(aes(x = term, y = VE_expected, color = 'Expected protective efficacy'), 
+  hr_plot <- ggplot(tidy_results %>% filter(year == 'Overall')) +
+    geom_hline(aes(yintercept = 1), linetype = 2) +
+    geom_point(aes(x = term, y = HR, color = reference), size = 1.5) +
+    geom_errorbar(aes(x = term, ymin = HR_lower, ymax = HR_upper, color = reference), width = 0.1, linewidth = 0.8) +
+    geom_point(aes(x = term, y = HR_expected, color = 'Expected hazard ratio'), 
                size = 1.5) +
-    geom_errorbar(aes(x = term, ymin = VE_lower_expected, ymax = VE_upper_expected, color = 'Expected protectiveefficacy'), 
+    geom_errorbar(aes(x = term, ymin = HR_lower_expected, ymax = HR_upper_expected, color = 'Expected hazard ratio'), 
                   width = 0.1, linewidth = 0.8) +
-    geom_hline(aes(yintercept = 0)) +
-    labs(y = "Protective efficacy",
+    labs(y = "Hazard ratio",
          x = NULL, 
          color = 'Comparison group') +
     scale_color_manual(values = c(
       'SMC reference' = '#2292A4',
       'RTS,S reference' = '#BDBF09',
       'No intervention\nreference' = '#D96C06',
-      'Expected efficacy' = colorspace::lighten('#D96C06', amount = 0.4))) + 
-    scale_y_continuous(breaks = seq(min(floor(tidy_results$VE_lower * 10)/10), 1.1, 0.2),
-                       limits = c(min(ceiling(tidy_results$VE_lower * 10)/10),1),
-                       labels = scales::label_percent()) +
+      'Expected hazard ratio' = colorspace::lighten('#D96C06', amount = 0.4))) + 
+    scale_y_continuous(breaks = seq(min(floor(tidy_results$VE_lower * 10)/10), 1.5, 0.2),
+                       # labels = scales::label_percent(),
+                       limits = c(min(ceiling(tidy_results$VE_lower * 10)/10),1.1)) +
     # facet_wrap(~ year) + 
     theme_bw(base_size = 12) 
-  ggsave(paste0(path, outputsfolder,'/model_efficacy.pdf'), plot = last_plot(), height = 6, width = 10)
+  ggsave(paste0(path, outputsfolder,'/model_hazardratios.pdf'), plot = last_plot(), height = 6, width = 10)
   # efficacy_plot
   
   return(tidy_results)
