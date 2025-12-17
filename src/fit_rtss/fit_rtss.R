@@ -32,7 +32,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
   source(paste0(path, "/src/fit_smc/calculate_efficacy_likelihood.R"))
   
   
-  trial_ts = 365*3# trial timesteps in cohort simulation (inte)
+  trial_ts = 365+100# trial timesteps in cohort simulation (inte)
   # sim_allow_superinfections = TRUE # TRUE or FALSE
   country_to_run = 'generic'
   country_short = 'g'
@@ -42,10 +42,10 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
   
   n_particles = 1L
   n_threads = 1L
-  burnints = 70
-  threshold = 5000
+  burnints = 50
+  threshold = 1000
   tstep = 1
-  t_liverstage = 8
+  t_liverstage = 0#7 # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC267587/8
   VB = 1e6
   divide = if(tstep == 1) 2 else 1
   
@@ -70,8 +70,8 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
     max_SMC_kill_rate = rep(0, n_param_sets),
     lambda = rep(0, n_param_sets),
     kappa = rep(0, n_param_sets),
-    alpha_ab = 1.32, 
-    beta_ab = 6.62
+    alpha_ab = 1.38,#1.32, 
+    beta_ab = 5.83#6.62
   )
   params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", treatment_probability)
   
@@ -120,12 +120,12 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
            v1_date = as.Date('2017-04-01'))
   
   # "Observed" efficacy from White model 
-  observed_efficacy_rtss <- readRDS(paste0(path, '/src/fit_rtss/observed_rtss_efficacy.rds'))
+  observed_efficacy_rtss <- readRDS(paste0(path, '/src/fit_rtss/observed_rtss_efficacy_months.rds'))
   
   best_lhs <- data.frame(
     sim_id = 'parameter_set_1',
-    alpha_ab = 1.32,
-    beta_ab = 6.62,
+    alpha_ab = 1.38,
+    beta_ab = 5.83,
     lag_p_bite = 0
   )
   # best_lhs <- pars[pars$sim_id %in% top_runs$sim_id,]
@@ -293,8 +293,8 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
                                             function(start){
                                               initial_params <- c(start$alpha_ab,
                                                                   start$beta_ab)
-                                              lower_bounds <- c(0.5, 4) # alpha, beta
-                                              upper_bounds <- c(4, 8)
+                                              lower_bounds <- c(1, 3) # alpha, beta
+                                              upper_bounds <- c(4, 7)
                                               
                                               # Track evaluations
                                               n_evals <- 0
