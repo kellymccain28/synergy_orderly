@@ -293,7 +293,7 @@ ggplot() +
 
 
 # Optimization
-optimization_results <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/optimization_results_20251128.rds") # 2210 does allow superinfections
+optimization_results <- readRDS("R:/Kelly/synergy_orderly/src/fit_smc/outputs/optimization_results_2025-12-11.rds") # 2210 does allow superinfections
 
 best_refined <- optimization_results[[which.max(
   sapply(optimization_results, function(x) x$mean_least_squares)
@@ -306,16 +306,16 @@ best_refined$final_params #9.0739477 15.0000000  0.4586005 # when allowing lambd
 best_refined$convergence#0
 best_refined$n_evaluations #231
 reps <- 3
-pars_to_test <- data.frame(
-  max_SMC_kill_rate = rep(best_refined$initial_params[1], reps),
-  lambda = rep(best_refined$final_params[2],reps),
-  kappa = rep(best_refined$final_params[3],reps),
-  sim_id = seq(1, reps),
-  lag_p_bite = rep(0,reps),
-  season_start_day = rep(50,reps),
-  smc_dose_days = rep(reps,reps),
-  p_bite = I(rep(params_list[[1]]$p_bite, reps))
-)
+# pars_to_test <- data.frame(
+#   max_SMC_kill_rate = rep(best_refined$initial_params[1], reps),
+#   lambda = rep(best_refined$final_params[2],reps),
+#   kappa = rep(best_refined$final_params[3],reps),
+#   sim_id = seq(1, reps),
+#   lag_p_bite = rep(0,reps),
+#   season_start_day = rep(50,reps),
+#   smc_dose_days = rep(reps,reps),
+#   p_bite = I(rep(params_list[[1]]$p_bite, reps))
+# )
 eval_history_combined <- optimization_results %>%
   # Add an index for each optimization run
   imap_dfr(~ {
@@ -350,6 +350,14 @@ pars_to_test <- data.frame(
   smc_dose_days = rep(10,3),
   p_bite = I(rep(params_list[[1]]$p_bite, 3))
 )
+pars_to_test <- eval_history_combined %>%
+  filter(mls < 0.0014)%>%
+  mutate(sim_id = seq(1:6),
+         lag_p_bite = 0,
+         season_start_day = 0,
+         smc_dose_days = 10,
+         p_bite = I(rep(lhspars$p_bite[1])))
+pars_to_test <- rbind(pars_to_test, pars_to_test %>% mutate(sim_id = paste0(sim_id,'_2')))
 # pars_to_test <- pars_to_test[1,]
 pars_to_test <- split(pars_to_test, seq(nrow(pars_to_test)))
 results2 <- lapply(pars_to_test,
@@ -421,14 +429,14 @@ effcumulweekly <- rbind(eff1, eff2, effgrid)
 #   geom_line(aes(x = weeks_since_smc*7, y = efficacy, group = sim_id, color = as.factor(sim_id)), alpha = 0.8) +
 #   theme_minimal() +
 #   theme(legend.position = 'none')
-ggplot(effcumulweekly %>% filter(weeks_since_smc < 10)) +
+ggplot(effcumulweekly %>% filter(weeks_since_smc < 10) ) +
   # ylim(c(-0.5, 1)) +
   geom_line(data = observed_efficacy, aes(x = weeks_since_smc, y = efficacy), alpha = 0.8) +
   geom_point(data = observed_efficacy, aes(x = weeks_since_smc, y = efficacy), alpha = 0.8) +
   geom_point(aes(x = weeks_since_smc, y = efficacy, color = as.factor(sim_id)),  alpha = 0.8) +
   geom_line(aes(x = weeks_since_smc, y = efficacy, group = as.factor(sim_id), color = as.factor(sim_id)), alpha = 0.8) +
-  theme_minimal() +
-  theme(legend.position = 'none')
+  theme_minimal() #+
+  # theme(legend.position = 'none')
 # observed_efficacy %>%
 #   mutate(weeks_since_smc = ceiling(day_since_smc / 7)) %>%
 #   group_by(weeks_since_smc) %>%
