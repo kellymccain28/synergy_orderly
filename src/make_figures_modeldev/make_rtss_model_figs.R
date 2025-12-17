@@ -43,13 +43,13 @@ r <- n^2 / (sigma_n^2 - n)
 p <- r / (n*DR + r) #n*DR / (n*DR + r)- this is 1- r / (n*DR + r) # should be probability of success aka prob of survival 
 
 # Draw number of successful sporozoites 
-xspz <- seq(0, 300)
-kspz <- dnbinom(xspz, r, p)
+xspz <- seq(0, 100)
+kspz <- dnbinom(xspz, r / 5, p)
 p1 <- ggplot()+
   geom_area(aes(x = xspz, y = kspz), 
             color = '#35409C', alpha = 0.4, fill = '#636DCA', linewidth = 1) + 
   geom_vline(aes(xintercept = n), color = '#35409C', linetype = 2) +
-  scale_x_continuous(expand = c(0,0)) +
+  scale_x_continuous(expand = c(0,5)) +
   scale_y_continuous(expand = c(0,0)) +
   theme_minimal(base_size = 14) + 
   theme(axis.text.y = element_blank()) + 
@@ -75,7 +75,7 @@ p2 <- ggplot()+
   geom_area(aes(x = x_mero, y = mero_init2), 
             color = '#9C2007', alpha = 0.4, fill = '#FAA18F', linewidth = 1)+ 
   geom_vline(aes(xintercept = mu), color = '#9C2007', linetype = 2) +
-  scale_x_continuous(expand = c(0,0)) +
+  scale_x_continuous(expand = c(0,200)) +
   scale_y_continuous(expand = c(0,0)) +
   theme_minimal(base_size = 14) + 
   theme(axis.text.y = element_blank()) + 
@@ -85,38 +85,38 @@ p2
 
 # Total merozoites for a range of sporozoite values 
 # scale the gamma mean and sd for the number of sporozoites (mean n)
-n = 150
+n = 15
 mean_total <- n * mean(mero_init) # Mean number of spz * mean number of mero per spz
 sd_total <- sqrt(n) * sd(mero_init)
 
 scale_total <- sd_total^2 / mean_total
 shape_total <- mean_total / scale_total
 
-mero150spz <- dgamma(seq(1e4,6e5, length.out= 1e3), shape = shape_total, scale = scale_total)
+mero150spz <- dgamma(seq(1e4,2e5, length.out= 1e3), shape = shape_total, scale = scale_total)
 
-n2 = 50
+n2 = 30
 mean_total2 <- n2 * mean(mero_init) # Mean number of spz * mean number of mero per spz
 sd_total2 <- sqrt(n2) * sd(mero_init)
 
 scale_total2 <- sd_total2^2 / mean_total2
 shape_total2 <- mean_total2 / scale_total2
 
-mero30spz <- dgamma(seq(1e4, 6e5, length.out= 1e3), shape = shape_total2, scale = scale_total2)
+mero30spz <- dgamma(seq(1e4, 2e5, length.out= 1e3), shape = shape_total2, scale = scale_total2)
 
 p3 <- ggplot() + 
-  geom_area(aes(x = seq(1e4, 6e5, length.out = 1e3), y = mero30spz, color = '30 sporozoites'),
+  geom_area(aes(x = seq(1e4, 2e5, length.out = 1e3), y = mero30spz, color = '15 sporozoites'),
             # color = '#7D359C',
             alpha = 0.4, fill = '#BD85D5', linewidth = 1)+
-  geom_area(aes(x = seq(1e4, 6e5, length.out = 1e3), y = mero150spz, color = '150 sporozoites'),
+  geom_area(aes(x = seq(1e4, 2e5, length.out = 1e3), y = mero150spz, color = '30 sporozoites'),
             # color = '#1F843F', 
             alpha = 0.4, fill = '#28A951', linewidth = 1)+
   geom_vline(aes(xintercept = mean_total2), color = '#7D359C', linetype = 2) +
   geom_vline(aes(xintercept = mean_total), color = '#1F843F', linetype = 2) +
-  scale_x_continuous(expand = c(0,0))+
-                     #labels = scales::label_log()) +
-  scale_y_continuous(expand = c(0,0)) +
-  scale_color_manual(values = c('30 sporozoites' = '#BD85D5',
-                                '150 sporozoites' = '#28A951'),
+  scale_x_continuous(expand = c(0,6000),
+                     labels = scales::scientific_format(digits=1)) +
+  scale_y_continuous(expand = c(0,0.0000003)) +
+  scale_color_manual(values = c('15 sporozoites' = '#BD85D5',
+                                '30 sporozoites' = '#28A951'),
                      name = 'k sporozoites\ninitiating infection') +
   theme_minimal(base_size = 14) + 
   theme(axis.text.y = element_blank(),
@@ -134,7 +134,7 @@ ggsave(filename = 'R:/Kelly/synergy_orderly/figures/spz_mero_distributions.pdf',
 # Antibodies versus vaccine effectiveness
 
 
-ve <- vaccine_eff(ab)
+# ve <- vaccine_eff(ab)
 
 
 

@@ -29,12 +29,13 @@ plot_time_to_threshold <- function(outputsfolder){
     scale_color_manual(values =  arm_colors)+
     scale_fill_manual(values =  lighter_arm_colors)+
     labs(x = NULL,
-         y = "Days to reach threshold of detection",
+         y = "Days to reach clinical threshold",
          color = 'Intervention arm',
          fill = 'Intervention arm') +
     theme_bw(base_size = 14) +
     theme(legend.position = 'none') 
   ggsave('R:/Kelly/synergy_orderly/figures/time_to_threshold.pdf', plot = last_plot(), height = 4, width = 6)
+  ggsave(paste0(path, outputsfolder,'/time_to_threshold.pdf'), plot = last_plot(), height = 4, width = 6)
   
   formatted %>%
     group_by(arm) %>%

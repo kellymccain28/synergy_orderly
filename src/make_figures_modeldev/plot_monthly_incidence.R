@@ -91,7 +91,7 @@ plot_monthly_incidence <- function(outputsfolder){
   )
   # metadata_df$vaccination_day[1] = 90
   rtss_lines <- data.frame(
-    xintercept = as.Date(rep(c(metadata_df$vaccination_day[1], metadata_df$vaccination_day[1]+364, metadata_df$vaccination_day[1]+730),2), origin = '2017-04-01'),
+    xintercept = as.Date(rep(c(metadata_df$vaccination_day[1]-60, metadata_df$vaccination_day[1]-30, metadata_df$vaccination_day[1], metadata_df$vaccination_day[1]+364, metadata_df$vaccination_day[1]+730),2), origin = '2017-04-01'),
     arm = rep(c('rtss','both'), length(6)),
     color = '#59114D'
   )

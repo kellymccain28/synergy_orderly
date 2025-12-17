@@ -16,12 +16,15 @@ observed_efficacy <- read.csv(paste0(path, '/shared/smc_fits_hayley.csv')) %>%
 gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/grid_search2025-12-03.rds') # this one has the best one -- #67 2.333, 16.667, 0.222
 gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars2025-12-03_1.rds')
 gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars2025-12-03_7days.rds')
-effcumulweekly <- purrr::map_df(gridsearch, 'efficacy')
+gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars_shorterliverstage2025-12-09.rds') # this is with 6 days (?)
+gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars_shorterliverstage2025-12-10.rds') # this is with 8 days 
+gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars_7dayliverstage2025-12-15.rds')
+effcumulweekly <- purrr::map_df(gridsearch, 'efficacy',.id = 'sim_id')
 pars <- purrr::map_df(gridsearch, 'params')
 mlses <- unlist(purrr::map(gridsearch, 'mls',.id = 'sim_id'))
-top5 <- order(mlses)[1:10]
+top5 <- order(mlses)[1:2]
 mlsesmin <- which(mlses == min(mlses, na.rm = TRUE))
-all <- map_df(gridsearch, 'params')
+all <- map_df(gridsearch[top5], 'params', .id = 'sim_id')
 
 map_df(gridsearch[mlsesmin], 'params')
 
@@ -39,7 +42,7 @@ map_df(gridsearch[mlsesmin], 'params')
 #   facet_wrap(~ repnum)
 
 # if no repnum because just a repetition:
-ggplot(effcumulweekly %>% filter(weeks_since_smc < 10)) + # for the grid search 12-03
+ggplot(effcumulweekly %>% filter(weeks_since_smc < 10) ) + # for the grid search 12-03
   # geom_point(aes(x = weeks_since_smc, y = efficacy, group = as.factor(sim_id)), color = '#709176', alpha = 0.3) +
   geom_line(aes(x = weeks_since_smc, y = efficacy, group = as.factor(sim_id)), color = '#709176', alpha = 0.2) +
   geom_hline(aes(yintercept = 0), color = 'darkred', linetype = 2, linewidth = 1) +
