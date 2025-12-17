@@ -167,10 +167,10 @@ DR <- vmin + (1 - vmin) * (1 / (1 + (ab / beta_ab)^alpha_ab)) # prob of survival
 # estimated and fixed parameters  
 n <- 150 #n, mean number of successful spz per challenge ; neg bin
 sigma_n <- 194 #, sigman sd of number of successful spz per challenge 
-mu <- 2136  #10.1371/journal.pcbi.1005255 as assumed by Hayley #2136 # mean number of merozoites released per sporozoite in Michael's model; gamma distributed
-sigma_mu <- 4460  #4460 from Michael's model # sd of number of merozoites released per sporozoite; gamma distributed
-beta_ab <- parameter(6.62) # anti-CSP titre for 50% reduction in spz survival prob microgram/mL
-alpha_ab <- parameter(1.32)  # shape parameter for antibody dose-response
+mu <- 2136  # mean number of merozoites released per sporozoite in Michael's model; gamma distributed
+sigma_mu <- 4460  #from Michael's model # sd of number of merozoites released per sporozoite; gamma distributed
+beta_ab <- parameter(5.83)#6.62) # anti-CSP titre for 50% reduction in spz survival prob microgram/mL
+alpha_ab <- parameter(1.38)#1.32)  # shape parameter for antibody dose-response
 vmin <- parameter(0) # minimum survival probability  (addition to white model to reduce effectiveness of the )
 
 # Parameters for Negative Binomial distribution 
