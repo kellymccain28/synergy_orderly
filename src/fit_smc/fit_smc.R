@@ -44,7 +44,7 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
   burnints = 30
   threshold = 5000
   tstep = 1
-  t_liverstage = 8
+  t_liverstage = 7 # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC267587/
   VB = 1e6
   divide = if(tstep == 1) 2 else 1
   
@@ -67,7 +67,7 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
   
   # Set up grid of parameters
   param_ranges <- list(
-    max_SMC_kill_rate = c(1, 10),# parasites per uL per 2-day timestep
+    max_SMC_kill_rate = c(2, 3),# parasites per uL per 2-day timestep
     lambda = c(5, 50),
     kappa = c(0.01, 5)
   )
@@ -80,36 +80,36 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
   #   kappa = qunif(A[,3], param_ranges$kappa[1], param_ranges$kappa[2])
   # )
   # "fitted" parameter values for SMC
-  params_df <- params_df <- data.frame(
-    max_SMC_kill_rate = rep(2.89, n_param_sets),#rep(3, n_param_sets),
-    lambda =rep(17, n_param_sets),# rep(13.08, n_param_sets),
-    kappa = rep(0.28, n_param_sets)#rep(0.43, n_param_sets)
-  )
-  params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", treatment_probability)
+  # params_df <- params_df <- data.frame(
+  #   max_SMC_kill_rate = rep(2.89, n_param_sets),#rep(3, n_param_sets),
+  #   lambda =rep(17, n_param_sets),# rep(13.08, n_param_sets),
+  #   kappa = rep(0.28, n_param_sets)#rep(0.43, n_param_sets)
+  # )
+  # params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", treatment_probability)
   
   prob_bite_generic <- readRDS(paste0(path, '/archive/fit_rainfall/20251009-144330-1d355186/prob_bite_generic.rds'))
   prob_bite_generic$prob_infectious_bite = 0.3
   p_bitevector <- calc_lagged_vectors(prob_bite_generic, 0, burnints = burnints) # no lagged values
   
-  params_df$lag_p_bite <- 0
-  params_df$season_start_day <- 0
+  # params_df$lag_p_bite <- 0
+  # params_df$season_start_day <- 0
   # SMC delivery
-  params_df <- params_df %>%
-    rowwise() %>%
-    mutate(smc_dose_days = 10#list(c(seq(season_start_day, season_start_day + 120 - 1, 50),
+  # params_df <- params_df %>%
+  #   rowwise() %>%
+  #   mutate(smc_dose_days = 10#list(c(seq(season_start_day, season_start_day + 120 - 1, 50),
            # seq(season_start_day + 365, season_start_day + 365 + 120 - 1, 50),
            # seq(season_start_day + 365*2, season_start_day  + 365*2 + 120 - 1,50)))
-    ) %>%
-    ungroup()
+    # ) %>%
+    # ungroup()
   
-  parameters_df <- params_df %>%
-    mutate(
-      p_bite = purrr::map(lag_p_bite, ~p_bitevector[[paste0("lag_", .x)]])
-    )
+  # parameters_df <- params_df %>%
+  #   mutate(
+  #     p_bite = purrr::map(lag_p_bite, ~p_bitevector[[paste0("lag_", .x)]])
+  #   )
   
   # Make list of parameters instead of df
-  params_list <- split(parameters_df, seq(nrow(parameters_df))) #%>%
-  saveRDS(parameters_df, 'parameters_df.rds')
+  # params_list <- split(parameters_df, seq(nrow(parameters_df))) #%>%
+  # saveRDS(parameters_df, 'parameters_df.rds')
   # Make metadata
   # Day of intervention (0 = start of follow-up; - values are before follow-up; + values after follow-up) - where 0 is also end of burnin
   # these get converted later to the correct directon - i.e. vaccine before follow-up will be +, smc before follow up will be -
@@ -194,11 +194,11 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
   #        y = "SMC efficacy", x = "Days since SMC") +
   #   theme_minimal()  + theme(legend.position = 'none')
   best_lhs <- data.frame(
-    max_SMC_kill_rate = c(2.89, 3),#c(3,3,4,4,3,3,4,4) ,
-    lambda = c(17.3,15),# c(13.08,14,13.08,14,13.08,14,13.08,14),
-    kappa = c(0.278,0.454),#c(0.454,0.454,0.454,0.454, 0.5,0.5, 0.5,0.5),
-    sim_id = c(1,2),#seq(1,4),
-    lag_p_bite = rep(0, 2)#0
+    max_SMC_kill_rate = c(2.33333),#c(3,3,4,4,3,3,4,4) ,
+    lambda = c(16.66667),# c(13.08,14,13.08,14,13.08,14,13.08,14),
+    kappa = c(0.22222),#c(0.454,0.454,0.454,0.454, 0.5,0.5, 0.5,0.5),
+    sim_id = c(1),#seq(1,4),
+    lag_p_bite = rep(0, 1)#0
   )
   # best_lhs <- pars[pars$sim_id %in% top_runs$sim_id,]
   best_lhs <- best_lhs %>%
@@ -349,7 +349,8 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
       TRUE
     })
     
-    parallel::clusterExport(cl, c("params_list", "metadata_df", "base_inputs", "gen_bs",
+    parallel::clusterExport(cl, c(#"params_list", 
+                                  "metadata_df", "base_inputs", "gen_bs",
                                   "n_particles", "n_threads", "burnints", "threshold", "tstep",
                                   "t_liverstage", "country_to_run", "VB", "divide",
                                   "observed_efficacy",
@@ -363,8 +364,8 @@ run_fit_smc <- function(path = "R:/Kelly/synergy_orderly",
                                               initial_params <- c(start$max_SMC_kill_rate,
                                                                   start$lambda,
                                                                   start$kappa)
-                                              lower_bounds <- c(1, 10, 0.01) # max, lambda, kappa
-                                              upper_bounds <- c(16, 25, 2)
+                                              lower_bounds <- c(2, 14, 0.01) # max, lambda, kappa
+                                              upper_bounds <- c(4, 18, 0.4)
                                               
                                               # Track evaluations
                                               n_evals <- 0
