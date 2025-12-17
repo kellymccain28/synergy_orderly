@@ -3,6 +3,7 @@
 sim_cohort_generic <- function(trial_ts = 365*3, 
                                treatment_prob = 0.9, # default is 1 (which gives children prophylaxis)
                                season_start_day = 137, # default is 137 to start on August 15 (days since April 1)
+                               vax_day = 75, # default is mid june for 3rd dose 
                                threshold = 5000, # default is 5000 parasites per microL
                                country_to_run = 'generic',
                                n_param_sets,
@@ -33,14 +34,14 @@ sim_cohort_generic <- function(trial_ts = 365*3,
   burnints = 50#90
   # threshold = 5000
   tstep = 1
-  t_liverstage = 8
+  t_liverstage = 7 # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC267587/
   country_short = str_sub(country_to_run, 1, 1)
   VB = 1e6
   divide = if(tstep == 1) 2 else 1
   # Day of intervention (0 = start of follow-up; - values are before follow-up; + values after follow-up) - where 0 is also end of burnin
   # these get converted later to the correct directon - i.e. vaccine before follow-up will be +, smc before follow up will be -
   # vax_day is the 3rd primary dose (when we assume that efficacy begins)
-  vax_day = 90 # unlike the model sim, this is in days (not timesteps), ~90 days is the beginning of July which in the generic sim is just as the season is starting 
+  vax_day = 75 # unlike the model sim, this is in days (not timesteps), ~75 days is mid-June which in the generic sim is just as the season is starting 
   N = 2000
   
   treatment_probability = treatment_prob # in trial, everyone who was diagnosed with clincial malaria was treated 
@@ -66,14 +67,18 @@ sim_cohort_generic <- function(trial_ts = 365*3,
   params_df <- params_df <- data.frame(
     max_SMC_kill_rate = rep(2.33333, n_param_sets),
     lambda = rep(16.66667, n_param_sets),
-    kappa = rep(0.22222, n_param_sets)
+    kappa = rep(0.22222, n_param_sets),
+    alpha_ab = rep(1.38, n_param_sets),
+    beta_ab = rep(5.83, n_param_sets)
   )
   params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", treatment_probability)
   
   # probability of a bite is used in the cohort simulation and so is in 1-day timesteps
   # prob_bite_generic <- readRDS(paste0(path, 'archive/fit_rainfall/20251009-144330-1d355186/prob_bite_generic.rds'))
   prob_bite_generic <- readRDS("R:/Kelly/synergy_orderly/archive/fit_rainfall/20251203-121008-03d1b614/prob_bite_generic.rds")#with EIR of 30 and seasonal instead of seasonal(03/12/25)
-  # prob_bite_generic$prob_infectious_bite <- ifelse(prob_bite_generic$prob_infectious_bite < 0.01, prob_bite_generic$prob_infectious_bite, prob_bite_generic$prob_infectious_bite/3)
+  # prob_bite_generic$prob_infectious_bite <- 0.15 #constant
+  # perennial version
+  prob_bite_generic <- readRDS("R:/Kelly/synergy_orderly/archive/fit_rainfall/20251203-121008-03d1b614/prob_bite_generic_perennial.rds")
   message('stoppedafter getting prob bite')
   p_bitevector <- calc_lagged_vectors(prob_bite_generic, 0, burnints = burnints) # no lagged values 
   
@@ -121,17 +126,17 @@ sim_cohort_generic <- function(trial_ts = 365*3,
   # If base directory doesn't exist, create it
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
-  } #else {
-  #   # If it exists, find an available numbered version
-  #   counter <- 2
-  #   new_dir <- paste0(output_dir, "_", counter)
-  #   while (dir.exists(new_dir)) {
-  #     counter <- counter + 1
-  #     new_dir <- paste0(output_dir, "_", counter)
-  #   }
-  #   output_dir <- new_dir
-  #   dir.create(output_dir, recursive = TRUE)
-  # }
+  } else {
+    # If it exists, find an available numbered version
+    counter <- 2
+    new_dir <- paste0(output_dir, "_", counter)
+    while (dir.exists(new_dir)) {
+      counter <- counter + 1
+      new_dir <- paste0(output_dir, "_", counter)
+    }
+    output_dir <- new_dir
+    dir.create(output_dir, recursive = TRUE)
+  }
   # Save parameter grid
   saveRDS(parameters_df, paste0(output_dir, "/parameter_grid.rds"))
   saveRDS(base_inputs, paste0(output_dir, "/base_inputs.rds"))
@@ -193,6 +198,8 @@ sim_cohort_generic <- function(trial_ts = 365*3,
       source('R:/Kelly/synergy_orderly/shared/cohort_sim_utils.R')
       source('R:/Kelly/synergy_orderly/shared/helper_functions.R')
       source("R:/Kelly/synergy_orderly/shared/rtss.R")
+      source("R:/Kelly/synergy_orderly/shared/format_model_output.R")
+      source("R:/Kelly/synergy_orderly/shared/get_incidence.R")
       
       TRUE
     })
@@ -242,7 +249,7 @@ sim_cohort_generic <- function(trial_ts = 365*3,
   }
   # Determine number of batches
   n_results <- length(results2)
-  batch_size <- 16
+  batch_size <- 8
   n_batches <- ceiling(n_results / batch_size)
   
   # Loop through batches and save each one
@@ -262,35 +269,9 @@ sim_cohort_generic <- function(trial_ts = 365*3,
   
   # infectionrecords <- purrr::map_df(results2, "infection_records")
   params <- purrr::map_df(results2, 'params')
-  # # parasitemia <- purrr::map_df(results2, 'parasitemia')
+  # parasitemia <- purrr::map_df(results2, 'parasitemia')
   # 
   # saveRDS(infectionrecords, paste0(output_dir, '/infection_records.rds'))
   saveRDS(params, paste0(output_dir, "/parameter_df.rds"))
-  # saveRDS(parasitemia, paste0(output_dir, "/parasitemia.rds'))
+  # saveRDS(parasitemia, paste0(output_dir, "/parasitemia.rds"))
 }
-# sim_results <- readRDS("R:/Kelly/synergy_orderly/src/sim_cohort_generic/outputs/outputs_2025-11-19/sim_results.rds")
-# 
-# infectionrecords <- purrr::map_df(sim_results, "infection_records")
-# params <- purrr::map_df(sim_results, 'params')
-# metadata_df <- readRDS("R:/Kelly/synergy_orderly/src/sim_cohort_generic/outputs/outputs_2025-11-19/metadata_df.rds")
-# 
-# # saveRDS(params, paste0(output_dir, '/parameters_', Sys.Date(), '.rds'))
-# # saveRDS(infectionrecords, paste0(output_dir, '/infectionrecords_', Sys.Date(), '.rds'))
-# formattedinfrecords <- lapply(params$sim_id, function(x){
-#   format_model_output(model_data = infectionrecords,
-#                       cohort = 'generic',
-#                       simulation = x)})
-# all <- bind_rows(formattedinfrecords)
-# testinci <- lapply(params$sim_id, function(x){
-#   aa <- all %>% filter(sim_id == x)
-# 
-#   get_incidence(df_children = metadata_df,
-#                           casedata = aa) %>%
-#     mutate(sim_id = x)
-# })
-# 
-# ggplot(inci %>% filter(year < 2018)) +
-#   geom_line(aes(x = yearmonth, y = incidence_per_1000pm, color = arm)) +
-#   # geom_vline(xintercept = zoo::as.yearmon(as.Date(unlist(all$smc_dose_days[1][1:4])-90, origin = '2017-01-01'))) +
-#   facet_wrap(~sim_id)
-# # ok here it was delivered on day 212 from jan 1, but if we remove 90 days, which is the difference between jan 1 and april 1
