@@ -305,7 +305,7 @@ outputs_mali <- lapply(mali_pars,
 
 # Process each of the outputs 
 start_year = 2017
-# for each of the fittet fourier parameter sets above, they are fitted to a single years worth of rainfall from that region 
+# for each of the fitted fourier parameter sets above, they are fitted to a single years worth of rainfall from that region 
 # then, i run the simulation with site files for all of the years int eh site fiels (2000-2025) with those parameters 
 # then i will need to filter out the years so that the year equals the rainfall year 
 # create a date variable and filter to dates in the trial 
@@ -367,6 +367,7 @@ saveRDS(outputs_mali_all %>% select(prob_infectious_bite, date, year, rainfall_y
 # Get generic seasonal probability of a bite using default parameters from malariasimulation 
 seasonal <- list(c(0.285505,-0.325352,-0.0109352,0.0779865,-0.132815,0.104675,-0.013919))
 highlyseasonal <- list(c(0.284596,-0.317878,-0.0017527,0.116455,-0.331361,0.293128,-0.0617547))
+perennial <- list(c(0.2852770, -0.0248801, -0.0529426, -0.0168910, -0.0216681 , -0.0242904, -0.0073646))
 
 genericparams <- get_parameters(
   overrides = list(
@@ -379,8 +380,20 @@ genericparams <- get_parameters(
     age_group_rendering_max_ages = c(1824, 5474, 36499)
   )
 )
+genericparams_perennial <- get_parameters(
+  overrides = list(
+    model_seasonality = TRUE,
+    g0 = unlist(perennial)[1],
+    g = unlist(perennial)[2:4],
+    h = unlist(perennial)[5:7],
+    human_population = 10000,
+    age_group_rendering_min_ages = c(0, 1825, 5475),
+    age_group_rendering_max_ages = c(1824, 5474, 36499)
+  )
+)
 
 genericparams <- set_equilibrium(genericparams, init_EIR = 30) 
+genericparams_perennial <- set_equilibrium(genericparams_perennial, init_EIR = 30) 
 # tried a lower EIR of 12 - with 12 there was an average of 8-9 bites per person per year in malsim output
 # (with 50, there were ~17-24 bites per year and mean 7.2/median 4.3 infections per year)
 # in Chandramohan, there were ~1.8/1 clincial cases per year, so divided 50 by ~4 to get 12, but this is too low with treatmnet added as well
@@ -389,6 +402,10 @@ genericparams <- set_equilibrium(genericparams, init_EIR = 30)
 genericoutput <- malariasimulation::run_simulation(
   timesteps = (365*15),
   parameters = genericparams
+)
+genericoutput_perennial <- malariasimulation::run_simulation(
+  timesteps = (365*15),
+  parameters = genericparams_perennial
 )
 
 generic <- genericoutput %>% 
@@ -400,6 +417,17 @@ generic <- genericoutput %>%
 saveRDS(generic, 'outputs_generic.rds')
 saveRDS(generic %>% select(prob_infectious_bite, date, year), 
         file = 'prob_bite_generic.rds')
+
+generic_perennial <- genericoutput_perennial %>% 
+  mutate(year = floor(timestep / 365) + 2017,#start the date at beginning of the trial (though it's still generic, we will use same dates)
+         date = as.Date(timestep, origin = '2017-01-01'))  %>%
+  # calculate probability of bite per day per person 
+  mutate(prob_infectious_bite = ifelse(!is.na(n_bitten), 
+                                       n_bitten/(n_age_0_1824 + n_age_1825_5474 + n_age_5475_36499), 0))
+saveRDS(generic_perennial, 'R:/Kelly/synergy_orderly/archive/fit_rainfall/20251203-121008-03d1b614/outputs_generic_perennial.rds')
+saveRDS(generic_perennial %>% select(prob_infectious_bite, date, year), 
+        file = 'R:/Kelly/synergy_orderly/archive/fit_rainfall/20251203-121008-03d1b614/prob_bite_generic_perennial.rds')
+
 
 # bites per person per year (EIR)
 # generic %>% group_by(year) %>% summarize(n_bites = sum(n_bitten), n_bites_per_person = n_bites/10000) # ~8 per year per person with EIR 12
