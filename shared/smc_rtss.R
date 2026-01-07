@@ -159,9 +159,9 @@ lambdav <- 0.9996 # part of f(t) that governs duration of EVSR memory
 ########
 # https://github.com/mrc-ide/rtss_vacc_antibody_model
 # Draw number of surviving sporozoites and subsequent merozoites initiating blood stage infection
-#Dose response
+# Dose response
 ab <- if(PEV_on == 1) ab_user else 0
-DR <- vmin + (1 - vmin) * (1 / (1 + (ab / beta_ab)^alpha_ab)) # prob of survival of single spz from page 4 of white 2013
+DR <- (1 / (1 + (ab / beta_ab)^alpha_ab)) # prob of survival of single spz from page 4 of white 2013
 
 # Parameters for spz model initial merozoites 
 # estimated and fixed parameters  
@@ -171,7 +171,6 @@ mu <- 2136  # mean number of merozoites released per sporozoite in Michael's mod
 sigma_mu <- 4460  #from Michael's model # sd of number of merozoites released per sporozoite; gamma distributed
 beta_ab <- parameter(5.83)#6.62) # anti-CSP titre for 50% reduction in spz survival prob microgram/mL
 alpha_ab <- parameter(1.38)#1.32)  # shape parameter for antibody dose-response
-vmin <- parameter(0) # minimum survival probability  (addition to white model to reduce effectiveness of the )
 
 # Parameters for Negative Binomial distribution 
 # adapted from : https://github.com/ht1212/quality_quantity_modelling/blob/master/R3_Efficacy_Function_IR/3_VE_per_Sporozoite
@@ -181,7 +180,11 @@ p <- n*DR / (n*DR + r) # p here is probability that a sporozoite dies (which is 
 # the negbin function returns the number of failures before r successes, so for it to output the number of successful spz we need to invert p (I think)
 
 # Draw number of successful sporozoites
-kspz <- NegativeBinomial(r / 5, 1-p) #/ 5 bites
+num_bites <- parameter(1) # default is a single bite 
+kspz1 <- NegativeBinomial(r / 5, 1-p) #/ 5 bites
+kspz2 <- if(num_bites > 1) NegativeBinomial(r / 5, 1-p) else 0 # if there is a second bite on the same day, use this 
+kspz3 <- if(num_bites > 2) NegativeBinomial(r / 5, 1-p) else 0 # if 3 bites on teh same day 
+kspz <- kspz1 + kspz2 + kspz3 # add up the number of spz for each bite
 
 # Parameters for Gamma distribution
 theta <- sigma_mu^2 / mu  # Scale parameter (theta)

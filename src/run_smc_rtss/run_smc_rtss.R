@@ -14,7 +14,8 @@ runpars <- orderly_parameters(n_particles = NULL,
                    tstep = NULL,
                    max_SMC_kill_rate = 2.333333,
                    lambda = 16.66667, 
-                   kappa = 0.2222222, 
+                   kappa = 0.2222222,
+                   num_bites = 1,
                    # SMC_decay = NULL,
                    season_start_day = NULL, # influences when SMC is delivered relative to the start of the infection/sim 
                    # season_length = NULL,
@@ -33,6 +34,7 @@ inf_start = runpars$inf_start
 VB = 1e6
 tt <- seq(1, runpars$ts, by = runpars$tstep)#
 threshold <- 5000
+num_bites = runpars$num_bites
 
 orderly_shared_resource("smc.R",
                         "rtss.R",
@@ -54,6 +56,7 @@ nothing <- run_model(n_particles = n_particles,
                      PEV_on = 0,
                      SMC_on = 0,
                      tt= tt,
+                     # num_bites = 5, 
                      SMC_time = seq(0,100,1),
                      SMC_kill_vec = rep(0,101),
                      t_inf_vax = t_inf_vax,

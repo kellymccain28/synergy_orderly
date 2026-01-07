@@ -16,7 +16,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
   p_bite <- unlist(params_row$p_bite)
   alpha_ab_value <- if(any(names(params_row) == 'alpha_ab')) params_row$alpha_ab else 1.32
   beta_ab_value <- if(any(names(params_row) == 'beta_ab')) params_row$beta_ab else 6.62
-  vmin_value <- if(any(names(params_row) == 'vmin')) params_row$vmin else 0
+  # vmin_value <- if(any(names(params_row) == 'vmin')) params_row$vmin else 0
   
   message("Running simulation: ", params_row$sim_id)
   
@@ -96,10 +96,12 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
     
     # Sample random children to be bitten 
     bites <- sample(metadata_df$rid, size = n_infectious_bites, prob = weights, replace = TRUE)
+    numbites <- table(bites)
+    # create named vector of the number of bites for each child 
+    numbites <- setNames(as.vector(numbites), names(numbites))
     
-    bit_kids <- unique(bites)
-    # Remove any bit kids with no vaccine follow-up data 
-    bit_kids <- bit_kids[bit_kids %in% metadata_df$rid] 
+    # children can get bitten >1 time per day, but we only run the full model once 
+    bit_kids <- unique(bites) 
     
     # Update susceptibility vector so that recovered kids would be susceptible again
     if (exists("infection_records") && nrow(infection_records) > 0 ){#& !allow_superinfections) {
@@ -136,16 +138,9 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
     }
     
     # Avoid superinfection -- if a kid is bitten and they aren't susceptible they are not added to the list of bit_kids
-    # bit_kids_t <- c()
-    # j <- 1
-    # for (kid in bit_kids){
-    #   if (susceptibles[kid]){ 
-    #     bit_kids_t[j] <- kid # Add this kid to the filtered list if the kid is susceptible
-    #     
-    #     j <- j + 1 # move to the next position in the filtered list 
-    #   }
-    # }
     bit_kids_susceptible <- bit_kids[susceptibles[bit_kids]]
+    # remove the kids with bite numbers that aren't susceptible 
+    numbites <- numbites[names(numbites) %in% as.character(bit_kids_susceptible)]
     
     if(t %% 10 == 0){
       message(str_glue('{length(bit_kids_susceptible)} / {length(bit_kids)} bit kids were susceptible on time ', t, ' out of ', (trial_ts+burnin)))
@@ -238,9 +233,10 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
         rid = bit_kids,
         alpha_ab = alpha_ab_value, # default values from White 2013 
         beta_ab = beta_ab_value, # default values from White 2013
-        vmin = vmin_value,
+        # vmin = vmin_value,
         t_toboost1 = t_toboost1_vec,
-        t_toboost2 = t_toboost2_vec
+        t_toboost2 = t_toboost2_vec,
+        num_bites = numbites
       )
       
       outputs <- pmap(params_df, 
@@ -253,21 +249,23 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
                                rid,
                                alpha_ab, 
                                beta_ab,
-                               vmin,
+                               # vmin,
                                t_toboost1,
-                               t_toboost2) {
+                               t_toboost2,
+                               num_bites) {
                         result <- run_process_model(
                           PEV_on = PEV_on,
                           SMC_on = SMC_on,
                           t_inf_vax = t_inf_vax,
                           VB = VB,
+                          num_bites = num_bites, 
                           tt = tt_until_end_cohort, # run the model until the end of the follow-up
                           infection_start_day = infection_start_day,# external time that infection begins 
                           SMC_time = unlist(SMC_time),
                           SMC_kill_vec = unlist(SMC_kill_vec),
                           alpha_ab = alpha_ab, # default values from White 2013 
                           beta_ab = beta_ab, # default values from White 2013
-                          vmin = vmin, 
+                          # vmin = vmin, 
                           tboost1 = t_toboost1,
                           tboost2 = t_toboost2
                         )
@@ -296,6 +294,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
       # Vectorized data frame creation of infection records with infectious bite day as central day 
       new_records <- data.frame(
         rid = bit_kids,
+        num_bites = numbites[as.character(bit_kids)],
         time_ext = rep(t - burnin, length(bit_kids)),                                                      # external cohort time (t is the cohort time, then we wnat to scale to be + if after burnin)
         t = t,  # simulation day
         infectious_bite_day = rep((t - burnin), length(bit_kids)),                          # bitten on day t, then assuming the liver stage takes t_liverstage days
@@ -600,12 +599,16 @@ calc_rtss_efficacy <- function(df){
     filter(!is.na(detection_day)) %>%
     # filter(infectious_bite_day>0) %>% # to get rid of the build up 
     mutate(days_since_rtss = detection_day - vax_day,
-           weeks_since_rtss = ceiling(days_since_rtss/7)) %>%
-    group_by(arm, sim_id, weeks_since_rtss) %>%
+           weeks_since_rtss = ceiling(days_since_rtss/7),
+           months_since_rtss = ceiling(days_since_rtss/30.44)) %>%
+    group_by(arm, sim_id, months_since_rtss) %>% #weeks_since_rtss) %>%
     summarize(cases = n(),
               .groups = 'drop') %>%
-    tidyr::complete(arm, sim_id, weeks_since_rtss = seq(min(weeks_since_rtss, na.rm = TRUE),
-                                                        max(weeks_since_rtss, na.rm = TRUE), 1),
+    tidyr::complete(arm, sim_id, 
+                    months_since_rtss = seq(min(months_since_rtss, na.rm = TRUE),
+                                           max(months_since_rtss, na.rm = TRUE), 1),
+                    # weeks_since_rtss = seq(min(weeks_since_rtss, na.rm = TRUE),
+                    #                        max(weeks_since_rtss, na.rm = TRUE), 1),
                     fill = list(cases = 0)) %>%
     mutate(pop = ifelse(arm == 'none', n_none, n_rtss)) %>% # I ran this with a pop of 1200 divided by rtss and no intervention 
     mutate(inci = cases / pop) %>% ungroup()
@@ -626,7 +629,7 @@ calc_rtss_efficacy <- function(df){
     rename(cases_smc = cases, inci_rtss = inci, pop_rtss = pop) %>%
     select(-arm)
   
-  d <- left_join(none, rtss, by = c('weeks_since_rtss','sim_id'))
+  d <- left_join(none, rtss, by = c('months_since_rtss','sim_id'))
   d$efficacy <-  1 - (d$inci_rtss / d$inci_none)
   
   return(d)

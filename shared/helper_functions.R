@@ -9,13 +9,13 @@ run_process_model <- function(n_particles = 1L,
                               t_inf_vax,
                               tt , # sequence of timesteps (2 days for each 1 step)
                               VB = 1e6,
+                              num_bites = 1,
                               det_mode = FALSE,
                               infection_start_day, # external time that infection begins
                               SMC_time, # vector with same length as smc_kill_vec
                               SMC_kill_vec, # per-parasite kill rate per 2-day timestep
                               alpha_ab = 1.32, # default values from White 2013 
                               beta_ab = 6.62, # default values from White 2013
-                              vmin = 0, # additional parameter for White 2013
                               tboost1 = 364,
                               tboost2 = 729
                               ){ 
@@ -28,13 +28,13 @@ run_process_model <- function(n_particles = 1L,
                    t_inf_vax = t_inf_vax,
                    tt = tt,
                    VB = VB,
+                   num_bites = num_bites,
                    det_mode = det_mode,
                    infection_start_day = infection_start_day, # external time that infection begins
                    SMC_time = SMC_time,
                    SMC_kill_vec = SMC_kill_vec, 
                    alpha_ab = alpha_ab, # default values from White 2013 
                    beta_ab = beta_ab, # default values from White 2013
-                   vmin = vmin, 
                    tboost1 = tboost1,
                    tboost2 = tboost2)
   
@@ -67,13 +67,13 @@ run_model <- function(n_particles = 1L,
                       t_inf_vax,
                       tt,
                       VB,
+                      num_bites = 1,
                       det_mode = FALSE,
                       infection_start_day = 0, # external time that infection begins 
                       SMC_time, 
                       SMC_kill_vec,
                       alpha_ab = 1.32, # default values from White 2013 
                       beta_ab = 6.62, # default values from White 2013
-                      vmin = 0, # additional parameter for White 2013
                       tboost1 = 364, # timesteps after 3rd dose that the first booster is delivered
                       tboost2 = 729# timesteps after 1st booster that the second booster is delivered 
 ){
@@ -101,13 +101,13 @@ run_model <- function(n_particles = 1L,
                SMC_on = SMC_on,
                ab_user = ab_user,
                VB = VB,
+               num_bites = num_bites,
                tt = max(tt),
                infection_start_day = infection_start_day, # external time that infection begins 
                SMC_time = unlist(SMC_time),
                SMC_kill_vec = unlist(SMC_kill_vec),
                alpha_ab = alpha_ab, # default values from White 2013 
-               beta_ab = beta_ab, # default values from White 2013
-               vmin = 0 # additional parameter for White 2013
+               beta_ab = beta_ab # default values from White 2013
   )
   
   sys <- dust_system_create(gen_bs, 
@@ -379,7 +379,7 @@ make_plots <- function(df){
   
   nsmckillplt <- ggplot(df ) + 
     geom_line(aes(x = time_withinhost2, y = nkillsmc, group = run, color = detectable), alpha = 0.7, linewidth = 0.6) + #
-    scale_x_continuous(breaks = c(0, 7, seq(14, max(df$time_withinhost2), 14)),#(max(df$time)+7) * multiplier
+    scale_x_continuous(#breaks = c(0, 7, seq(14, max(df$time_withinhost2), 14)),#(max(df$time)+7) * multiplier
                        limits = c(0, max(df$time_withinhost2)))+#(max(df$time)+7)*multiplier
     labs(x = 'Days since start of blood stage',
          y = 'Parasites/uL killed by SMC',
