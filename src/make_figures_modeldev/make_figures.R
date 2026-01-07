@@ -15,13 +15,16 @@ outputs_folder <- "outputs_2025-12-02_treat_0.9start_137threshold10000"
 outputs_folder <- "outputs_2025-12-05_treat_0.9start_40threshold5000"
 # outputs_folder <- "outputs_2025-12-08_treat_0.9start_141threshold5000"
 outputs_folder <- "outputs_2025-12-08_treat_0.9start_140threshold5000"
-outputs_folder <- "outputs_2025-12-08_treat_0.9start_122threshold5000" # ** current folder used in thesis 
+outputs_folder <- "outputs_2025-12-08_treat_0.9start_122threshold5000" # **  folder used in thesis (before 20 dec), seasonal, but with ab+tcell pars
 outputs_folder <- "outputs_2025-12-09_treat_0.9start_115threshold5000_perennial"
 outputs_folder <- "outputs_2025-12-09_treat_0.9start_115threshold5000_noboosters"
 outputs_folder <- "outputs_2025-12-11_treat_0.9start_115threshold5000_noboost_constant15"
 outputs_folder <- "outputs_2025-12-11_treat_0.9start_115threshold5000_constant15_notdiv5"
-outputs_folder <- 'outputs_2025-12-17_treat_0.9start_115threshold5000' # seasonal generic, ab only parameters
+outputs_folder <- 'outputs_2025-12-17_treat_0.9start_115threshold5000' # ** changing to this one; seasonal generic, ab only parameters
 outputs_folder <- 'outputs_2025-12-17_treat_0.9start_115threshold5000_2' # perennial generic, ab only parameters
+outputs_folder <- 'outputs_2025-12-17_treat_0.9start_115threshold5000_3' # perennial, ab only parameters, vacc day 75
+outputs_folder <- 'outputs_2025-12-18_treat_0.9start_115threshold5000' # pperennial, ab only parameters, earlier vaccination (day 20)
+outputs_folder <- 'outputs_2025-12-21_treat_0.9start_122threshold5000' # seasonal, ab only, 75 vaccination, 
 
 # first, do monthly inci, then order doesn't matter
 plot_monthly_incidence(outputsfolder = outputs_folder)

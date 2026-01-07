@@ -44,7 +44,7 @@ plot_irr <- function(outputsfolder){
            rtss_smc_irr = 1 - (incidence_per_1000pm_rtss / incidence_per_1000pm_smc),
            both_smc_irr = 1 - (incidence_per_1000pm_both / incidence_per_1000pm_smc),
            both_rtss_irr = 1 - (incidence_per_1000pm_both / incidence_per_1000pm_rtss),
-           smc_rtss_irr = 1 - (incidence_per_1000pm_both / incidence_per_1000pm_rtss)  )
+           smc_rtss_irr = 1 - (incidence_per_1000pm_smc / incidence_per_1000pm_rtss)  )
   
   # Calculate median and IQR for each month
   inci_summary <- inci_wide %>%
@@ -79,7 +79,7 @@ plot_irr <- function(outputsfolder){
   metadata_df <- readRDS(paste0(path, outputsfolder, "/metadata_df.rds"))
   base_inputs <- readRDS(paste0(path, outputsfolder, "/base_inputs.rds"))
   params <- readRDS(paste0(path, outputsfolder, "/parameter_grid.rds"))
-  smc_dates <- as.Date(unlist(all$smc_dose_days[10][1:4]), origin = '2017-04-01')
+  smc_dates <- as.Date(unlist(formatted$smc_dose_days[10][1:4]), origin = '2017-04-01')
   smc_lines <- data.frame(
     xintercept = rep(smc_dates,2),
     arm = rep(c('smc', 'both'), each = length(smc_dates)),
@@ -95,15 +95,13 @@ plot_irr <- function(outputsfolder){
   
   # Plot 1: Adding RTSS (filtered)
   ggplot(iii_summary) + 
-    geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 2, linewidth = 0.7)+
-    geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = both_smc_q25, ymax = both_smc_q75), 
                 fill = '#FFCB77', alpha = 0.3) +
     geom_line(aes(x = as.Date(yearmonth), y = both_smc_median, color = 'Both vs SMC'), linewidth = 1) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = rtss_none_q25, ymax = rtss_none_q75), 
                 fill = '#FE6D73', alpha = 0.3) +
     geom_line(aes(x = as.Date(yearmonth), y = rtss_none_median, color = 'RTSS vs none'), linewidth = 1) +
-    ylim(c(0, 1)) +
+    ylim(c(0, 1)) + #xlim(c(min(iii_summary$yearmonth), max(iii_summary$yearmonth))) +
     geom_hline(yintercept = 0, linetype = 2) +
     scale_x_date(breaks = '1 month',
                  labels = scales::label_date_short()) +
@@ -116,19 +114,23 @@ plot_irr <- function(outputsfolder){
   
   # Plot 2: Adding RTSS (non-filtered)
   ggplot(inci_summary) + 
-    geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 2, linewidth = 0.7)+
-    geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
+    geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 3, linewidth = 0.8)+
+    geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 2, linewidth = 0.8) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = both_smc_q25, ymax = both_smc_q75), 
                 fill = '#FFCB77', alpha = 0.3) +
     geom_line(aes(x = as.Date(yearmonth), y = both_smc_median, color = 'Both vs SMC'), linewidth = 1) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = rtss_none_q25, ymax = rtss_none_q75), 
                 fill = '#FE6D73', alpha = 0.3) +
     geom_line(aes(x = as.Date(yearmonth), y = rtss_none_median, color = 'RTSS vs none'), linewidth = 1) +
-    ylim(c(0, 1)) +
+    scale_y_continuous(breaks = c(-0.25,0, 0.25, 0.5, 0.75, 1),
+                       limits = c(-0.25, 1)) +
     geom_hline(yintercept = 0, linetype = 2) +
     scale_x_date(breaks = '3 months',
                  labels = scales::label_date_short()) +
-    scale_color_manual(values = c('Both vs SMC' = '#FFCB77', 'RTSS vs none' = '#FE6D73')) +
+    scale_color_manual(values = c('Both vs SMC' = '#FFCB77', 
+                                  'RTSS vs none' = '#FE6D73',
+                                  'SMC delivery' = '#709176',
+                                  'RTS,S delivery' = '#470024')) +
     labs(x = 'Date',
          y = '1-IRR',
          color = 'Comparison') + 
@@ -141,8 +143,6 @@ plot_irr <- function(outputsfolder){
   
   # Plot 3: Adding SMC (filtered)
   ggplot(iii_summary_smc) + 
-    geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 2, linewidth = 0.7)+
-    geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = both_rtss_q25, ymax = both_rtss_q75), 
                 fill = '#2ACBCB', alpha = 0.3) +
     geom_line(aes(x = as.Date(yearmonth), y = both_rtss_median, color = 'Both vs RTSS'), linewidth = 1) +
@@ -153,7 +153,7 @@ plot_irr <- function(outputsfolder){
     scale_x_date(breaks = '1 month',
                  labels = scales::label_date_short()) +
     scale_color_manual(values = c('Both vs RTSS' = '#2ACBCB', 'SMC vs none' = '#046865')) +
-    ylim(c(-0.5, 1)) +
+    # ylim(c(-0.5, 1)) +
     labs(x = 'Date',
          y = '1-IRR',
          color = 'Comparison') + 
@@ -162,7 +162,7 @@ plot_irr <- function(outputsfolder){
   
   # Plot 4: Adding SMC (non-filtered)
   ggplot(inci_summary) + 
-    geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 2, linewidth = 0.7)+
+    geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 2, linewidth = 0.8)+
     geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = both_rtss_q25, ymax = both_rtss_q75), 
                 fill = '#2ACBCB', alpha = 0.3) +
@@ -173,8 +173,13 @@ plot_irr <- function(outputsfolder){
     geom_hline(yintercept = 0, linetype = 2) +
     scale_x_date(breaks = '3 months',
                  labels = scales::label_date_short()) +
-    scale_color_manual(values = c('Both vs RTSS' = '#2ACBCB', 'SMC vs none' = '#046865')) +
-    ylim(c(-1, 1)) + 
+    scale_color_manual(values = c('Both vs RTSS' = '#2ACBCB', 
+                                  'SMC vs none' = '#046865',
+                                  'SMC delivery' = '#709176',
+                                  'RTS,S delivery' = '#470024')) +
+    # ylim(c(-0.3, 1)) +
+    scale_y_continuous(breaks = c(-0.5,-0.25, 0, 0.25, 0.5, 0.75, 1),
+                       limits = c(-0.5, 1)) +
     labs(x = 'Date',
          y = '1-IRR',
          color = 'Comparison') + 

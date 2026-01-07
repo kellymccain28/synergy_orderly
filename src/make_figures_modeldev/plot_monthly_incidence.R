@@ -87,7 +87,7 @@ plot_monthly_incidence <- function(outputsfolder){
   smc_lines <- data.frame(
     xintercept = rep(smc_dates,2),
     arm = rep(c('smc', 'both'), each = length(smc_dates)),
-    color = '#4D9DE0'
+    color = '#709176'
   )
   # metadata_df$vaccination_day[1] = 90
   rtss_lines <- data.frame(
@@ -108,7 +108,7 @@ plot_monthly_incidence <- function(outputsfolder){
                                    'none' = '#E1BC29',
                                    'rtss' = '#3BB273',
                                    'smc' = '#7768AE',
-                                   'SMC delivery' = '#4D9DE0',
+                                   'SMC delivery' = '#709176',
                                    'RTS,S delivery' = '#470024'),
                        breaks = c('both','none','rtss','smc','SMC delivery','RTS,S delivery'))+#c('#C44536','#772E25','#197278','#283D3B'))+
     labs(color = 'Intervention arm',

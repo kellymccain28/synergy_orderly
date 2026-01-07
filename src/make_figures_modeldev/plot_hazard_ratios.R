@@ -18,6 +18,18 @@ plot_hazard_ratios <- function(outputsfolder){
   formatted <- readRDS(paste0(path, outputsfolder, '/formatted_infrecords.rds'))
   inci <- readRDS(paste0(path, outputsfolder, '/incidence.rds'))
   
+  kmsurvobj <- survival::survfit(Surv(start_time,
+                                      end_time,
+                                      event) ~ arm,#+ strata(country),
+                                 data = formatted %>% filter(start_time!=end_time))
+  cum_inci <- ggsurvplot(kmsurvobj, 
+                         tables.theme = theme_cleantable(),
+                         conf.int = TRUE,
+                         fun = 'cumhaz',
+                         ggtheme = theme_bw(base_size = 16),
+                         palette = 'Dark2',
+                         censor.size = 3)
+  
   # Get efficacy by year and overall
   smcrefresults <- get_cox_efficacy(df = formatted,
                                     ref = 'arm_smcref',
@@ -83,15 +95,16 @@ plot_hazard_ratios <- function(outputsfolder){
   # 0.44892964*(1-0.53744008) +0.53744008
   # [1] 0.7450969  -- synergy this time! 12-01_2 with updated SMC -- what changed is the smc parameters (#2), population size 
   # # this should be lower than the both vs none if there is synergy
-  
+
   hr_plot <- ggplot(tidy_results %>% filter(year == 'Overall')) +
     geom_hline(aes(yintercept = 1), linetype = 2) +
-    geom_point(aes(x = term, y = HR, color = reference), size = 1.5) +
-    geom_errorbar(aes(x = term, ymin = HR_lower, ymax = HR_upper, color = reference), width = 0.1, linewidth = 0.8) +
+    geom_point(aes(x = term, y = HR, color = reference), size = 1) +
+    geom_errorbar(aes(x = term, ymin = HR_lower, ymax = HR_upper, color = reference), 
+                  width = 0.1, linewidth = 0.6) +
     geom_point(aes(x = term, y = HR_expected, color = 'Expected hazard ratio'), 
                size = 1.5) +
     geom_errorbar(aes(x = term, ymin = HR_lower_expected, ymax = HR_upper_expected, color = 'Expected hazard ratio'), 
-                  width = 0.1, linewidth = 0.8) +
+                  width = 0.1, linewidth = 0.6) +
     labs(y = "Hazard ratio",
          x = NULL, 
          color = 'Comparison group') +
@@ -110,12 +123,13 @@ plot_hazard_ratios <- function(outputsfolder){
   # efficacy_plot
   eff_plot <- ggplot(tidy_results %>% filter(year == 'Overall')) +
     geom_hline(aes(yintercept = 0), linetype = 2) +
-    geom_point(aes(x = term, y = VE, color = reference), size = 1.5) +
-    geom_errorbar(aes(x = term, ymin = VE_lower, ymax = VE_upper, color = reference), width = 0.1, linewidth = 0.8) +
+    geom_point(aes(x = term, y = VE, color = reference), size = 1.2, alpha = 0.8) +
+    geom_errorbar(aes(x = term, ymin = VE_lower, ymax = VE_upper, color = reference), 
+                  width = 0.1, linewidth = 0.8, alpha = 0.8) +
     geom_point(aes(x = term, y = VE_expected, color = 'Expected protective efficacy'), 
-               size = 1.5) +
+               size = 1.2, alpha = 0.8) +
     geom_errorbar(aes(x = term, ymin = VE_lower_expected, ymax = VE_upper_expected, color = 'Expected protective efficacy'), 
-                  width = 0.1, linewidth = 0.8) +
+                  width = 0.1, linewidth = 0.8, alpha = 0.8) +
     labs(y = "Protective efficacy",
          x = NULL, 
          color = 'Comparison group') +
