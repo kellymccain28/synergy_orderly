@@ -102,16 +102,24 @@ calculate_efficacy_likelihood_rtss <- function(params_row,
     # Follow up begins 3 weeks after 3rd dose in trial to which White 2015 fit 
     # this effectively removes any cases among the RTSS arm that would have 
     # been bitten/infected before follow up 
-    # so to approximate this, will remove infectiosn that happened before follow-up
+    # so to approximate this, will remove infections that happened before follow-up
     infs <- o$infection_records %>%
-      filter(BSinfection_day >= 0)
+      # filter so that the follow-up time starts from 21 days post-vaccination (here, vax_day must be -21)
+      filter(detection_day - vaccination_day >= 21) %>%
+      # remove any infections that occurred within 7 days 
+      group_by(rid) %>%
+      arrange(rid, detection_day) %>%
+      mutate(previous_detday = lag(detection_day),
+             diff = detection_day - previous_detday) %>%
+      filter(diff > 7 | is.na(diff)) %>% select(-diff, -previous_detday)
     
     eff <- calc_rtss_efficacy(infs)
+    # eff$weeks_since_rtss = eff$weeks_since_rtss - 2 # to line up the values a bit better
     
     matched <- observed_efficacy_rtss %>%
-      left_join(eff %>% select(weeks_since_rtss, efficacy) %>%
+      left_join(eff %>% select(months_since_rtss, efficacy) %>%
                   rename(predicted_efficacy = efficacy), 
-                by = 'weeks_since_rtss')
+                by = 'months_since_rtss')
     
     # CHECK: Do we have matches?
     message("Matched rows: ", nrow(matched))
