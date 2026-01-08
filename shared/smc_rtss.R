@@ -171,11 +171,13 @@ mu <- 2136  # mean number of merozoites released per sporozoite in Michael's mod
 sigma_mu <- 4460  #from Michael's model # sd of number of merozoites released per sporozoite; gamma distributed
 beta_ab <- parameter(5.83)#6.62) # anti-CSP titre for 50% reduction in spz survival prob microgram/mL
 alpha_ab <- parameter(1.38)#1.32)  # shape parameter for antibody dose-response
+vmin <- parameter(0) # minimum survival probability  (addition to white model to reduce effectiveness of the )
+
 
 # Parameters for Negative Binomial distribution 
 # adapted from : https://github.com/ht1212/quality_quantity_modelling/blob/master/R3_Efficacy_Function_IR/3_VE_per_Sporozoite
 r <- n^2 / (sigma_n^2 - n) 
-p <- n*DR / (n*DR + r) # p here is probability that a sporozoite dies (which is 1-prob of survival, so need to use 1-p in negbinom call) - this is from https://github.com/ht1212/quality_quantity_modelling/blob/master/R2_Model_Fitting/1_MCMC_Models 
+p <- vmin + (1 - vmin) * n*DR / (n*DR + r) # p here is probability that a sporozoite dies (which is 1-prob of survival, so need to use 1-p in negbinom call) - this is from https://github.com/ht1212/quality_quantity_modelling/blob/master/R2_Model_Fitting/1_MCMC_Models 
 # r / (n*DR + r) - this is 1- n*DR / (n*DR + r) https://stat.ethz.ch/R-manual/R-devel/library/stats/html/NegBinomial.html
 # the negbin function returns the number of failures before r successes, so for it to output the number of successful spz we need to invert p (I think)
 

@@ -11,6 +11,7 @@ run_process_model <- function(n_particles = 1L,
                               VB = 1e6,
                               num_bites = 1,
                               det_mode = FALSE,
+                              vmin = 0,
                               infection_start_day, # external time that infection begins
                               SMC_time, # vector with same length as smc_kill_vec
                               SMC_kill_vec, # per-parasite kill rate per 2-day timestep
@@ -28,6 +29,7 @@ run_process_model <- function(n_particles = 1L,
                    t_inf_vax = t_inf_vax,
                    tt = tt,
                    VB = VB,
+                   vmin = vmin,
                    num_bites = num_bites,
                    det_mode = det_mode,
                    infection_start_day = infection_start_day, # external time that infection begins
@@ -67,6 +69,7 @@ run_model <- function(n_particles = 1L,
                       t_inf_vax,
                       tt,
                       VB,
+                      vmin = 0,
                       num_bites = 1,
                       det_mode = FALSE,
                       infection_start_day = 0, # external time that infection begins 
@@ -101,6 +104,7 @@ run_model <- function(n_particles = 1L,
                SMC_on = SMC_on,
                ab_user = ab_user,
                VB = VB,
+               vmin = vmin,
                num_bites = num_bites,
                tt = max(tt),
                infection_start_day = infection_start_day, # external time that infection begins 
