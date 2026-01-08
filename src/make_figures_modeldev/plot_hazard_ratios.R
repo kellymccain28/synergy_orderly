@@ -70,9 +70,9 @@ plot_hazard_ratios <- function(outputsfolder){
   smcnone <- tidy_results[tidy_results$term == 'SMC vs None', c('VE', "VE_lower", "VE_upper")]#$VE
   years <- tidy_results[tidy_results$term == 'RTSS vs None',]$year
   
-  expected_hr <- 1 - (rtssnone * (1 - smcnone) + smcnone)
+  expected_hr <-  ((1-rtssnone) * (1-smcnone)) #1 - (rtssnone * (1 - smcnone) + smcnone)
   expected_hr$year <- tidy_results[tidy_results$term == 'RTSS vs None',]$year
-  expected_ve <- rtssnone * (1 - smcnone) + smcnone
+  expected_ve <- 1 - ((1-rtssnone) * (1-smcnone)) #rtssnone * (1 - smcnone) + smcnone -- second equation is the one from Sherrard-Smith
   expected_ve$year <- tidy_results[tidy_results$term == 'RTSS vs None',]$year
   
   tidy_results <- tidy_results %>%

@@ -84,26 +84,57 @@ rlnorm2 <- function(n, mean, sd) {
 #' @param ds half life of short lived component in days
 #' @param dl half life of long lived component in days
 #' @param tboost timestep of booster dose
-# antibody_titre <- function(t, 
-#                            csp_peak = c(621, 277), 
-#                            rho = c(0.88, 0.7), 
-#                            ds = 45,   
-#                            dl = 591,   
-#                            tboost = 548){ 
+# antibody_titre <- function(t,
+#                            csp_peak = c(621, 277),
+#                            rho = c(0.88, 0.7),
+#                            ds = 45,
+#                            dl = 591,
+#                            tboost = 548){
 #   rs <- log(2) / ds
 #   rl <- log(2) / dl
-#   
+# 
 #   t_toboost <- c(0, tboost)
-#   
+# 
 #   csp <- rep(NA, length(t))
 #   for(i in seq_along(t_toboost)){
 #     t_cur <- t - t_toboost[i]
 #     index <- t >= t_toboost[i]
-#     
+# 
 #     csp[index] = csp_peak[i] * (rho[i] * exp(-rs * t_cur[index]) + (1 - rho[i]) * exp(-rl * t_cur[index]))
 #   }
 #   return(csp)
-# }  
+# }
+antibody_titre_det <- function(t,
+                           csp_peak = c(621, 277, 277, 277),
+                           rho = c(0.88, 0.7, 0.7, 0.7),
+                           ds = 45,
+                           dl = 591,
+                           t_boost1 = NULL,
+                           t_boost2 = NULL){
+  rs <- log(2) / ds
+  rl <- log(2) / dl
+  
+  # Build vector of boost times, excluding NULLs
+  tboost <- c(t_boost1, t_boost2)
+  tboost <- tboost[!is.null(tboost)]
+  
+  # Adjust parameter vectors based on number of boosts
+  n_doses <- length(tboost) + 1  # initial + boosts
+  csp_peak <- csp_peak[1:n_doses]
+  rho <- rho[1:n_doses]
+  
+  t_toboost <- c(0, tboost)
+  csp <- rep(0, length(t))
+  
+  for(i in seq_along(t_toboost)){
+    t_cur <- t - t_toboost[i]
+    index <- t >= t_toboost[i]
+    csp[index] <- csp[index] + csp_peak[i] * (rho[i] * exp(-rs * t_cur[index]) + (1 - rho[i]) * exp(-rl * t_cur[index]))
+  }
+  
+  return(csp)
+}
+
 
 # csp <- antibody_titre(t =c(1:(365*3)))
 # csp <- antibody_titre_det(t =c(1:(365*3)))
@@ -134,7 +165,7 @@ vaccine_eff <- function(csp,
 #' https://github.com/ht1212/quality_quantity_modelling/blob/master/R3_Efficacy_Function_IR/3_VE_per_Sporozoite
 p_spz_surv <- function(ab, beta_ab = 6.62,
                        alpha_ab = 1.32,
-                       vmin = 0.05
+                       vmin = 0
                         ){
   
   # vmin + (1 - vmin) * (1 / (1 + (ab / beta_ab)^alpha_ab) )
@@ -151,23 +182,23 @@ p_spz_surv <- function(ab, beta_ab = 6.62,
 #   scale_y_log10()
 
 # function modified from Nora Schmit https://github.com/mrc-ide/r21_vacc_antibody_model/blob/main/ab_model/R/antibody_model.R to include uncertainty
-antibody_titre <- function(t, 
-                           phase, 
-                           peak1, peak2, peak3, 
-                           duration1, duration2, 
-                           rho1, rho2, rho3, 
+antibody_titre <- function(t,
+                           phase,
+                           peak1, peak2, peak3,
+                           duration1, duration2,
+                           rho1, rho2, rho3,
                            t_boost1 = 364, t_boost2 = 729){
-  # rho3 is same as rho2 unless we get more information that it is different 
-  # duration1 and duration2 are mean, sd for short- and long-lived components 
+  # rho3 is same as rho2 unless we get more information that it is different
+  # duration1 and duration2 are mean, sd for short- and long-lived components
   ds_draw = rlnorm2(1, mean=duration1[1], sd=duration1[2])
   dl_draw = rlnorm2(1, mean=duration2[1], sd=duration2[2])
-  
+
   r1 <- log(2) / ds_draw
   r2 <- log(2) / dl_draw
-  
+
   t[phase == 2] <-  t[phase == 2] - t_boost1
   t[phase == 3] <-  t[phase == 3] - t_boost2
-  
+
   # rho1 and rho2 are mean, sd
   rho1_draw <- rlogitnorm(1, mean_raw=rho1[1], sd_raw=rho1[2])
   rho2_draw <- rlogitnorm(1, mean_raw=rho2[1], sd_raw=rho2[2])
@@ -175,7 +206,7 @@ antibody_titre <- function(t,
   rho <- rep(rho1_draw, length(t))
   rho[phase == 2] <- rho2_draw
   rho[phase == 3] <- rho3_draw
-  
+
   # draw peak csp
   # peak1, peak2, peak3 are edian of geometric means of observed ab titres and variance for primary, booster 1, booster 3
   peak1_draw <- exp(rnorm(1, log(peak1[1])-peak1[2]^2/2, sd=peak1[2]))
@@ -184,9 +215,9 @@ antibody_titre <- function(t,
   peak <- rep(peak1_draw, length(t))
   peak[phase == 2] <- peak2_draw
   peak[phase == 3] <- peak3_draw
-  
+
   ab <- peak * ((rho * exp(-r1 * t)) + ((1 - rho) *  exp(-r2 * t)))
-  
+
   # Check for down-boosts
   last_phase_1 <- tail(ab[phase == 1], 1)
   if(last_phase_1 > peak2[1]){
@@ -197,7 +228,7 @@ antibody_titre <- function(t,
     peak[phase == 3] <- last_phase_2
   }
   ab <- peak * ((rho * exp(-r1 * t)) + ((1 - rho) *  exp(-r2 * t)))
-  
+
   return(ab)
 }
 # ts = seq(0,3*365)
@@ -216,29 +247,29 @@ antibody_titre <- function(t,
 # t_boost2 = 729)
 # plot(ab)
 
-# to run multiple simulations 
+# to run multiple simulations
 # Method 1: Simple loop approach
 # run_multiple_simulations <- function(n_sims = 1000, ...) {
 #   # Get the time points from the first argument or create default
 #   args <- list(...)
 #   ts <- args$t
-#   
+#
 #   # Create matrix to store results
 #   results <- matrix(NA, nrow = length(ts), ncol = n_sims)
-#   
+#
 #   # Run simulations
 #   for(i in 1:n_sims) {
 #     results[, i] <- antibody_titre(...)
 #     if(i %% 100 == 0) cat("Completed", i, "simulations\n")  # Progress indicator
 #   }
-#   
+#
 #   # Calculate quantiles
 #   median_ab <- apply(results, 1, median)
 #   q25_ab <- apply(results, 1, quantile, probs = 0.25)
 #   q75_ab <- apply(results, 1, quantile, probs = 0.75)
 #   q05_ab <- apply(results, 1, quantile, probs = 0.05)
 #   q95_ab <- apply(results, 1, quantile, probs = 0.95)
-#   
+#
 #   return(list(
 #     time = ts,
 #     median = median_ab,
@@ -249,19 +280,19 @@ antibody_titre <- function(t,
 #     all_results = results
 #   ))
 # }
-# 
+#
 # # Method 2: Using replicate (more R-idiomatic)
 # run_simulations_replicate <- function(n_sims = 1000, ...) {
 #   args <- list(...)
-#   
+#
 #   sim_function <- function(){
 #     do.call(antibody_titre, args)
 #   }
-#   
+#
 #   results <- replicate(n_sims, sim_function(), simplify = TRUE)
-#   
+#
 #   ts <- args$t
-#   
+#
 #   return(list(
 #     time = ts,
 #     median = apply(results, 1, median),

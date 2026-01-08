@@ -3,6 +3,7 @@ setwd('R:/Kelly/synergy_orderly/src/make_figures_modeldev')
 
 filestosource <- list.files(full.names = TRUE)
 source("./plot_1-IRR.R")
+source('./plot_1-IRR_average.R')
 source("./plot_monthly_incidence.R")
 source("./plot_initial_merozoites.R")
 source('./plot_hazard_ratios.R')
@@ -37,6 +38,9 @@ hr_results <- plot_hazard_ratios(outputsfolder = outputs_folder)
 
 # plot 1- IRR
 plot_irr(outputsfolder = outputs_folder)
+
+# plot 1-IRR average 
+plot_irr_average(outputsfolder = outputs_folder)
 
 # intiail merozoites (only if we export parasitemia)
 plot_initial_merozoites(outputsfolder = 'outputs_2025-12-08_treat_0.9start_141threshold5000')
