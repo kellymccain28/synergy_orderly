@@ -38,34 +38,42 @@ plot_irr <- function(outputsfolder){
   
   # Get IRRs
   inci_wide <- inci_wide %>%
-    mutate(rtss_none_irr = 1 - (incidence_per_1000pm_rtss / incidence_per_1000pm_none),
-           smc_none_irr = 1 - (incidence_per_1000pm_smc / incidence_per_1000pm_none),
-           both_none_irr = 1 - (incidence_per_1000pm_both / incidence_per_1000pm_none),
-           rtss_smc_irr = 1 - (incidence_per_1000pm_rtss / incidence_per_1000pm_smc),
-           both_smc_irr = 1 - (incidence_per_1000pm_both / incidence_per_1000pm_smc),
-           both_rtss_irr = 1 - (incidence_per_1000pm_both / incidence_per_1000pm_rtss),
-           smc_rtss_irr = 1 - (incidence_per_1000pm_smc / incidence_per_1000pm_rtss)  )
+    mutate(rtss_none_irr = (incidence_per_1000pm_rtss / incidence_per_1000pm_none),
+           smc_none_irr = (incidence_per_1000pm_smc / incidence_per_1000pm_none),
+           both_none_irr = (incidence_per_1000pm_both / incidence_per_1000pm_none),
+           rtss_smc_irr = (incidence_per_1000pm_rtss / incidence_per_1000pm_smc),
+           both_smc_irr = (incidence_per_1000pm_both / incidence_per_1000pm_smc),
+           both_rtss_irr = (incidence_per_1000pm_both / incidence_per_1000pm_rtss),
+           smc_rtss_irr = (incidence_per_1000pm_smc / incidence_per_1000pm_rtss)  )%>%
+    mutate(expected_efficacy = 1 - (rtss_none_irr * smc_none_irr))
   
   # Calculate median and IQR for each month
   inci_summary <- inci_wide %>%
     group_by(yearmonth) %>%
     summarise(
+      expected_efficacy_median = median(expected_efficacy, na.rm = TRUE),
+      expected_efficacy_q25 = quantile(expected_efficacy, 0.25, na.rm = TRUE),
+      expected_efficacy_q75 = quantile(expected_efficacy, 0.75, na.rm = TRUE),
       # Both vs SMC
-      both_smc_median = median(both_smc_irr, na.rm = TRUE),
-      both_smc_q25 = quantile(both_smc_irr, 0.25, na.rm = TRUE),
-      both_smc_q75 = quantile(both_smc_irr, 0.75, na.rm = TRUE),
+      both_smc_median = 1 - median(both_smc_irr, na.rm = TRUE),
+      both_smc_q25 = 1 - quantile(both_smc_irr, 0.25, na.rm = TRUE),
+      both_smc_q75 = 1 - quantile(both_smc_irr, 0.75, na.rm = TRUE),
       # RTSS vs none
-      rtss_none_median = median(rtss_none_irr, na.rm = TRUE),
-      rtss_none_q25 = quantile(rtss_none_irr, 0.25, na.rm = TRUE),
-      rtss_none_q75 = quantile(rtss_none_irr, 0.75, na.rm = TRUE),
+      rtss_none_median = 1 - median(rtss_none_irr, na.rm = TRUE),
+      rtss_none_q25 = 1 - quantile(rtss_none_irr, 0.25, na.rm = TRUE),
+      rtss_none_q75 = 1 - quantile(rtss_none_irr, 0.75, na.rm = TRUE),
       # Both vs RTSS
-      both_rtss_median = median(both_rtss_irr, na.rm = TRUE),
-      both_rtss_q25 = quantile(both_rtss_irr, 0.25, na.rm = TRUE),
-      both_rtss_q75 = quantile(both_rtss_irr, 0.75, na.rm = TRUE),
+      both_rtss_median = 1 - median(both_rtss_irr, na.rm = TRUE),
+      both_rtss_q25 = 1 - quantile(both_rtss_irr, 0.25, na.rm = TRUE),
+      both_rtss_q75 = 1 - quantile(both_rtss_irr, 0.75, na.rm = TRUE),
       # SMC vs none
-      smc_none_median = median(smc_none_irr, na.rm = TRUE),
-      smc_none_q25 = quantile(smc_none_irr, 0.25, na.rm = TRUE),
-      smc_none_q75 = quantile(smc_none_irr, 0.75, na.rm = TRUE),
+      smc_none_median = 1 - median(smc_none_irr, na.rm = TRUE),
+      smc_none_q25 = 1 - quantile(smc_none_irr, 0.25, na.rm = TRUE),
+      smc_none_q75 = 1 - quantile(smc_none_irr, 0.75, na.rm = TRUE),
+      # Both vs none
+      both_none_median = 1 - median(both_none_irr, na.rm = TRUE),
+      both_none_q25 = 1 - quantile(both_none_irr, 0.25, na.rm = TRUE),
+      both_none_q75 = 1 - quantile(both_none_irr, 0.75, na.rm = TRUE),
       .groups = 'drop'
     )
   
@@ -101,11 +109,16 @@ plot_irr <- function(outputsfolder){
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = rtss_none_q25, ymax = rtss_none_q75), 
                 fill = '#FE6D73', alpha = 0.3) +
     geom_line(aes(x = as.Date(yearmonth), y = rtss_none_median, color = 'RTSS vs none'), linewidth = 1) +
+    
+    # geom_line(aes(x = as.Date(yearmonth), y = expected_efficacy_median, color = 'Expected efficacy'), linewidth = 1) +
+    # geom_line(aes(x = as.Date(yearmonth), y = both_none_median, color = 'Predicted efficacy'), linewidth = 1) +
     ylim(c(0, 1)) + #xlim(c(min(iii_summary$yearmonth), max(iii_summary$yearmonth))) +
     geom_hline(yintercept = 0, linetype = 2) +
     scale_x_date(breaks = '1 month',
                  labels = scales::label_date_short()) +
-    scale_color_manual(values = c('Both vs SMC' = '#FFCB77', 'RTSS vs none' = '#FE6D73')) +
+    scale_color_manual(values = c('Both vs SMC' = '#FFCB77', 
+                                  'RTSS vs none' = '#FE6D73',
+                                  'Expected efficacy' = '#6457A6')) +
     labs(x = 'Date',
          y = '1-IRR',
          color = 'Comparison') + 
@@ -122,6 +135,9 @@ plot_irr <- function(outputsfolder){
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = rtss_none_q25, ymax = rtss_none_q75), 
                 fill = '#FE6D73', alpha = 0.3) +
     geom_line(aes(x = as.Date(yearmonth), y = rtss_none_median, color = 'RTSS vs none'), linewidth = 1) +
+    
+    # geom_line(aes(x = as.Date(yearmonth), y = expected_efficacy_median, color = 'Expected efficacy'), linewidth = 1) +
+    
     scale_y_continuous(breaks = c(-0.25,0, 0.25, 0.5, 0.75, 1),
                        limits = c(-0.25, 1)) +
     geom_hline(yintercept = 0, linetype = 2) +
@@ -130,7 +146,8 @@ plot_irr <- function(outputsfolder){
     scale_color_manual(values = c('Both vs SMC' = '#FFCB77', 
                                   'RTSS vs none' = '#FE6D73',
                                   'SMC delivery' = '#709176',
-                                  'RTS,S delivery' = '#470024')) +
+                                  'RTS,S delivery' = '#470024',
+                                  'Expected efficacy' = '#6457A6')) +
     labs(x = 'Date',
          y = '1-IRR',
          color = 'Comparison') + 
@@ -150,9 +167,13 @@ plot_irr <- function(outputsfolder){
                 fill = '#046865', alpha = 0.3) +
     geom_line(aes(x = as.Date(yearmonth), y = smc_none_median, color = 'SMC vs none'), linewidth = 1) +
     geom_hline(yintercept = 0, linetype = 2) +
+    
+    # geom_line(aes(x = as.Date(yearmonth), y = expected_efficacy_median, color = 'Expected efficacy'), linewidth = 1) +
     scale_x_date(breaks = '1 month',
                  labels = scales::label_date_short()) +
-    scale_color_manual(values = c('Both vs RTSS' = '#2ACBCB', 'SMC vs none' = '#046865')) +
+    scale_color_manual(values = c('Both vs RTSS' = '#2ACBCB', 
+                                  'SMC vs none' = '#046865',
+                                  'Expected efficacy' = '#6457A6')) +
     # ylim(c(-0.5, 1)) +
     labs(x = 'Date',
          y = '1-IRR',
@@ -171,15 +192,18 @@ plot_irr <- function(outputsfolder){
                 fill = '#046865', alpha = 0.3) +
     geom_line(aes(x = as.Date(yearmonth), y = smc_none_median, color = 'SMC vs none'), linewidth = 1) +
     geom_hline(yintercept = 0, linetype = 2) +
+    
+    # geom_line(aes(x = as.Date(yearmonth), y = expected_efficacy_median, color = 'Expected efficacy'), linewidth = 1) +
     scale_x_date(breaks = '3 months',
                  labels = scales::label_date_short()) +
     scale_color_manual(values = c('Both vs RTSS' = '#2ACBCB', 
                                   'SMC vs none' = '#046865',
                                   'SMC delivery' = '#709176',
-                                  'RTS,S delivery' = '#470024')) +
+                                  'RTS,S delivery' = '#470024',
+                                  'Expected efficacy' = '#6457A6')) +
     # ylim(c(-0.3, 1)) +
-    scale_y_continuous(breaks = c(-0.5,-0.25, 0, 0.25, 0.5, 0.75, 1),
-                       limits = c(-0.5, 1)) +
+    scale_y_continuous(breaks = c(-1.5, -1.25, -1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1),
+                       limits = c(-1.5, 1)) +
     labs(x = 'Date',
          y = '1-IRR',
          color = 'Comparison') + 
@@ -196,5 +220,30 @@ plot_irr <- function(outputsfolder){
   cat("Mean of smc_none_irr (filtered, Jun 2017-Jan 2018:", mean(iii_summary_smc$smc_none_median), "\n")
   cat("Mean of both_rtss_irr (non-filtered):", mean(inci_summary$both_rtss_median), "\n")
   cat("Mean of smc_none_irr (non-filtered):", mean(inci_summary$smc_none_median), "\n")
+  
+  
+  # Plot of expected vs predicted efficacy of both vs none 
+  # Plot 1: Adding RTSS (filtered)
+  ggplot(inci_summary) + 
+    geom_line(aes(x = as.Date(yearmonth), y = expected_efficacy_median, color = 'Expected efficacy'), linewidth = 1) +
+    geom_ribbon(aes(x = as.Date(yearmonth), ymin = expected_efficacy_q25, ymax = expected_efficacy_q75,
+                    fill = 'Expected efficacy'), alpha = 0.3) +
+    geom_line(aes(x = as.Date(yearmonth), y = both_none_median, color = 'Predicted efficacy'), linewidth = 1) +
+    geom_ribbon(aes(x = as.Date(yearmonth), ymin = both_none_q25, ymax = both_none_q75,
+                    fill = 'Predicted efficacy'), alpha = 0.3) +
+    ylim(c(-0.5, 1)) + #xlim(c(min(iii_summary$yearmonth), max(iii_summary$yearmonth))) +
+    geom_hline(yintercept = 0, linetype = 2) +
+    scale_x_date(breaks = '1 month',
+                 labels = scales::label_date_short()) +
+    scale_color_manual(values = c('Expected efficacy' = '#6457A6',
+                                  'Predicted efficacy' = '#59C9A5')) +#'#449DD1'
+    scale_fill_manual(values = c('Expected efficacy' = '#6457A6',
+                                  'Predicted efficacy' = '#59C9A5')) +#'#449DD1'
+    labs(x = 'Date',
+         y = '1-IRR',
+         color = NULL,
+         fill = NULL) + 
+    theme_bw(base_size = 14)
+  ggsave(paste0(path, outputsfolder,'/expected_vs_predicted_combined.pdf'), plot = last_plot())
   
 }

@@ -60,7 +60,8 @@ plot_irr_average <- function(outputsfolder){
            rtss_smc_irr = (incidence_per_1000pm_rtss / incidence_per_1000pm_smc),
            both_smc_irr = (incidence_per_1000pm_both / incidence_per_1000pm_smc),
            both_rtss_irr = (incidence_per_1000pm_both / incidence_per_1000pm_rtss),
-           smc_rtss_irr = (incidence_per_1000pm_smc / incidence_per_1000pm_rtss)  )
+           smc_rtss_irr = (incidence_per_1000pm_smc / incidence_per_1000pm_rtss)  )%>%
+    mutate(expected_efficacy = 1 - (rtss_none_irr * smc_none_irr))
   
   # Calculate median and IQR for each month
   inci_summary <- inci_wide %>%

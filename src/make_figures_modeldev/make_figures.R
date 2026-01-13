@@ -14,7 +14,7 @@ outputs_folder <- "outputs_2025-12-02_3_treat_0.9start_150threshold5000"
 outputs_folder <- "outputs_2025-12-02_treat_0start_137threshold5000"
 outputs_folder <- "outputs_2025-12-02_treat_0.9start_137threshold10000"
 outputs_folder <- "outputs_2025-12-05_treat_0.9start_40threshold5000"
-# outputs_folder <- "outputs_2025-12-08_treat_0.9start_141threshold5000"
+# outputs_folder <- "outputs_2025-12-08_treat_0.9start_141threshold5000" #used for init mero plot
 outputs_folder <- "outputs_2025-12-08_treat_0.9start_140threshold5000"
 outputs_folder <- "outputs_2025-12-08_treat_0.9start_122threshold5000" # **  folder used in thesis (before 20 dec), seasonal, but with ab+tcell pars
 outputs_folder <- "outputs_2025-12-09_treat_0.9start_115threshold5000_perennial"
