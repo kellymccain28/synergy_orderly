@@ -1,5 +1,6 @@
 run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
                           n_param_sets,
+                          threshold = 5000,
                           treatment_prob = 0.9, # default is 1 (which gives children prophylaxis)
                           N = 1200){
   
@@ -32,20 +33,20 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
   source(paste0(path, "/src/fit_smc/calculate_efficacy_likelihood.R"))
   
   
-  trial_ts = 365+30#*3# trial timesteps in cohort simulation (inte)
+  trial_ts = 365+90#*3# trial timesteps in cohort simulation (inte)
   # sim_allow_superinfections = TRUE # TRUE or FALSE
   country_to_run = 'generic'
   country_short = 'g'
   n_param_sets = n_param_sets
   N = N
-  vax_day = 15 # unlike the model sim, this is in days (not timesteps)
+  vax_day = -1 # unlike the model sim, this is in days (not timesteps)
   
   n_particles = 1L
   n_threads = 1L
-  burnints = 70
-  threshold = 5000
+  burnints = 50
+  # threshold = 1000
   tstep = 1
-  t_liverstage = 8
+  t_liverstage = 0 #7 # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC267587/
   VB = 1e6
   divide = if(tstep == 1) 2 else 1
   
@@ -65,21 +66,41 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
     treatment_probability = treatment_probability, 
     successful_treatment_probability = successful_treatment_probability
   )
-  
   # # Generate LHS samples
   # Set up grid of parameter ranges
-  param_ranges <- list(
-    alpha_ab = c(1, 1.6),
-    beta_ab = c(3, 8),
-    vmin = c(0, 0.25)
+  # param_ranges <- list(
+  #   alpha_ab = c(1.3, 1.9),
+  #   beta_ab = c(2, 4),
+  #   vmin = c(0, 0.01)
+  # )
+  # A <- randomLHS(n_param_sets, 3)
+  # # Scale to parameter ranges
+  # params_df <- data.frame(
+  #   alpha_ab = qunif(A[,1], param_ranges$alpha_ab[1], param_ranges$alpha_ab[2]),
+  #   beta_ab = qunif(A[,2], param_ranges$beta_ab[1], param_ranges$beta_ab[2]),
+  #   vmin = qunif(A[,3], param_ranges$vmin[1], param_ranges$vmin[2])
+  # )
+  
+  # params_df <- data.frame(
+  #   alpha_ab = c(rep(1.476746, n_param_sets/3), rep(1.38, n_param_sets/3), rep(1.51, n_param_sets/3)),#1.285119 qunif(A[,1], param_ranges$alpha_ab[1], param_ranges$alpha_ab[2]),
+  #   beta_ab = c(rep(5.83, n_param_sets/3), rep(5.83, n_param_sets/3), rep(6, n_param_sets/3)),#2.925123 qunif(A[,2], param_ranges$beta_ab[1], param_ranges$beta_ab[2]),
+  #   vmin = 0#0.035372236 qunif(A[,3], param_ranges$vmin[1], param_ranges$vmin[2])
+  # )
+  # params_df <- data.frame(
+  #   alpha_ab = rep(1.59, n_param_sets),#c(rep(1.83, n_param_sets/2),
+  #   beta_ab = rep(2.46, n_param_sets),#c(rep(4.18, n_param_sets/2),
+  #   vmin = rep(0.351, n_param_sets)#c(rep(0.322, n_param_sets/2)
+  # )
+  params_df <- rbind(
+    # from post changing to mu parameterization 13/1
+    data.frame(alpha_ab = 1.73, beta_ab = 2.37, vmin = 0.000122),
+    data.frame(alpha_ab = 1.77, beta_ab = 2.63, vmin = 0.000513),
+    # from pre changing to mu parameterization from prob (1-p) 13/1
+    data.frame(alpha_ab = 1.65, beta_ab = 3.26, vmin = 0.00395),
+    data.frame(alpha_ab = 1.48, beta_ab = 2.46, vmin = 0.00225)
   )
-  A <- randomLHS(n_param_sets, 3)
-  # Scale to parameter ranges
-  params_df <- data.frame(
-    alpha_ab = qunif(A[,1], param_ranges$alpha_ab[1], param_ranges$alpha_ab[2]),
-    beta_ab = qunif(A[,2], param_ranges$beta_ab[1], param_ranges$beta_ab[2]),
-    vmin = qunif(A[,3], param_ranges$vmin[1], param_ranges$vmin[2])
-  )
+  params_df <- params_df %>%
+    slice(rep(row_number(), each = n_param_sets / 4))
   params_df <- params_df %>%
     mutate(
     max_SMC_kill_rate = rep(0, n_param_sets),
@@ -134,13 +155,13 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
            v1_date = as.Date('2017-04-01'))
   
   # "Observed" efficacy from White model 
-  observed_efficacy_rtss <- readRDS(paste0(path, '/src/fit_rtss/observed_rtss_efficacy.rds'))
+  observed_efficacy_rtss <- readRDS(paste0(path, '/src/fit_rtss/observed_rtss_efficacy_months.rds'))
   
   # Run simulation
   cluster_cores <- Sys.getenv("CCP_NUMCPUS")
-  if (cluster_cores == "") {
-    cluster_cores <- 8
-  }
+  # if (cluster_cores == "") {
+  #   cluster_cores <- 8
+  # }
   
   if (cluster_cores == "") {
     message("running in serial (on a laptop?)")
@@ -148,18 +169,19 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
     
 
     results2 <- lapply(params_list,
-                       function(params_row){
+                       function(params_row) {
                          o <- run_cohort_simulation(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
                                                     metadata_df,
                                                     base_inputs,
                                                     output_dir = 'R:/Kelly/src/fit_rtss/outputs',
                                                     return_parasitemia = FALSE,
                                                     save_outputs = FALSE)
-                         o$infection_records$sim_id <- params_row$sim_id
                          message('finished simulation')
+                         o$infection_records$sim_id <- params_row$sim_id
+                         
                          infs <- o$infection_records %>%
-                           # filter so that the follow-up time starts from 21 days post-vaccination (here, vax_day must be -21)
-                           filter(detection_day - vaccination_day >= 21) %>%
+                           # filter so that the follow-up time starts from 21 days post-vaccination 
+                           filter(detection_day - vax_day >= 21) %>%
                            # remove any infections that occurred within 7 days 
                            group_by(rid) %>%
                            arrange(rid, detection_day) %>%
@@ -169,10 +191,24 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
                          
                          eff <- calc_rtss_efficacy(infs)
                          
+                         matched <- observed_efficacy_rtss %>%
+                           left_join(eff %>% select(months_since_rtss, efficacy) %>%
+                                       rename(predicted_efficacy = efficacy), 
+                                     by = 'months_since_rtss')
+                         
+                         # Remove NAs before calculating likelihood
+                         matched_complete <- matched %>%
+                           filter(!is.na(observed_efficacy), !is.na(predicted_efficacy))
+                         
+                         # Calculate mean least squares
+                         mls <- mean((matched_complete$observed_efficacy - matched_complete$predicted_efficacy)^2, na.rm = TRUE)
+                         
                          return(list(infection_records = o$infection_records,
                                      efficacy_weekly = eff,
+                                     mls = mls, 
                                      params = params_row %>% select(-p_bite)))
-                       })
+                       }
+    )
     
   } else {
     message(sprintf("running in parallel on %s (on the cluster?)", cluster_cores))
@@ -213,7 +249,7 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
                                   ),
                             envir = environment())
     
-    message('starting optimization')
+    # message('starting optimization')
 
     results2 <- parallel::clusterApply(cl,
                                        params_list,
@@ -240,9 +276,9 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
                                          eff <- calc_rtss_efficacy(infs)
                                          
                                          matched <- observed_efficacy_rtss %>%
-                                           left_join(eff %>% select(weeks_since_rtss, efficacy) %>%
+                                           left_join(eff %>% select(months_since_rtss, efficacy) %>%
                                                        rename(predicted_efficacy = efficacy), 
-                                                     by = 'weeks_since_rtss')
+                                                     by = 'months_since_rtss')
                                          
                                         # Remove NAs before calculating likelihood
                                          matched_complete <- matched %>%
@@ -251,28 +287,44 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
                                          # Calculate mean least squares
                                          mls <- mean((matched_complete$observed_efficacy - matched_complete$predicted_efficacy)^2, na.rm = TRUE)
                                          
-                                         return(list(#infection_records = o$infection_records,
+                                         return(list(infection_records = o$infection_records,
                                                      efficacy_weekly = eff,
                                                      mls = mls, 
-                                                     # efficacy_weekly_cumul = eff_cumul,
                                                      params = params_row %>% select(-p_bite)))
                                        }
     )
     parallel::stopCluster(cl)
   }
   
+  output_dir = paste0(path, '/src/fit_rtss/outputs/outputs_', Sys.Date())
+  # If base directory doesn't exist, create it
+  if (!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+  } else {
+    # If it exists, find an available numbered version
+    counter <- 2
+    new_dir <- paste0(output_dir, "_", counter)
+    while (dir.exists(new_dir)) {
+      counter <- counter + 1
+      new_dir <- paste0(output_dir, "_", counter)
+    }
+    output_dir <- new_dir
+    dir.create(output_dir, recursive = TRUE)
+  }
   # saveRDS(results2, paste0(path, '/src/fit_rtss/outputs/rtss_grid_',Sys.Date(),'.rds'))
   # infectionrecords <- purrr::map_df(results2, "infection_records")
   efficacy <- purrr::map_df(results2, 'efficacy_weekly')
-  efficacy_cumul <- purrr::map_df(results2, 'efficacy_weekly_cumul')
   params <- purrr::map_df(results2, 'params')
   mls <- lapply(results2, function(x) x$mls)
-
-  saveRDS(params, paste0(path, '/src/fit_rtss/outputs/parameters_', Sys.Date(), '.rds'))
-  # saveRDS(infectionrecords, paste0(path, '/src/fit_rtss/outputs/infectionrecords_rtss_', Sys.Date(), '.rds'))
-  saveRDS(efficacy, paste0(path, '/src/fit_rtss/outputs/efficacy_rtss_', Sys.Date(), '.rds'))
-  # saveRDS(efficacy_cumul, paste0(path, '/src/fit_rtss/outputs/efficacy_rtss_cumul_', Sys.Date(), '.rds'))
-  saveRDS(mls, paste0(path, '/src/fit_rtss/outputs/mls_', Sys.Date(), '.rds'))
+  mlsunlist <- unlist(mls)
+  best <- which(mlsunlist == min(mlsunlist, na.rm = TRUE))[1]
+  infectionrecords <- results2[[best]]$infection_records
+  
+  saveRDS(base_inputs, paste0(output_dir, '/base_inputs.rds'))
+  saveRDS(params, paste0(output_dir, '/parameters.rds'))
+  saveRDS(infectionrecords, paste0(output_dir, '/infectionrecords_rtss.rds'))
+  saveRDS(efficacy, paste0(output_dir, '/efficacy_rtss.rds'))
+  # saveRDS(mls, paste0(output_dir, '/mls.rds'))
 }
 
 

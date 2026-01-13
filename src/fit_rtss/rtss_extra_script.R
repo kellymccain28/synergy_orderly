@@ -40,7 +40,7 @@ csp_long$time <- as.numeric(csp_long$time)
 #   theme_minimal() + scale_y_log10() +
 #   labs(x = "Time", y = "Antibody Titre")
 
-ve <- lapply(csp, vaccine_eff) # lapply(csp, p_spz_surv, vmin = 0.05)# or should i actually use the vaccine_eff 
+ve <-  lapply(csp, vaccine_eff)##lapply(csp, vaccine_eff) # or should i actually use the vaccine_eff 
 ve_df <- data.frame(do.call(rbind, ve))
 colnames(ve_df) <- ts
 ve_df$sim <- 1:nsim
@@ -50,7 +50,13 @@ ve_long <- pivot_longer(ve_df, cols = -sim,
 ve_long$time <- as.numeric(ve_long$time)
 ve_long <- ve_long %>% ungroup() %>%
   mutate(weeks_since_rtss = ceiling(time/7), # weeks since RTSS because follow-up began 3 weeks after the 3rd dose 
-         months_since_rtss = ceiling(time /(365/30))) %>%
+         months_since_rtss = ceiling(time /(365/12))) 
+
+ve_long_months <- ve_long %>% ungroup() %>%
+  group_by(months_since_rtss, sim) %>%
+  summarize(ve_inf = mean(ve))
+
+ve_long <- ve_long %>%
   # filter(weeks_since_rtss < 52) %>%
   group_by(weeks_since_rtss, sim) %>%
   summarize(ve_inf = mean(ve))
@@ -62,15 +68,22 @@ ve_long <- ve_long %>%
             efficacy_lower = quantile(ve_inf, 0.025),
             efficacy_higher = quantile(ve_inf, 0.975))
 
+ve_long_months <- ve_long_months %>%
+  group_by(months_since_rtss) %>%
+  mutate(observed_efficacy = median(ve_inf),
+         efficacy_lower = quantile(ve_inf, 0.025),
+         efficacy_higher = quantile(ve_inf, 0.975))
+
 # Plot
 ggplot(ve_long) +
   geom_line(aes(x = weeks_since_rtss, y = ve_inf, group = sim), color = '#96BE8C', alpha = 0.2) +
   geom_line(aes(x = weeks_since_rtss, y = observed_efficacy), color = 'darkgreen', linewidth = 1.5) +
   # geom_errorbar(aes(x = weeks_since_rtss, ymin = efficacy_lower, ymax = efficacy_higher)) +
   theme_minimal(base_size = 14) +
-  scale_y_continuous(labels = scales::label_percent(),
-                     breaks = seq(0,1,0.1), limits = c(0,1),
-                     expand = c(0,0)) +
+  # scale_y_log10()+
+  # scale_y_continuous(labels = scales::label_percent(),
+  #                    breaks = seq(0,1,0.1), limits = c(0,1),
+  #                    expand = c(0,0)) +
   scale_x_continuous(breaks = seq(0, 156, 10),
                      expand = c(0,0),
                      limits = c(0,156)) +
@@ -78,49 +91,76 @@ ggplot(ve_long) +
   labs(x = "Weeks since 3rd primary dose of RTSS", y = "Efficacy against infection")
 ggsave(paste0(path, '/figures/rtss_observed.pdf'), plot = last_plot()) # this is 64 runs
 
-# saveRDS(ve_long %>% select(weeks_since_rtss, observed_efficacy) %>% distinct(), file = paste0(path, '/src/fit_rtss/observed_rtss_efficacy.rds'))
+saveRDS(ve_long %>% select(weeks_since_rtss, observed_efficacy) %>% distinct(), file = paste0(path, '/src/fit_rtss/observed_rtss_efficacy.rds'))
+saveRDS(ve_long_months %>% select(months_since_rtss, observed_efficacy) %>% distinct(), file = paste0(path, '/src/fit_rtss/observed_rtss_efficacy_months.rds'))
 dd <- readRDS(paste0(path, '/src/fit_rtss/observed_rtss_efficacy.rds'))
 
 
 # Look at the outputs of optimization 
-# optimization_results <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/optimization_results_2025-12-03.rds")
+optimization_results <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/optimization_results_2026-01-06.rds")
 # # optimization_results$`1`$eval_history[[20]]$params_tibble %>% select(alpha_ab, beta_ab)
 # 
-# best_refined <- optimization_results[[which.max(
-#   sapply(optimization_results, function(x) x$mls)
-# )]]
-# 
-# best_refined$mls
-# best_refined$starting_point_id
-# best_refined$initial_params #9.0928452 13.0471435  0.4141795
-# best_refined$final_params #9.0739477 15.0000000  0.4586005 # when allowing lambda to go <15, 9.1078524 13.0757521  0.4277123
-# best_refined$convergence#0
-# best_refined$n_evaluations #231
-# eval_history_combined <- optimization_results %>%
-#   # Add an index for each optimization run
-#   imap_dfr(~ {
-#     .x$eval_history %>%
-#       map_dfr(function(eval) {
-#         params <- eval$params_tibble 
-#         params$negll <- eval$mls
-#         params$optimization_run <- .y  # Add run identifier
-#         params
-#       })
-#   })
+best_refined <- optimization_results[[which.max(
+  sapply(optimization_results, function(x) x$mls)
+)]]
+
+best_refined$mls
+best_refined$starting_point_id
+best_refined$initial_params #9.0928452 13.0471435  0.4141795
+best_refined$final_params #9.0739477 15.0000000  0.4586005 # when allowing lambda to go <15, 9.1078524 13.0757521  0.4277123
+best_refined$convergence#0
+best_refined$n_evaluations #231
+eval_history_combined <- optimization_results %>%
+  # Add an index for each optimization run
+  imap_dfr(~ {
+    .x$eval_history %>%
+      map_dfr(function(eval) {
+        params <- eval$params_tibble
+        params$negll <- eval$mls
+        params$optimization_run <- .y  # Add run identifier
+        params
+      })
+  })
 
 
 # Look at grid search results 
 # "Observed" efficacy from White model 
+observed_efficacy_rtss <- readRDS(paste0(path, '/src/fit_rtss/observed_rtss_efficacy_months.rds'))
 observed_efficacy_rtss <- readRDS(paste0(path, '/src/fit_rtss/observed_rtss_efficacy.rds'))
-rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2025-12-04_1.rds")
-parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/parameters_2025-12-04_1.rds")
+
+rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2025-12-15_test_abonly.rds")
+rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2025-12-16.rds")
+parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/parameters_2025-12-16.rds")
+parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/parameters_2025-12-15_test_abonly.rds")
+rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2026-01-071000.rds")
+parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/parameters_2026-01-071000.rds")
+rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2026-01-081000_vmin.rds")
+parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/parameters_2026-01-081000_vmin.rds")
+
+rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-08_2/efficacy_rtss.rds")
+parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-08_2/parameters.rds")
+rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-12_3/efficacy_rtss.rds")
+parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-12_3/parameters.rds")
+
+# with the vmin in correct function:
+rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-12_4/efficacy_rtss.rds")
+parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-12_4/parameters.rds")
+rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13/efficacy_rtss.rds")
+parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13/parameters.rds")
+rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_2/efficacy_rtss.rds")
+parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_2/parameters.rds")
 # rtsscumul <- rtsscumul %>% left_join(parameters)
 rtsseff <- rtsseff %>% left_join(parameters)
 
 matched <- observed_efficacy_rtss %>%
-  left_join(rtsseff %>% select(weeks_since_rtss, efficacy, sim_id) %>%
+  left_join(rtsseff %>% 
+              dplyr::select(
+    # weeks_since_rtss,
+    months_since_rtss,
+    efficacy, sim_id) %>%
               rename(predicted_efficacy = efficacy), 
-            by = 'weeks_since_rtss')
+            # by = 'weeks_since_rtss')
+            by = 'months_since_rtss')
 
 # Remove NAs before calculating likelihood
 matched_complete <- matched %>%
@@ -136,18 +176,46 @@ allmls <- unlist(allmls)
 which(allmls == min(allmls))
 parameters$mls <- allmls
 
-
+# 1.285119, 2.925123, 0.035372236 - best from 12/10
 # rtssinfs <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/infectionrecords_rtss_2025-12-02.rds")
-best <- rtsseff #%>% filter(alpha_ab > 1.22 & alpha_ab < 1.5)#filter(sim_id %in% parameters[parameters$mls < 0.02,]$sim_id)#
-ggplot(best) + 
-  geom_line(aes(x = weeks_since_rtss -3, y = efficacy, group = sim_id, color = beta_ab), alpha = 0.3) + 
-  # geom_smooth(aes(x = weeks_since_rtss -3, y = efficacy, group = sim_id, color = sim_id)) + 
-  geom_line(data = observed_efficacy_rtss, aes(x = weeks_since_rtss, y = observed_efficacy), color = 'black', linewidth= 1) + 
-  xlim(c(0,10)) + ylim(c(-0,1)) + 
-  theme_minimal() #+
-  # theme(legend.position = 'none') 
+best <- rtsseff %>% filter(sim_id %in% parameters[parameters$mls < 0.0015,]$sim_id )#filter(sim_id %in% parameters[parameters$mls < 0.02,]$sim_id)#
+ggplot(best )+#%>% filter(alpha_ab > 1.2 & alpha_ab  < 1.8 &  vmin > 0.25))+#filter(alpha_ab > 1.4 & alpha_ab  < 1.7 & beta_ab <5 & beta_ab > 3)) + #filter(alpha_ab > 1.2 & alpha_ab  < 1.8 &  vmin > 0.25)
+  geom_line(aes(x = months_since_rtss, y = efficacy, group = sim_id, color = paste0(as.factor(round(alpha_ab, 3)), ', ',
+                                                                                    as.factor(round(beta_ab,3)), ', ', 
+                                                                                    as.factor(round(vmin, 4)))),  
+            alpha = 0.5, linewidth = 1) +#,color = 'orange',
+  # geom_line(aes(x = weeks_since_rtss, y = efficacy, group = sim_id), color = 'orange', alpha = 0.5) +
+  geom_line(data = observed_efficacy_rtss , aes(x = months_since_rtss, y = observed_efficacy), color = 'black', linewidth= 1) +
+  # geom_line(data = observed_efficacy_rtss , aes(x = weeks_since_rtss, y = observed_efficacy), color = 'black', linewidth= 1) +
+  geom_vline(xintercept = 0, linetype = 2, color = 'blue') +
+  geom_vline(xintercept = 52, linetype = 2, color = 'blue') +
+  ylim(c(-0,100)) + 
+  theme_minimal(base_size = 14) +
+  xlim(c(0,14)) + 
+  labs(color = 'alpha, beta, vmin') + 
+  # theme(legend.position = 'none')+
+  # xlim(c(0,60)) +
+  # scale_x_continuous(breaks = seq(1,12),
+  #                    limits = c(0,12))+
+  scale_y_continuous(labels = scales::percent,
+                     # breaks = seq(0,1,0.1),
+                     limits = c(0,1)) + 
+  labs(#caption = '1000 threshold of detection',
+       y = 'Vaccine efficacy',
+       x = 'Months since RTS,S') 
+bestpars <- best %>% distinct(alpha_ab, beta_ab, vmin)
+# alpha_ab beta_ab    vmin
+# 1.70     3.62       0.00285
+# 1.88     3.79       0.00315
+# 1.52     3.06       0.00127
+# 1.87     3.37       0.00374
+# 1.81     3.73       0.00412
+# 1.67     3.22       0.00197
+# 1.65     3.26       0.00395 **
+# 1.48     2.46       0.00225 *
+ggsave(filename = 'R:/Kelly/synergy_orderly/figures/rtss_fit.pdf', height = 6, width = 8) # as of 6/1/26, the eff from 16 Dec is in the thesis 
 
-dr <-p_spz_surv(ab_summary$median_ab, beta_ab = 3.538125, alpha_ab= 1.3804900)
+dr <-p_spz_surv(ab_summary$median_ab, beta_ab = 3.538125, alpha_ab = 1.3804900)
 plot(1-dr)
 ve <- vaccine_eff(ab_summary$median_ab)
 plot(ve)
