@@ -168,8 +168,8 @@ p_spz_surv <- function(ab, beta_ab = 6.62,
                        vmin = 0
                         ){
   
-  # vmin + (1 - vmin) * (1 / (1 + (ab / beta_ab)^alpha_ab) )
-  1 / (1 + (ab / beta_ab)^alpha_ab)
+  vmin + (1 - vmin) * (1 / (1 + (ab / beta_ab)^alpha_ab) )
+  # 1 / (1 + (ab / beta_ab)^alpha_ab)
   
 }
 
