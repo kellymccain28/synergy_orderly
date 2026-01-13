@@ -60,8 +60,11 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
   N <- nrow(metadata_df)
   
   # Make weights to prevent homogeneous transmission 
-  weights <- rexp(N) # Generate random weights to sample children at different probabilities (could also use rpois(N) or rexp(N))
-  weights <- weights / sum(weights) # normalize to sum to 1
+  # weights <- rexp(N) # Generate random weights to sample children at different probabilities (could also use rpois(N) or rexp(N))
+  # weights <- weights / sum(weights) # normalize to sum to 1
+  sigma_squared_bites <- 1.67 # from malariasimulation https://mrc-ide.github.io/malariasimulation/reference/get_parameters.html#:~:text=sigma_squared%20%2D%20heterogeneity%20parameter%3B%20default%20%3D%201.67; 
+  # explained in SI of Winskill
+  weights <- rlnorm(N, meanlog = -sigma_squared_bites^2/2, sdlog = sqrt(sigma_squared_bites))
   
   message('calculating time since smc and parasite kill rate vector')
   # Calculate SMC kill rate vectors for each child  - not sure where these are from 
