@@ -5,10 +5,13 @@ sim_cohort_generic <- function(trial_ts = 365*3,
                                season_start_day = 137, # default is 137 to start on August 15 (days since April 1)
                                vax_day = 75, # default is mid june for 3rd dose 
                                threshold = 5000, # default is 5000 parasites per microL
+                               N = 2000,
                                country_to_run = 'generic',
+                               season = 'seasonal',
                                n_param_sets,
                                path = "R:/Kelly/synergy_orderly/",
-                               notes){ # notes are to write down the specifics of the runs 
+                               notes,# notes are to write down the specifics of the runs 
+                               get_parasit = FALSE){ 
   library(odin2)
   library(ggplot2)
   library(dust2)
@@ -22,7 +25,7 @@ sim_cohort_generic <- function(trial_ts = 365*3,
   source("R:/Kelly/synergy_orderly/shared/likelihood.R")
   source("R:/Kelly/synergy_orderly/src/fit_smc/calculate_efficacy_likelihood.R")
 
-  sim_pars <- paste0("_treat_", treatment_prob, "start_", season_start_day, "threshold", threshold)
+  # sim_pars <- paste0("_treat_", treatment_prob, "start_", season_start_day, "threshold", threshold)
 
     # Load the within-host model 
   gen_bs <- odin2::odin("R:/Kelly/synergy_orderly/shared/smc_rtss.R")
@@ -41,8 +44,8 @@ sim_cohort_generic <- function(trial_ts = 365*3,
   # Day of intervention (0 = start of follow-up; - values are before follow-up; + values after follow-up) - where 0 is also end of burnin
   # these get converted later to the correct directon - i.e. vaccine before follow-up will be +, smc before follow up will be -
   # vax_day is the 3rd primary dose (when we assume that efficacy begins)
-  vax_day = 75 # unlike the model sim, this is in days (not timesteps), ~75 days is mid-June which in the generic sim is just as the season is starting 
-  N = 2000
+  # vax_day = 75 # unlike the model sim, this is in days (not timesteps), ~75 days is mid-June which in the generic sim is just as the season is starting 
+  # N = 4000
   
   treatment_probability = treatment_prob # in trial, everyone who was diagnosed with clincial malaria was treated 
   successful_treatment_probability = 0.9 # AL treatment protects up to 90% for 12 days SI of Commun. 5:5606 doi: 10.1038/ncomms6606 (this is what is in malsim)
@@ -68,18 +71,23 @@ sim_cohort_generic <- function(trial_ts = 365*3,
     max_SMC_kill_rate = rep(2.33333, n_param_sets),
     lambda = rep(16.66667, n_param_sets),
     kappa = rep(0.22222, n_param_sets),
-    alpha_ab = rep(1.38, n_param_sets),
-    beta_ab = rep(5.83, n_param_sets)
+    alpha_ab = rep(1.77, n_param_sets),#rep(1.38, n_param_sets),
+    beta_ab = rep(2.63, n_param_sets),#rep(5.83, n_param_sets)
+    vmin = rep(0.000513, n_param_sets)
   )
   params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", treatment_probability)
   
   # probability of a bite is used in the cohort simulation and so is in 1-day timesteps
   # prob_bite_generic <- readRDS(paste0(path, 'archive/fit_rainfall/20251009-144330-1d355186/prob_bite_generic.rds'))
-  prob_bite_generic <- readRDS("R:/Kelly/synergy_orderly/archive/fit_rainfall/20251203-121008-03d1b614/prob_bite_generic.rds")#with EIR of 30 and seasonal instead of seasonal(03/12/25)
-  # prob_bite_generic$prob_infectious_bite <- 0.15 #constant
-  # perennial version
-  prob_bite_generic <- readRDS("R:/Kelly/synergy_orderly/archive/fit_rainfall/20251203-121008-03d1b614/prob_bite_generic_perennial.rds")
-  message('stoppedafter getting prob bite')
+  if(season == 'seasonal'){
+    prob_bite_generic <- readRDS("R:/Kelly/synergy_orderly/archive/fit_rainfall/20251203-121008-03d1b614/prob_bite_generic.rds")#with EIR of 30 and seasonal instead of seasonal(03/12/25)
+  } else if (season == 'perennial'){
+    prob_bite_generic <- readRDS("R:/Kelly/synergy_orderly/archive/fit_rainfall/20251203-121008-03d1b614/prob_bite_generic_perennial.rds")
+  } else if (season == 'constant') {
+    prob_bite_generic <- readRDS("R:/Kelly/synergy_orderly/archive/fit_rainfall/20251203-121008-03d1b614/prob_bite_generic_perennial.rds")
+    prob_bite_generic$prob_infectious_bite <- 0.15 #constant
+  }
+  message('stopped after getting prob bite')
   p_bitevector <- calc_lagged_vectors(prob_bite_generic, 0, burnints = burnints) # no lagged values 
   
   params_df$lag_p_bite <- 0
@@ -122,7 +130,7 @@ sim_cohort_generic <- function(trial_ts = 365*3,
            country = 'generic',
            v1_date = as.Date('2017-04-01') + vax_day - 60) # before was just april1 (start of), but now the first dose is dependent on the 3rd(specified by vax_day), 3rd dose is ~60 days after first
   
-  output_dir = paste0(path, 'src/sim_cohort_generic/outputs/outputs_', Sys.Date(), sim_pars)
+  output_dir = paste0(path, 'src/sim_cohort_generic/outputs/outputs_', Sys.Date())
   # If base directory doesn't exist, create it
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
@@ -161,7 +169,7 @@ sim_cohort_generic <- function(trial_ts = 365*3,
                                                     base_inputs,
                                                     output_dir = 'R:/Kelly/src/sim_cohort_generic/outputs',
                                                     # allow_superinfections = TRUE,
-                                                    return_parasitemia = FALSE,
+                                                    return_parasitemia = get_parasit,
                                                     save_outputs = FALSE)
                          message('finished simulation')
                          o$infection_records$sim_id <- params_row$sim_id
@@ -217,7 +225,7 @@ sim_cohort_generic <- function(trial_ts = 365*3,
                                                                     base_inputs,
                                                                     output_dir = 'R:/Kelly/src/sim_cohort_generic/outputs',
                                                                     # allow_superinfections = TRUE,
-                                                                    return_parasitemia = FALSE,
+                                                                    return_parasitemia = get_parasit,
                                                                     save_outputs = FALSE)
                                          message('finished simulation')
                                          o$infection_records$sim_id <- params_row$sim_id
@@ -239,10 +247,18 @@ sim_cohort_generic <- function(trial_ts = 365*3,
                                                        casedata = infs_formatted) %>%
                                            mutate(sim_id = params_row$sim_id)
                                          
-                                         return(list(infection_records_formatted = infs_formatted, 
-                                                     incidence_df = inci,
-                                                     # parasitemia = o$parasitemia_data,
-                                                     params = params_row))
+                                         if(get_parasit){
+                                           out <- list(infection_records_formatted = infs_formatted, 
+                                              incidence_df = inci,
+                                              parasitemia = o$parasitemia_data,
+                                              params = params_row)
+                                         } else {
+                                           out <- list(infection_records_formatted = infs_formatted, 
+                                                       incidence_df = inci,
+                                                       params = params_row)
+                                           }
+                                         
+                                         return(out)
                                        }
     )
     parallel::stopCluster(cl)
@@ -267,11 +283,14 @@ sim_cohort_generic <- function(trial_ts = 365*3,
     saveRDS(incidence_batch, paste0(output_dir, '/incidence_batch', batch, '.rds'))
   }
   
+  if(get_parasit){
+    parasitemia <- purrr::map_df(results2, 'parasitemia')
+    saveRDS(parasitemia, paste0(output_dir, "/parasitemia.rds"))
+  }
+  
   # infectionrecords <- purrr::map_df(results2, "infection_records")
   params <- purrr::map_df(results2, 'params')
-  # parasitemia <- purrr::map_df(results2, 'parasitemia')
-  # 
   # saveRDS(infectionrecords, paste0(output_dir, '/infection_records.rds'))
   saveRDS(params, paste0(output_dir, "/parameter_df.rds"))
-  # saveRDS(parasitemia, paste0(output_dir, "/parasitemia.rds"))
+  
 }
