@@ -20,7 +20,7 @@ plot_initial_merozoites <- function(outputsfolder){
   detectability_colors <- c('#F4A259', '#5B8E7D')
   lighter <- colorspace::lighten(detectability_colors, amount = 0.3)
   # Adaptation of plot from helper_functions.R make_plots() function  
-  ggplot(initial_values ) + 
+  ggplot(initial_values %>% filter(mero_init_out!=0)) + 
     geom_boxplot(aes(x = as.factor(det), y = mero_init_out, color = as.factor(det), fill = as.factor(det)), 
                  linewidth = 0.8, alpha = 0.8) + #
     geom_jitter(aes(x = as.factor(det), y = mero_init_out, color = as.factor(det)), alpha = 0.25) + #
@@ -33,24 +33,31 @@ plot_initial_merozoites <- function(outputsfolder){
     scale_x_discrete(labels = c('0' = 'Cleared', '1' = 'Detectable Case')) +
     theme_bw(base_size = 12) + 
     scale_y_log10(labels = scales::label_log(),
-                  breaks = c(0, 0.0000001, 0.1, 1, 10, 100, 1000, 10000),
+                  breaks = c(1e-9, 1e-7, 1e-5, 1e-3, 0.1, 10, 1000, 100000, 1e7),
                   guide = "axis_logticks"
                   ) +
     theme(legend.position = 'none')
+  
   ggsave(paste0(path, outputsfolder,'/initial_merozoites.pdf'), plot = last_plot(),
          height = 5, width = 8)
   
-  # over all infection statuses
   
   # over all interventions
-  ggplot(initial_values) + 
-    geom_boxplot(aes(x = 1, y = parasites*VB+0001), alpha = 0.7) + 
-    geom_jitter(aes(x = 1, y = parasites*VB+0.001, color = as.factor(det)), alpha = 0.2) + #
-    scale_y_log10() + 
+  ggplot(initial_values) +
+    geom_boxplot(aes(x = 1, y = parasites*VB+0001), alpha = 0.7) +
+    geom_jitter(aes(x = 1, y = parasites*VB+0.001), alpha = 0.2) + #
+    scale_y_log10() +
     facet_wrap(~arm)
   
   initial_values %>% 
     group_by(arm, det) %>%
     summarize(mean_meroinit = mean(mero_init_out),
               mean_pb0 = mean(parasites))
+  
+  # get percent at 0 in each arm and group 
+  initial_values %>%
+    group_by(arm) %>%
+    mutate(mero_init_out0 = ifelse(mero_init_out == 0, 'start with 0', 'start >0')) %>%
+    tabyl(arm, mero_init_out0) %>%
+    mutate(perc0 = `start with 0` / (`start with 0`+`start >0`) * 100)
 }

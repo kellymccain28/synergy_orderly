@@ -12,19 +12,25 @@ plot_time_to_threshold <- function(outputsfolder){
   lighter_arm_colors <- colorspace::lighten(arm_colors, amount = 0.3)
   
   path <- 'R:/Kelly/synergy_orderly/src/sim_cohort_generic/outputs/'
-  # outputsfolder <- 'outputs_2025-12-01_2'
-  
+
   # Using the outputs from monthly_incidence_plot.R
   formatted <- readRDS(paste0(path, outputsfolder, '/formatted_infrecords.rds')) %>%
     filter(detectable==1 ) %>%
     mutate(arm = factor(arm, levels = c('none','smc','rtss','both'))) %>%
     mutate(t_toreach_threshold = t_toreach_threshold + t_liverstage) # to account for liver stage time 
   
+  distr <- formatted %>% filter(sim_id == 'parameter_set_1_generic_0.9') %>% tabyl(arm)
   
-  ggplot(formatted) + 
-    geom_boxplot(aes(x = arm, y = t_toreach_threshold, color = arm, fill = arm), linewidth = 0.8) + 
+  ggplot(formatted %>% filter(sim_id == 'parameter_set_1_generic_0.9')) + 
+    geom_boxplot(aes(x = arm, y = t_toreach_threshold, color = arm, fill = arm), 
+                 linewidth = 0.8, outlier.alpha = 0.1) + 
+    geom_text(data = distr, 
+              aes(x = arm, y = 12, label = paste0('n = ', round(n, 1))),
+                  size = 3.5, fontface = 'bold') +
     # geom_jitter(aes(x = arm, y = t_toreach_threshold, color = arm), alpha = 0.2) + 
-    scale_y_log10(breaks = c(1, 10, 30, 50, 100, 150, 300),
+    scale_y_log10(breaks = c(10, 30, 50, 100, 200, 300),
+                  labels = c(10, 30, 50, 100, 200, 300),
+                  limits = c(10,NA),
                   guide = "axis_logticks") + 
     scale_color_manual(values =  arm_colors)+
     scale_fill_manual(values =  lighter_arm_colors)+
