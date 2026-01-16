@@ -126,18 +126,18 @@ plot_hazard_ratios <- function(outputsfolder){
     geom_point(aes(x = term, y = VE, color = reference), size = 1.2, alpha = 0.8) +
     geom_errorbar(aes(x = term, ymin = VE_lower, ymax = VE_upper, color = reference), 
                   width = 0.1, linewidth = 0.8, alpha = 0.8) +
-    geom_point(aes(x = term, y = VE_expected, color = 'Expected protective efficacy'), 
+    geom_point(aes(x = term, y = VE_expected, color = 'Expected relative efficacy'), 
                size = 1.2, alpha = 0.8) +
-    geom_errorbar(aes(x = term, ymin = VE_lower_expected, ymax = VE_upper_expected, color = 'Expected protective efficacy'), 
+    geom_errorbar(aes(x = term, ymin = VE_lower_expected, ymax = VE_upper_expected, color = 'Expected relative efficacy'), 
                   width = 0.1, linewidth = 0.8, alpha = 0.8) +
-    labs(y = "Protective efficacy",
+    labs(y = "Relative efficacy (1-IRR)",
          x = NULL, 
          color = 'Comparison group') +
     scale_color_manual(values = c(
       'SMC reference' = '#2292A4',
       'RTS,S reference' = '#BDBF09',
       'No intervention\nreference' = '#D96C06',
-      'Expected protective efficacy' = colorspace::lighten('#D96C06', amount = 0.4))) + 
+      'Expected relative efficacy' = colorspace::lighten('#D96C06', amount = 0.4))) + 
     scale_y_continuous(breaks = seq(min(floor(tidy_results$VE_lower * 10)/10), 1.5, 0.2),
                        # labels = scales::label_percent(),
                        limits = c(min(ceiling(tidy_results$VE_lower * 10)/10),1)) +

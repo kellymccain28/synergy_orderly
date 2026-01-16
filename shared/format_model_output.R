@@ -95,7 +95,8 @@ format_model_output <- function(model_data,
         t_toreach_threshold = NA,
         detectable = 0,
         infection_year = NA,
-        start_fu_date = v1_date
+        start_fu_date = v1_date,
+        num_bites = 0
       )
 
     # Combine infections + censoring
@@ -111,6 +112,7 @@ format_model_output <- function(model_data,
   
   # Bind all cases together
   all_cases <- map_dfr(1:3, ~format_cases_by_year(model_data, .x))#bind_rows(cases_yr1, cases_yr2, cases_yr3)
+  message("bound annual cases together")
   
   # Get all unique child ids 
   all_children <- unique(metadata_df$rid)
@@ -126,7 +128,7 @@ format_model_output <- function(model_data,
     left_join(metadata_df) %>%
     left_join(all_cases %>% distinct(rid, smckillvec, smc_dose_days, v1_date))
   
-  # Join with exsiting combinations and find the missing ones 
+  # Join with existing combinations and find the missing ones 
   missing_combinations <- year_framework %>%
     anti_join(all_cases %>%
                 distinct(rid, year), by = c('rid','year'))
@@ -159,7 +161,8 @@ format_model_output <- function(model_data,
       treatment_day = NA,
       receives_treatment = NA,
       treatment_efficacy = NA, 
-      treatment_successful = NA
+      treatment_successful = NA,
+      num_bites = NA
     ) %>% 
     select(-year_start, -year_end) %>%
     # add children_in_group var

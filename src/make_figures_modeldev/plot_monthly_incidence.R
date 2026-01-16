@@ -115,7 +115,7 @@ plot_monthly_incidence <- function(outputsfolder){
          x = 'Date',
          y = 'Incidence per 1000 person-months') +
     theme_bw(base_size = 14) + 
-    facet_wrap(~arm)
+    facet_wrap(~factor(arm, levels = c('none','rtss','smc','both')))
   
   ggsave(paste0(path, outputsfolder,'/model_monthly_incidence.pdf'), plot = last_plot(),
          height = 8, width = 14)

@@ -49,9 +49,9 @@ p2 <- ggplot(df %>% filter(t > 4), aes(x = t, y = range_width)) +
   scale_y_continuous(breaks = seq(0,40, 2), expand = c(0.01,0.01))+
   labs(#title = "var-specific Range Width Over Time",
        # subtitle = "Width = (t-4) - f(t)",
-       x = "Timestep", y = "Range Width") +
+       x = "Timestep", y = "Window width (2-day timesteps)") +
   theme_minimal()
-ggsave(filename = 'R:/Kelly/synergy_orderly/figures/f_t_versus_t-4.pdf', p2)
+ggsave(filename = 'R:/Kelly/synergy_orderly/figures/f_t_versus_t-4.pdf', p2, height = 4, width = 6)
 
 # Plot 3: Visualization of the range as filled area
 p3 <- ggplot(df %>% filter(t > 4 & t <= 50), aes(x = t)) +

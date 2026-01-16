@@ -51,6 +51,23 @@ plot_irr <- function(outputsfolder){
   inci_summary <- inci_wide %>%
     group_by(yearmonth) %>%
     summarise(
+      # incidence smc 
+      incidence_smc_median = median(incidence_per_1000pm_smc, na.rm = TRUE),
+      incidence_smc_q25 = quantile(incidence_per_1000pm_smc, 0.25, na.rm = TRUE),
+      incidence_smc_q75 = quantile(incidence_per_1000pm_smc, 0.75, na.rm = TRUE),
+      # incidence rtss 
+      incidence_rtss_median = median(incidence_per_1000pm_rtss, na.rm = TRUE),
+      incidence_rtss_q25 = quantile(incidence_per_1000pm_rtss, 0.25, na.rm = TRUE),
+      incidence_rtss_q75 = quantile(incidence_per_1000pm_rtss, 0.75, na.rm = TRUE),
+      # incidence none 
+      incidence_none_median = median(incidence_per_1000pm_none, na.rm = TRUE),
+      incidence_none_q25 = quantile(incidence_per_1000pm_none, 0.25, na.rm = TRUE),
+      incidence_none_q75 = quantile(incidence_per_1000pm_none, 0.75, na.rm = TRUE),
+      # incidence both 
+      incidence_both_median = median(incidence_per_1000pm_both, na.rm = TRUE),
+      incidence_both_q25 = quantile(incidence_per_1000pm_both, 0.25, na.rm = TRUE),
+      incidence_both_q75 = quantile(incidence_per_1000pm_both, 0.75, na.rm = TRUE),
+      # Expected efficacy 
       expected_efficacy_median = median(expected_efficacy, na.rm = TRUE),
       expected_efficacy_q25 = quantile(expected_efficacy, 0.25, na.rm = TRUE),
       expected_efficacy_q75 = quantile(expected_efficacy, 0.75, na.rm = TRUE),
@@ -77,6 +94,17 @@ plot_irr <- function(outputsfolder){
       .groups = 'drop'
     )
   
+  incilong <- inci_summary %>%
+    select(yearmonth, starts_with('incidence')) %>%
+    pivot_longer(cols = starts_with('incidence'),
+                 names_to = c("incidence", "arm", "stat"),
+                 names_pattern = "(.*)_(.*)_(.*)",
+                 values_to = "value")%>%
+    pivot_wider(
+      names_from = stat,
+      values_from = value
+    )
+  
   # iii <- inci_wide %>% filter(as.Date(inci_wide$yearmonth) > as.Date('2017-06-01') &
   #                               as.Date(inci_wide$yearmonth) < as.Date('2018-01-01'))
   # Filter for specific date range
@@ -99,6 +127,35 @@ plot_irr <- function(outputsfolder){
     arm = rep(c('rtss','both'), length(6)),
     color = '#59114D'
   )
+  
+  # First make incidence plot to combine 
+  inciall <- ggplot(incilong) + 
+    geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 3, linewidth = 0.8)+
+    geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 2, linewidth = 0.8) +
+    geom_ribbon(aes(x = as.Date(yearmonth), ymin = q25, ymax = q75, fill = arm), 
+                alpha = 0.3) +
+    geom_line(aes(x = as.Date(yearmonth), y = median, color = arm), 
+              linewidth = 1) +
+    geom_hline(yintercept = 0, linetype = 2) +
+    scale_x_date(breaks = '3 months',
+                 labels = scales::label_date_short()) +
+    scale_color_manual(values = c('SMC delivery' = '#709176',
+                                  'RTS,S delivery' = '#470024',
+                                  'both' = '#E15554', 
+                                  'none' = '#E1BC29',
+                                  'rtss' = '#3BB273',
+                                  'smc' = '#7768AE'),
+                       breaks = c('both', 'none', 'rtss', 'smc', 'SMC delivery', 'RTS,S delivery')) +
+    scale_fill_manual(values = c('both' = '#E15554', 
+                                 'none' = '#E1BC29',
+                                 'rtss' = '#3BB273',
+                                 'smc' = '#7768AE'),breaks = c('both', 'none', 'rtss', 'smc'),
+                      guide = guide_legend(override.aes = list(linetype = 0))) +
+    labs(x = 'Date',
+         y = 'Incidence per 1000 people',
+         color = NULL, fill = NULL) + 
+    guides(fill = "none") +
+    theme_bw(base_size = 14)
   
   
   # Plot 1: Adding RTSS (filtered)
@@ -126,7 +183,7 @@ plot_irr <- function(outputsfolder){
   ggsave(paste0(path, outputsfolder,'/irr_addingrtss_filtered.pdf'), plot = last_plot())
   
   # Plot 2: Adding RTSS (non-filtered)
-  ggplot(inci_summary) + 
+  addrtss <-   ggplot(inci_summary) + 
     geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 3, linewidth = 0.8)+
     geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 2, linewidth = 0.8) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = both_smc_q25, ymax = both_smc_q75), 
@@ -138,8 +195,8 @@ plot_irr <- function(outputsfolder){
     
     # geom_line(aes(x = as.Date(yearmonth), y = expected_efficacy_median, color = 'Expected efficacy'), linewidth = 1) +
     
-    scale_y_continuous(breaks = c(-0.25,0, 0.25, 0.5, 0.75, 1),
-                       limits = c(-0.25, 1)) +
+    scale_y_continuous(breaks = c(-0.4,0, 0.25, 0.5, 0.75, 1),
+                       limits = c(-0.4, 1)) +
     geom_hline(yintercept = 0, linetype = 2) +
     scale_x_date(breaks = '3 months',
                  labels = scales::label_date_short()) +
@@ -152,7 +209,10 @@ plot_irr <- function(outputsfolder){
          y = '1-IRR',
          color = 'Comparison') + 
     theme_bw(base_size = 14)
-  ggsave(paste0(path, outputsfolder,'/irr_addingrtss_nonfiltered.pdf'), plot = last_plot(), width = 10, height = 4)
+  ggsave(paste0(path, outputsfolder,'/irr_addingrtss_nonfiltered.pdf'), plot = addrtss, width = 10, height = 4)
+  
+  combinedrtss <- plot_grid(addrtss, inciall, nrow = 2)
+  ggsave(paste0(path, outputsfolder,'/irr_addingrtss_nonfiltered_andincidence.pdf'), plot = combinedrtss, width = 10, height = 10)
   
   # Filter for SMC comparison
   iii_summary_smc <- inci_summary %>% 
@@ -182,7 +242,7 @@ plot_irr <- function(outputsfolder){
   ggsave(paste0(path, outputsfolder,'/irr_addingsmc_filtered.pdf'), plot = last_plot())
   
   # Plot 4: Adding SMC (non-filtered)
-  ggplot(inci_summary) + 
+  addsmc <- ggplot(inci_summary) + 
     geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 2, linewidth = 0.8)+
     geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = both_rtss_q25, ymax = both_rtss_q75), 
@@ -208,7 +268,11 @@ plot_irr <- function(outputsfolder){
          y = '1-IRR',
          color = 'Comparison') + 
     theme_bw(base_size = 14)
-  ggsave(paste0(path, outputsfolder,'/irr_addingsmc_nonfiltered.pdf'), plot = last_plot(), width = 10, height = 4)
+  ggsave(paste0(path, outputsfolder,'/irr_addingsmc_nonfiltered.pdf'), plot = addsmc, width = 10, height = 4)
+  
+  
+  combinedsmc <- plot_grid(addsmc, inciall, nrow = 2)
+  ggsave(paste0(path, outputsfolder,'/irr_addingrtsssmc_nonfiltered_andincidence.pdf'), plot = combinedsmc, width = 10, height = 10)
   
   # Print summary statistics
   cat("Mean of both_smc_irr (filtered):", mean(iii_summary$both_smc_median), "\n")
@@ -228,22 +292,22 @@ plot_irr <- function(outputsfolder){
     geom_line(aes(x = as.Date(yearmonth), y = expected_efficacy_median, color = 'Expected efficacy'), linewidth = 1) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = expected_efficacy_q25, ymax = expected_efficacy_q75,
                     fill = 'Expected efficacy'), alpha = 0.3) +
-    geom_line(aes(x = as.Date(yearmonth), y = both_none_median, color = 'Predicted efficacy'), linewidth = 1) +
+    geom_line(aes(x = as.Date(yearmonth), y = both_none_median, color = 'Model-predicted efficacy'), linewidth = 1) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = both_none_q25, ymax = both_none_q75,
-                    fill = 'Predicted efficacy'), alpha = 0.3) +
+                    fill = 'Model-predicted efficacy'), alpha = 0.3) +
     ylim(c(-0.5, 1)) + #xlim(c(min(iii_summary$yearmonth), max(iii_summary$yearmonth))) +
     geom_hline(yintercept = 0, linetype = 2) +
-    scale_x_date(breaks = '1 month',
+    scale_x_date(breaks = '3 months',
                  labels = scales::label_date_short()) +
     scale_color_manual(values = c('Expected efficacy' = '#6457A6',
-                                  'Predicted efficacy' = '#59C9A5')) +#'#449DD1'
+                                  'Model-predicted efficacy' = '#59C9A5')) +#'#449DD1'
     scale_fill_manual(values = c('Expected efficacy' = '#6457A6',
-                                  'Predicted efficacy' = '#59C9A5')) +#'#449DD1'
+                                  'Model-predicted efficacy' = '#59C9A5')) +#'#449DD1'
     labs(x = 'Date',
          y = '1-IRR',
          color = NULL,
          fill = NULL) + 
     theme_bw(base_size = 14)
-  ggsave(paste0(path, outputsfolder,'/expected_vs_predicted_combined.pdf'), plot = last_plot())
+  ggsave(paste0(path, outputsfolder,'/expected_vs_predicted_combined.pdf'), plot = last_plot(), width = 10, height = 4)
   
 }

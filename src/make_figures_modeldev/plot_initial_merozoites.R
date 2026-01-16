@@ -20,12 +20,12 @@ plot_initial_merozoites <- function(outputsfolder){
   detectability_colors <- c('#F4A259', '#5B8E7D')
   lighter <- colorspace::lighten(detectability_colors, amount = 0.3)
   # Adaptation of plot from helper_functions.R make_plots() function  
-  ggplot(initial_values) + 
+  ggplot(initial_values ) + 
     geom_boxplot(aes(x = as.factor(det), y = mero_init_out, color = as.factor(det), fill = as.factor(det)), 
                  linewidth = 0.8, alpha = 0.8) + #
     geom_jitter(aes(x = as.factor(det), y = mero_init_out, color = as.factor(det)), alpha = 0.25) + #
     geom_hline(yintercept = 1e-5 * 1e6, color = 'darkred', linetype = 2) +
-    facet_wrap(~arm) +
+    facet_wrap(~factor(arm, levels = c('none','rtss','smc','both'))) +
     labs(x = NULL,#'Infection status',
          y = 'Merozoites initating infection') + 
     scale_color_manual(values = detectability_colors) +
@@ -33,7 +33,9 @@ plot_initial_merozoites <- function(outputsfolder){
     scale_x_discrete(labels = c('0' = 'Cleared', '1' = 'Detectable Case')) +
     theme_bw(base_size = 12) + 
     scale_y_log10(labels = scales::label_log(),
-                  guide = "axis_logticks") +
+                  breaks = c(0, 0.0000001, 0.1, 1, 10, 100, 1000, 10000),
+                  guide = "axis_logticks"
+                  ) +
     theme(legend.position = 'none')
   ggsave(paste0(path, outputsfolder,'/initial_merozoites.pdf'), plot = last_plot(),
          height = 5, width = 8)

@@ -113,7 +113,7 @@ update(p_history[2:n_pv_dim]) <- p_history[i - 1]# for current timestep, add in 
 # SMC_kill_rate <- if (time >= smc_timing) max_SMC_kill_rate * exp(-((time - smc_timing) / lambda)^kappa) else 0 # hill
 # SMC_kill_rate <- if (time >= smc_timing) max_SMC_kill_rate * exp(-SMC_decay * (time - smc_timing)) else 0#max_SMC_kill_rate * exp(-SMC_decay * dt) # ## time-varying SMC kill rate (exponential decay) # exp
 p_killSMC <-  if(SMC_on == 1) 1 - exp(-SMC_kill_rate * dt) else 0
-n_killSMC <- Binomial(PB * VB, p_killSMC) / VB 
+n_killSMC <- min(PB, (Binomial(size = PB * VB, prob = p_killSMC) / VB))
 
 initial(SMC_kill_rateout) <- 0
 update(SMC_kill_rateout) <- SMC_kill_rate
@@ -121,6 +121,14 @@ initial(prob_smckill) <- 0
 update(prob_smckill) <- p_killSMC
 initial(numkillSMC) <- 0
 update(numkillSMC) <- n_killSMC
+
+# Add a new state variable to track PB BEFORE it's used in the binomial
+initial(PB_for_binomial) <- 0
+update(PB_for_binomial) <- PB
+
+# Also track PB * VB to see what the binomial size parameter actually is
+initial(binomial_size) <- 0
+update(binomial_size) <- PB * VB
 
 
 ######## Immunity 10.1038/s41467-017-01352-3
@@ -183,9 +191,9 @@ r <- n^2 / (sigma_n^2 - n)
 
 # Draw number of successful sporozoites
 num_bites <- parameter(1) # default is a single bite 
-kspz1 <- NegativeBinomial(size = r / 5, mu = n*DR) #/ 5 bites
-kspz2 <- if(num_bites > 1) NegativeBinomial(size = r / 5, mu = n*DR) else 0 # if there is a second bite on the same day, use this 
-kspz3 <- if(num_bites > 2) NegativeBinomial(size = r / 5, mu = n*DR) else 0 # if 3 bites on teh same day 
+kspz1 <- NegativeBinomial(size = r, mu = n*DR) #/ 5 bites
+kspz2 <- if(num_bites > 1) NegativeBinomial(size = r, mu = n*DR) else 0 # if there is a second bite on the same day, use this 
+kspz3 <- if(num_bites > 2) NegativeBinomial(size = r, mu = n*DR) else 0 # if 3 bites on teh same day 
 kspz <- kspz1 + kspz2 + kspz3 # add up the number of spz for each bite
 # num_bites <- parameter(1) # default is a single bite 
 # kspz1 <- NegativeBinomial(size = r / 5, prob =p) #/ 5 bites

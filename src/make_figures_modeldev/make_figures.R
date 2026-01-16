@@ -27,6 +27,14 @@ outputs_folder <- 'outputs_2025-12-17_treat_0.9start_115threshold5000_3' # peren
 outputs_folder <- 'outputs_2025-12-18_treat_0.9start_115threshold5000' # pperennial, ab only parameters, earlier vaccination (day 20)
 outputs_folder <- 'outputs_2025-12-21_treat_0.9start_122threshold5000' # seasonal, ab only, 75 vaccination, 
 
+#Updated RTSS pars (15 Jan 2026) 
+# seasonal: 
+outputs_folder <- 'outputs_2026-01-15_3'
+# perennial:
+outputs_folder <- 'outputs_2026-01-15'
+# constant: 
+outputs_folder <- 'outputs_2026-01-15_2'
+
 # first, do monthly inci, then order doesn't matter
 plot_monthly_incidence(outputsfolder = outputs_folder)
 
@@ -42,5 +50,5 @@ plot_irr(outputsfolder = outputs_folder)
 # plot 1-IRR average 
 plot_irr_average(outputsfolder = outputs_folder)
 
-# intiail merozoites (only if we export parasitemia)
-plot_initial_merozoites(outputsfolder = 'outputs_2025-12-08_treat_0.9start_141threshold5000')
+# initial merozoites (only if we export parasitemia)
+plot_initial_merozoites(outputsfolder = 'outputs_2026-01-15_4') #'outputs_2025-12-08_treat_0.9start_141threshold5000'

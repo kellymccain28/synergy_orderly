@@ -35,14 +35,14 @@ ggplot(generic_seas) +
   geom_vline(data = smc_lines, aes(xintercept = xint, color = 'SMC rounds'), linetype = 2) +
   geom_area(data = smc_shaded, aes(x = xint, y = 1), fill = colorspace::lighten('#4D9DE0', amount = 0.5), alpha = 0.15) +
   theme_minimal(base_size = 14) +
-  theme(axis.text.y = element_blank(),
+  theme(#axis.text.y = element_blank(),
         legend.position = c(0.9,0.8)) + 
   scale_x_date(breaks = '1 month',
                labels = scales::label_date_short())+
   scale_color_manual(values =  c('SMC rounds' = '#4D9DE0',
                                  'Vaccine doses' = '#470024',
                                  "Probability of\ninfectious bite" = '#AE0939'))+
-  labs(y = NULL,
+  labs(y = "Probability",
        x = NULL,
        color = NULL) 
 
