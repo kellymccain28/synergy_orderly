@@ -149,6 +149,18 @@ rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-0
 parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13/parameters.rds")
 rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_2/efficacy_rtss.rds")
 parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_2/parameters.rds")
+
+#91f27b039d6646a37d3f24b15ff1e903 testing 4 best 
+rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_3/efficacy_rtss.rds")
+parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_3/parameters.rds")
+# lognormal 
+rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_4/efficacy_rtss.rds")
+parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_4/parameters.rds")
+rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-14/efficacy_rtss.rds")
+parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-14/parameters.rds")
+#final params + log normal biting 
+rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-14_2/efficacy_rtss.rds")
+parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-14_2/parameters.rds")
 # rtsscumul <- rtsscumul %>% left_join(parameters)
 rtsseff <- rtsseff %>% left_join(parameters)
 
@@ -176,14 +188,14 @@ allmls <- unlist(allmls)
 which(allmls == min(allmls))
 parameters$mls <- allmls
 
-# 1.285119, 2.925123, 0.035372236 - best from 12/10
+
 # rtssinfs <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/infectionrecords_rtss_2025-12-02.rds")
-best <- rtsseff %>% filter(sim_id %in% parameters[parameters$mls < 0.0015,]$sim_id )#filter(sim_id %in% parameters[parameters$mls < 0.02,]$sim_id)#
+best <- rtsseff #%>% filter(sim_id %in% parameters[parameters$mls < 0.0025,]$sim_id )#filter(sim_id %in% parameters[parameters$mls < 0.02,]$sim_id)#
 ggplot(best )+#%>% filter(alpha_ab > 1.2 & alpha_ab  < 1.8 &  vmin > 0.25))+#filter(alpha_ab > 1.4 & alpha_ab  < 1.7 & beta_ab <5 & beta_ab > 3)) + #filter(alpha_ab > 1.2 & alpha_ab  < 1.8 &  vmin > 0.25)
-  geom_line(aes(x = months_since_rtss, y = efficacy, group = sim_id, color = paste0(as.factor(round(alpha_ab, 3)), ', ',
-                                                                                    as.factor(round(beta_ab,3)), ', ', 
-                                                                                    as.factor(round(vmin, 4)))),  
-            alpha = 0.5, linewidth = 1) +#,color = 'orange',
+  geom_line(aes(x = months_since_rtss, y = efficacy, group = sim_id), #color = paste0(as.factor(round(alpha_ab, 3)), ', ',
+                                                                     #               as.factor(round(beta_ab,3)), ', ', 
+                                                                     #               as.factor(round(vmin, 4)))),  
+            color = 'orange', alpha = 0.2, linewidth = 1) +#,,
   # geom_line(aes(x = weeks_since_rtss, y = efficacy, group = sim_id), color = 'orange', alpha = 0.5) +
   geom_line(data = observed_efficacy_rtss , aes(x = months_since_rtss, y = observed_efficacy), color = 'black', linewidth= 1) +
   # geom_line(data = observed_efficacy_rtss , aes(x = weeks_since_rtss, y = observed_efficacy), color = 'black', linewidth= 1) +
@@ -204,15 +216,7 @@ ggplot(best )+#%>% filter(alpha_ab > 1.2 & alpha_ab  < 1.8 &  vmin > 0.25))+#fil
        y = 'Vaccine efficacy',
        x = 'Months since RTS,S') 
 bestpars <- best %>% distinct(alpha_ab, beta_ab, vmin)
-# alpha_ab beta_ab    vmin
-# 1.70     3.62       0.00285
-# 1.88     3.79       0.00315
-# 1.52     3.06       0.00127
-# 1.87     3.37       0.00374
-# 1.81     3.73       0.00412
-# 1.67     3.22       0.00197
-# 1.65     3.26       0.00395 **
-# 1.48     2.46       0.00225 *
+
 ggsave(filename = 'R:/Kelly/synergy_orderly/figures/rtss_fit.pdf', height = 6, width = 8) # as of 6/1/26, the eff from 16 Dec is in the thesis 
 
 dr <-p_spz_surv(ab_summary$median_ab, beta_ab = 3.538125, alpha_ab = 1.3804900)

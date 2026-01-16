@@ -124,8 +124,8 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
   
   best_lhs <- data.frame(
     sim_id = 'parameter_set_1',
-    alpha_ab = 1.38,
-    beta_ab = 5.83,
+    alpha_ab = c(1.38, 1.32, 1.5),
+    beta_ab = c(5.83, 6.62, 6),
     lag_p_bite = 0
   )
   # best_lhs <- pars[pars$sim_id %in% top_runs$sim_id,]
@@ -293,8 +293,8 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
                                             function(start){
                                               initial_params <- c(start$alpha_ab,
                                                                   start$beta_ab)
-                                              lower_bounds <- c(1, 3) # alpha, beta
-                                              upper_bounds <- c(4, 7)
+                                              lower_bounds <- c(0.5, 4) # alpha, beta
+                                              upper_bounds <- c(3, 8)
                                               
                                               # Track evaluations
                                               n_evals <- 0
@@ -392,7 +392,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
     parallel::stopCluster(cl)
   }
   
-  saveRDS(optim_results, paste0(path, '/src/fit_rtss/outputs/optimization_results_2111.rds'))
+  saveRDS(optim_results, paste0(path, '/src/fit_rtss/outputs/optimization_results_', Sys.Date(), '.rds'))
   # infectionrecords <- purrr::map_df(results2, "infection_records")
   # efficacy <- purrr::map_df(results2, 'efficacy_weekly')
   # efficacy_cumul <- purrr::map_df(results2, 'efficacy_weekly_cumul')

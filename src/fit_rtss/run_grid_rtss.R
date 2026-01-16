@@ -93,14 +93,14 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
   # )
   params_df <- rbind(
     # from post changing to mu parameterization 13/1
-    data.frame(alpha_ab = 1.73, beta_ab = 2.37, vmin = 0.000122),
-    data.frame(alpha_ab = 1.77, beta_ab = 2.63, vmin = 0.000513),
+    # data.frame(alpha_ab = 1.73, beta_ab = 2.37, vmin = 0.000122),
+    data.frame(alpha_ab = 1.77, beta_ab = 2.63, vmin = 0.000513)# this is the best one (see outputs from 01-13_4 and 01-14)
     # from pre changing to mu parameterization from prob (1-p) 13/1
-    data.frame(alpha_ab = 1.65, beta_ab = 3.26, vmin = 0.00395),
-    data.frame(alpha_ab = 1.48, beta_ab = 2.46, vmin = 0.00225)
+    # data.frame(alpha_ab = 1.65, beta_ab = 3.26, vmin = 0.00395),
+    # data.frame(alpha_ab = 1.48, beta_ab = 2.46, vmin = 0.00225)
   )
   params_df <- params_df %>%
-    slice(rep(row_number(), each = n_param_sets / 4))
+    slice(rep(row_number(), each = n_param_sets))
   params_df <- params_df %>%
     mutate(
     max_SMC_kill_rate = rep(0, n_param_sets),
@@ -324,6 +324,8 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
   saveRDS(params, paste0(output_dir, '/parameters.rds'))
   saveRDS(infectionrecords, paste0(output_dir, '/infectionrecords_rtss.rds'))
   saveRDS(efficacy, paste0(output_dir, '/efficacy_rtss.rds'))
+  
+  message(output_dir)
   # saveRDS(mls, paste0(output_dir, '/mls.rds'))
 }
 

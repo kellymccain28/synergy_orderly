@@ -113,7 +113,7 @@ update(p_history[2:n_pv_dim]) <- p_history[i - 1]# for current timestep, add in 
 # SMC_kill_rate <- if (time >= smc_timing) max_SMC_kill_rate * exp(-((time - smc_timing) / lambda)^kappa) else 0 # hill
 # SMC_kill_rate <- if (time >= smc_timing) max_SMC_kill_rate * exp(-SMC_decay * (time - smc_timing)) else 0#max_SMC_kill_rate * exp(-SMC_decay * dt) # ## time-varying SMC kill rate (exponential decay) # exp
 p_killSMC <-  if(SMC_on == 1) 1 - exp(-SMC_kill_rate * dt) else 0
-n_killSMC <- min(PB, (Binomial(size = PB * VB, prob = p_killSMC) / VB))
+n_killSMC <- Binomial(size = PB * VB, prob = p_killSMC) / VB#min(PB, ())
 
 initial(SMC_kill_rateout) <- 0
 update(SMC_kill_rateout) <- SMC_kill_rate
