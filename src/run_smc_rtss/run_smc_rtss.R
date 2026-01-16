@@ -9,14 +9,14 @@ library(orderly)
 # orderly_strict_mode()
 runpars <- orderly_parameters(n_particles = NULL,
                    n_threads = NULL,
-                   t_inf_vax = NULL,# if before infection, then + number; time of infectious bite relative to vaccination, influences AB titre and also influences the length of SMC kill vec -- t_inf/2:end
-                   ts = NULL,
+                   t_inf_vax = NULL,# if before infection, then + number; time of infectious bite relative to vaccination, influences AB titre ####nopt anymore :and also influences the length of SMC kill vec -- t_inf/2:end
+                   ts = NULL, # number of 2 day timesteps
                    tstep = NULL,
                    max_SMC_kill_rate = 2.333333,
                    lambda = 16.66667, 
                    kappa = 0.2222222,
                    num_bites = 1,
-                   # SMC_decay = NULL,
+                   threshold = 5000,
                    season_start_day = NULL, # influences when SMC is delivered relative to the start of the infection/sim 
                    # season_length = NULL,
                    # smc_interval = NULL,
@@ -33,7 +33,7 @@ season_start_day = runpars$season_start_day
 inf_start = runpars$inf_start
 VB = 1e6
 tt <- seq(1, runpars$ts, by = runpars$tstep)#
-threshold <- 5000
+threshold <- runpars$threshold
 num_bites = runpars$num_bites
 
 orderly_shared_resource("smc.R",
@@ -68,6 +68,7 @@ nothing <- run_model(n_particles = n_particles,
               n_particles = n_particles) %>%
   make_plots() 
 prbc <- nothing[[1]] + xlim(c(0,200))
+prbc
 innate <- nothing[[2]]
 genad <- nothing[[3]]
 varspec <- nothing[[4]]
@@ -175,11 +176,6 @@ smc <- run_model(n_particles = runpars$n_particles,
               n_particles = runpars$n_particles) %>%
   make_plots()
 smc[[1]] + xlim(c(0,365))# plotting time which is in 2 day timesteps
-# smc[[2]] #+ xlim(c(0,100))
-# smc[[3]]
-# smc[[4]]
-# smc[[6]]
-# smc[[7]]# + labs(x = 'Years', caption = NULL) #+ xlim(c(0,1))
 smc[[8]]+ xlim(c(0,400))
 smc[[9]]#+ xlim(c(0,100)) + ylim(c(0, 1))
 smc[[10]]#+xlim(c(0,100))
@@ -196,55 +192,76 @@ dfsmc <- smc[[6]] %>%
   mutate(scen = 'smc')
 smc[['meroinit']] + labs(caption = NULL)
 
+dfsmc <- dfsmc %>% 
+  group_by(run) %>%
+  arrange(run, time_withinhost) %>%
+  mutate(laggedpb = lag(parasites),
+         wrong = ifelse(nkillsmc > parasites, 'wrong',
+                                         ifelse(parasites > nkillsmc  & parasites == 0, 'no parasites', 'ok')),
+         wronglagged = ifelse(nkillsmc > laggedpb, 'wrong',
+                        ifelse(laggedpb > nkillsmc & laggedpb == 0, 'no parasites', 'ok')))
+
 colorsplot <- c("#4123E8","#A6BF19")
 parasites <- ggplot(dfsmc) + 
-  geom_line(aes(x = time_withinhost2, y = parasites, group = run, color = detectable), alpha = 0.6, linewidth = 0.6) + #, color = cleared
-  geom_line(aes(x = time_withinhost2, y = median_parasites, color = detectable), linewidth = 0.6)+
-  geom_hline(aes(yintercept = threshold), linetype = 2, color = 'darkred', linewidth = 1) + # this is the detection limit (followiung Challenger et al.)
-  geom_hline(aes(yintercept = 1e-5), linetype = 2, color = 'darkgreen', linewidth = 1) + # this is the clearance threshold
-  scale_y_log10(labels = scales::label_log(),
+  geom_line(aes(x = time_withinhost2+2, y = parasites, group = run, color = detectable), alpha = 0.6, linewidth = 0.6) + #, color = cleared
+  geom_line(aes(x = time_withinhost2+2, y = median_parasites, color = detectable), linewidth = 0.6)+
+  # geom_line(aes(x = time_withinhost2, y = nkillsmc, group = run, color = detectable), alpha = 0.7, linewidth = 0.6, linetype = 2) + #
+  geom_hline(aes(yintercept = runpars$threshold), linetype = 2, color = 'darkred', linewidth = 0.8) + # this is the detection limit (followiung Challenger et al.)
+  geom_hline(aes(yintercept = 1e-5), linetype = 2, color = 'darkgreen', linewidth = 0.8) + # this is the clearance threshold
+  scale_y_log10(#labels = scales::label_log(digits = 2),
+                breaks = c(1e-5, 1e-3, 1e-1, 1e1, 1e2, 5000, 1e5 ),
                 guide = "axis_logticks") +
-  scale_x_continuous(limits = c(0, max(dfsmc$time_withinhost2)))+
+  scale_x_continuous(limits = c(0, 300))+
   scale_color_manual(values = colorsplot) +
   labs(x = 'Days since start of blood stage',
        y = 'Parasites/uL') + 
-  theme_bw() + xlim(c(0,400))+
+  theme_bw() + #xlim(c(0,400))+
   theme(legend.position = 'none')
 smckillplot <- ggplot(dfsmc) + 
-  geom_line(aes(x = time_withinhost2, y = smcrate, group = run, color = detectable), alpha = 0.7, linewidth = 0.8) + #
+  geom_line(aes(x = time_withinhost2, y = smcrate, group = run, color = detectable), alpha = 0.7, linewidth = 0.6) + #
   scale_x_continuous(limits = c(0, max(dfsmc$time_withinhost2)))+
   labs(x = 'Days since start of blood stage',
-       y = 'SMC per-parasite clearance rate\nper 2-day timestep') + 
+       y = 'SMC per-parasite\nclearance rate\nper 2-day timestep') + 
   scale_color_manual(values = c('grey','maroon') ) +
-  theme_bw() + xlim(c(0,400)) +
+  scale_y_continuous(breaks = c(0,1,2,3,4), limits = c(0,4)) +
+  theme_bw() + xlim(c(0,300)) + 
   theme(legend.position = 'none') 
 smcprobplot <- ggplot(dfsmc) + 
   geom_line(aes(x = time_withinhost2, y = smc_prob, group = run, color = detectable), alpha = 0.7, linewidth = 0.6) + #
   scale_x_continuous(breaks = c(0, 7, seq(14, max(dfsmc$time_withinhost2), 28)),
                      limits = c(0, max(dfsmc$time_withinhost2)))+
   labs(x = 'Days since start of blood stage',
-       y = 'SMC per parasite/uL\nclearance probability') + 
+       y = 'SMC per parasite\nclearance probability\nper 2-day timestep') + 
+  ylim(c(0,1)) + 
   scale_color_manual(values = c('grey','darkorchid4') ) +
   theme_bw() + 
-  theme(legend.position = 'none') + xlim(c(0,400)) 
+  theme(legend.position = 'none') + xlim(c(0,300)) 
 numkillsmcplot <- ggplot(dfsmc ) + 
   geom_line(aes(x = time_withinhost2, y = nkillsmc, group = run, color = detectable), alpha = 0.7, linewidth = 0.6) + #
-  scale_x_continuous(breaks = c(0, 7, seq(14, max(dfsmc$time_withinhost2), 14)),
-                     limits = c(0, max(dfsmc$time_withinhost2)))+
-  geom_hline(aes(yintercept = threshold), linetype = 2, color = 'darkred', linewidth = 1) + # this is the detection limit (followiung Challenger et al.)
-  geom_hline(aes(yintercept = 1e-5), linetype = 2, color = 'darkgreen', linewidth = 1) + # this is the clearance threshold
+  scale_x_continuous(#breaks = c(0, 7, seq(14, max(dfsmc$time_withinhost2), 14)),
+                     limits = c(0, 300))+
+  geom_hline(aes(yintercept = runpars$threshold), linetype = 2, color = 'darkred', linewidth = 0.8) + # this is the detection limit (followiung Challenger et al.)
+  geom_hline(aes(yintercept = 1e-5), linetype = 2, color = 'darkgreen', linewidth = 0.8) + # this is the clearance threshold
   labs(x = 'Days since start of blood stage',
-       y = 'Parasites/uL cleared by SMC') + 
+       y = 'Parasites/uL\ncleared by SMC') + 
   scale_color_manual(values = colorsplot) +
   theme_bw() + 
-  scale_y_log10(labels = scales::label_log(),
-                guide = "axis_logticks") +
-  theme(legend.position = 'none') + xlim(c(0,400)) 
+  scale_y_log10(#labels = scales::label_log(digits = 2),
+                breaks = c(1e-5, 1e-3, 1e-1, 1e1, 1e2, 5000, 1e5 ),
+                guide = "axis_logticks",
+                limits = c(0.000001,NA)) +
+  theme(legend.position = 'none') #+ xlim(c(0,400)) 
   
-smcplot <- plot_grid(parasites, smckillplot, numkillsmcplot, smcprobplot,
-          labels = 'AUTO')
-saveRDS(smc[[6]], paste0("R:/Kelly/synergy_orderly/figures/data/smc_data", Sys.Date(), '.rds'))
-ggsave('R:/Kelly/synergy_orderly/figures/smcdynamics_plot.pdf', height = 6, width = 8)
+# smcplot <- plot_grid(parasites, numkillsmcplot, smckillplot, smcprobplot,
+#           labels = 'AUTO')
+library(patchwork)
+smcplot <- parasites / numkillsmcplot / (smckillplot + smcprobplot) +
+  plot_annotation(tag_levels = 'A')
+# library(gridExtra)
+# grid.arrange(parasites,numkillsmcplot, smckillplot, smcprobplot, 
+#              nrow = 3, layout_matrix = rbind(c(1,1), c(2,2),c(3,4)))
+saveRDS(dfsmc, paste0("R:/Kelly/synergy_orderly/figures/data/smc_data", Sys.Date(), '.rds'))
+ggsave(paste0('R:/Kelly/synergy_orderly/figures/smcdynamics_plot', Sys.Date(), '.pdf'), height = 8, width = 10)
 # % of runs with infection at day 60 
 # dfsmc %>% filter(time == max(time), parasites < 10) %>% count() / n_particles
 # dfsmc %>% filter(time == 15, parasites < 10) %>% count() / n_particles
