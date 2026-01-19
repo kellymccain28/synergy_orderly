@@ -34,8 +34,8 @@ update(m) <- TruncatedNormal(mean = mean_new, sd = sd_new, min = min_m, max = ma
 update(PC) <- PC + if(PB_next > C) C else PB_next
 initial(PC) <- 0
 
-# Make variable to keep track of  sum of parasitemia over timesteps t = 1 to t = t-4+1
-n_dim <- 3
+# Make variable to keep track of sum of parasitemia over timesteps t = 1 to t = t-4
+n_dim <- 4
 dim(buffer) <- n_dim
 initial(buffer[]) <- 0
 ## Most recent data first
@@ -53,7 +53,7 @@ update(PBsum) <- if(time > 3) PC - sum(buffer) else 0
 # No sum before t=4, # Invalid range if ft>tminus4,  # Valid range - sum from f_t_timestep to t_minus_4_timestep
 update(sv_timestep_range) <- t_minus_4 - f_t
 initial(sv_timestep_range) <- 0
-update(PBvsum) <- if (time <= 4) 0 else if (sv_timestep_range <= 0) 0 else sum(p_history[t_minus_4_ts:f_t_ts])
+update(PBvsum) <- if (time <= 4) 0 else if (sv_timestep_range < 0) 0 else sum(p_history[t_minus_4_ts:f_t_ts])
 initial(PBvsum) <- 0
 
 # Make array variable to keep track of paraistemia over gradually expanding time window 
@@ -149,7 +149,7 @@ kappam <- 1                 #
 C <- 1                      # regulates growth rate of general adaptive immunity
 beta <- 0.01                # controls max efficacy of the general adaptive immunity
 km <- 0.021                 #
-alpha_pm <- 0.0311 #1       # first parm for Gompertz distribution to control gen adaptive response
+alpha_pm <- 0.0311 #1       # first par for Gompertz distribution to control gen adaptive response
 theta_pm <- 0.0004 #2       # second " "
 
 unif <- Uniform(0,1)
@@ -178,7 +178,7 @@ sigma_n <- 194 #, sigman sd of number of successful spz per challenge
 mu <- 2136  # mean number of merozoites released per sporozoite in Michael's model; gamma distributed
 sigma_mu <- 4460  #from Michael's model # sd of number of merozoites released per sporozoite; gamma distributed
 beta_ab <- parameter(5.83)#6.62) # anti-CSP titre for 50% reduction in spz survival prob microgram/mL
-alpha_ab <- parameter(1.38)#1.32)  # shape parameter for antibody dose-response
+alpha_ab <- parameter(1.38)#1.32)  # shape parameter for antibody dose-response, changed to phi in thesis to avoid duplication
 vmin <- parameter(0) # minimum survival probability  (addition to white model to reduce effectiveness of the )
 
 
