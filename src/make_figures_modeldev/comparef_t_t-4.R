@@ -11,8 +11,8 @@ t_max <- 100
 # Create data frame
 df <- data.frame(t = 1:t_max) %>%
   mutate(
-    t_minus_4 = t - 4 +1,
-    f_t = ifelse(t <= 4, 1, lambda^(t-4+1) * (t-4+1)),
+    t_minus_4 = t - 4,
+    f_t = ifelse(t <= 4, 1, lambda^(t-4) * (t-4)),
     range_start = ifelse(t <= 4, NA, f_t),
     range_end = ifelse(t <= 4, NA, t_minus_4),
     range_width = ifelse(t <= 4, 0, pmax(0, t_minus_4 - f_t)),
@@ -22,7 +22,7 @@ df <- data.frame(t = 1:t_max) %>%
 # Print key values at different time points
 cat("Range [f(t), t-4] at key time points:\n")
 cat("=====================================\n")
-key_times <- c(5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100)
+key_times <- c(1,2,3,4,5,6,7,8,9, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100)
 for(t_val in key_times) {
   row <- df[df$t == t_val, ]
   cat(sprintf("t=%d: f(t)=%.3f, t-4=%d, range=[%.3f, %d], width=%.3f\n", 
@@ -55,7 +55,7 @@ ggsave(filename = 'R:/Kelly/synergy_orderly/figures/f_t_versus_t-4.pdf', p2, hei
 
 # Plot 3: Visualization of the range as filled area
 p3 <- ggplot(df %>% filter(t > 4 & t <= 50), aes(x = t)) +
-  geom_ribbon(aes(ymin = f_t, ymax = t_minus_4), alpha = 0.3, fill = "lightblue") +
+  geom_ribbon(aes(ymin = f_t, ymax = t_minus_4), alpha = 0.3, fill = "green") +
   geom_line(aes(y = f_t, color = "f(t)"), size = 1) +
   geom_line(aes(y = t_minus_4, color = "t-4"), size = 1) +
   labs(title = "Summation Range Visualization (t = 5 to 50)",
@@ -65,16 +65,13 @@ p3 <- ggplot(df %>% filter(t > 4 & t <= 50), aes(x = t)) +
   theme_minimal() +
   scale_color_manual(values = c("f(t)" = "blue", "t-4" = "red"))
 
-# Display plots
-print(p1)
-print(p2)
-print(p3)
+p1
+p2
+p3
 
 
 
 # Summary statistics
-cat("\nSummary Statistics:\n")
-cat("==================\n")
 summary_stats <- df %>% 
   filter(t > 4) %>%
   summarise(
@@ -84,12 +81,10 @@ summary_stats <- df %>%
     final_f_t = last(f_t),
     final_t_minus_4 = last(t_minus_4)
   )
-
-print(summary_stats)
+summary_stats
 
 # Show how many discrete time steps are included in the sum at different times
-cat("\nNumber of discrete steps in summation:\n")
-cat("=====================================\n")
+# Number of discrete steps in summation:
 for(t_val in key_times) {
   row <- df[df$t == t_val, ]
   start_step <- ceiling(row$range_start)

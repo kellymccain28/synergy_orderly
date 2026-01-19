@@ -27,7 +27,7 @@ plot_initial_merozoites <- function(outputsfolder){
     geom_hline(yintercept = 1e-5 * 1e6, color = 'darkred', linetype = 2) +
     facet_wrap(~factor(arm, levels = c('none','rtss','smc','both'))) +
     labs(x = NULL,#'Infection status',
-         y = 'Merozoites initating infection') + 
+         y = 'Number of merozoites initating infection') + 
     scale_color_manual(values = detectability_colors) +
     scale_fill_manual(values = lighter) +
     scale_x_discrete(labels = c('0' = 'Cleared', '1' = 'Detectable Case')) +
