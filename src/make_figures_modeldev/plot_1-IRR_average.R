@@ -1,6 +1,7 @@
 # plot overall 1-IRR for each year 
 
-plot_irr_average <- function(outputsfolder){
+plot_irr_average <- function(outputsfolder, 
+                             agg_unit = 'year'){
   # Load packages
   library(zoo)
   library(survival)
@@ -19,6 +20,7 @@ plot_irr_average <- function(outputsfolder){
   # Using the outputs from monthly_incidence_plot.R
   inci <- readRDS(paste0(path, outputsfolder, '/incidence.rds'))
   
+  if(agg_unit == 'year'){
   # Get annual and overall incidence 
   inci_annual <- inci %>%
     mutate(studyyear = case_when(date < '2018-04-01' ~ 1,
@@ -29,6 +31,20 @@ plot_irr_average <- function(outputsfolder){
               n_cases = sum(n_cases)) %>%
     mutate(incidence_per_1000pm = n_cases / person_months * 1000,
            studyyear = as.character(studyyear))
+  } else if (agg_unit == 'halfyear'){
+    inci_annual <- inci %>%
+      mutate(studyyear = case_when(date < '2017-10-01' ~ 1,
+                              date < '2018-04-01' ~ 2,
+                              date < '2018-10-01' ~ 3,
+                              date < '2019-04-01' ~ 4,
+                              date < '2019-10-01' ~ 5,
+                              date < '2020-04-01' ~ 6)) %>%
+      group_by(studyyear, arm, sim_id) %>%
+      summarize(person_months = sum(person_months),
+                n_cases = sum(n_cases)) %>%
+      mutate(incidence_per_1000pm = n_cases / person_months * 1000,
+             studyyear = as.character(studyyear))
+  } 
   
   inci_overall <- inci %>%
     group_by(arm, sim_id) %>%
@@ -116,36 +132,139 @@ plot_irr_average <- function(outputsfolder){
   expected <- 1 - ((1-rtssnone) * (1-smcnone)) #rtssnone * (1 - smcnone) + smcnone -- second equation is the one from Sherrard-Smith
   expected$studyyear <- inci_summary[inci_summary$comparison == 'rtss vs none',]$studyyear
   
+  # get the values for the text
+  inci_summary %>%
+    filter(studyyear == 'overall') %>%
+    rbind(expected %>% filter(studyyear == 'overall') %>% mutate(studyyear = 'expected overall')) %>%
+    saveRDS(paste0(path, outputsfolder, '/summary_efficacy.rds'))
+  
+  # Plotting
+  colors <- RColorBrewer::brewer.pal(9, 'BuPu')
+  colors <- c(colors[4:length(colors)], 'black')
+  
+  inci_summary <- inci_summary %>%
+    mutate(shape_var = 'Model-predicted') %>%
+    rbind(expected %>% 
+            mutate(comparison = 'Expected: both vs none',
+                   shape_var = 'Expected')) %>%
+    mutate(comparison = factor(comparison, levels = c("Expected: both vs none", 'both vs none',
+                                                      'both vs rtss','both vs smc',
+                                                      'rtss vs none','smc vs none',
+                                                      'rtss vs smc','smc vs rtss')))
   # plot
-  ggplot(inci_summary, aes(x = comparison, y = median, color = studyyear, group = studyyear)) +
+  ggplot(inci_summary, aes(x = comparison, y = median, color = studyyear, group = studyyear, shape = shape_var)) +
     # model estimated
     geom_point(position = position_dodge(width = 0.5)) +
     geom_errorbar(aes(ymin = lower_ci, ymax = upper_ci),
                   width = 0.2, position = position_dodge(width = 0.5)) +
     # expected 
-    geom_point(data = expected, 
-               aes(x = 'both vs none', y = median, color = studyyear, group = studyyear, shape = 'Expected'),
-               position = position_dodge(width = 0.7)) +
-    geom_errorbar(data = expected, 
-                  aes(x = 'both vs none', y = median, color = studyyear, group = studyyear, ymin = lower_ci, ymax = upper_ci,
-                      linetype = 'Expected'),
-                  width = 0.2, position = position_dodge(width = 0.7)) +
+    # geom_point(data = expected, 
+    #            aes(x = 'both vs none', y = median, color = studyyear, group = studyyear, shape = 'Expected'),
+    #            position = position_dodge(width = 0.8)) +
+    # geom_errorbar(data = expected, 
+    #               aes(x = 'both vs none', y = median, color = studyyear, group = studyyear, ymin = lower_ci, ymax = upper_ci,
+    #                   linetype = 'Expected'),
+    #               width = 0.2, position = position_dodge(width = 0.8)) +
     
-    scale_shape_manual(values = c('Expected' = 7)) + 
-    scale_linetype_manual(values = c('Expected' = 2)) +
-    scale_color_brewer(palette = 'Dark2') +
+    scale_shape_manual(values = c('Expected' = 7, 'Model-predicted' = 16)) + 
+    # scale_linetype_manual(values = c('Expected: both vs none' = 2)) +
+    # scale_color_brewer(palette = 'BuPu') +
+    scale_color_manual(values = colors) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "darkred") +
     labs(
       x = "Arm Comparison",
-      y = "1 - Incidence Rate Ratio (IRR)",
+      y = "Relative efficacy (1-IRR)",
       # title = "Median IRR with 95% CI by Intervention Comparison",
       shape = NULL, linetype = NULL,
       color = 'Study year'
     ) +
     scale_y_continuous(breaks = seq(-1,1,0.2)) + 
-    theme_minimal(base_size = 12) +
+    theme_minimal(base_size = 14) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
     
-    ggsave(paste0(path, outputsfolder,'/irr_average_byyear.pdf'), plot = last_plot(), width = 12, height = 6)
+    ggsave(paste0(path, outputsfolder,'/irr_average_by', agg_unit, '.pdf'), plot = last_plot(), width = 12, height = 6)
+    
+    
+    # Tile plot 
+    inci_summary <- inci_summary %>%
+      separate(comparison, 
+               into = c("comparator", "reference"), 
+               sep = " vs ",
+               remove = FALSE) %>%
+      left_join(expected %>%
+                  rename(median_exp = median, 
+                         lower_ci_exp = lower_ci, 
+                         upper_ci_exp = upper_ci), by = 'studyyear') %>%
+      mutate(synergistic = ifelse(median > median_exp, 1, 0))
+    
+    ggplot(inci_summary)+
+      geom_tile(aes(x = comparator, y = reference, fill = median)) + 
+      scale_fill_distiller(palette = 'RdYlGn', direction = 1) + 
+      facet_wrap(~studyyear)
+    
+    syn <- inci_summary %>%
+      filter(comparison == 'both vs none') %>%
+      mutate(expected = 'Model-predicted') %>%
+      rbind(expected %>% mutate(expected = 'Expected'))
+    
+    ggplot(syn, aes(x = studyyear, y = median, color = expected, group = expected)) +
+      # model estimated
+      geom_point(aes(shape = expected), position = position_dodge(width = 0.5)) +
+      geom_errorbar(aes(ymin = lower_ci, ymax = upper_ci),
+                    width = 0.2, position = position_dodge(width = 0.5)) +
+      scale_shape_manual(values = c('Expected' = 7, 'Model-predicted' = 16))+#, guide = NULL) + 
+      scale_linetype_manual(values = c('Expected' = 2)) +
+      scale_color_brewer(palette = 'Dark2') +
+      # scale_color_manual(values = colors) +
+      geom_hline(yintercept = 0, linetype = "dashed", color = "darkred") +
+      labs(
+        x = if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Half-year',
+        y = "Relative efficacy (1-IRR)",
+        # title = "Median IRR with 95% CI by Intervention Comparison",
+        shape = NULL, linetype = NULL,
+        color = NULL
+      ) +
+      scale_y_continuous(breaks = seq(0,1,0.2)) + 
+      theme_minimal(base_size = 12) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    
+    ggsave(paste0(path, outputsfolder,'/bothvsnone_irr_', agg_unit, '.pdf'), plot = last_plot(), width = 6, height = 4)
+    
+
+    # # Plot of only values overall 
+    # ggplot(inci_summary %>% filter(studyyear == 'overall'), 
+    #        aes(x = comparison, y = median)) +
+    #   # model estimated
+    #   geom_point(aes(color = reference, group = reference), 
+    #              position = position_dodge(width = 0.5)) +
+    #   geom_errorbar(aes(ymin = lower_ci, ymax = upper_ci, color = reference, group = reference),
+    #                 width = 0.2, position = position_dodge(width = 0.5)) +
+    #   # expected 
+    #   geom_point(data = expected %>% filter(studyyear == 'overall'), 
+    #              aes(x = 'both vs none', y = median, shape = 'Expected'),
+    #              color = colorspace::lighten('#D96C06', amount = 0.4),
+    #              position = position_dodge(width = 2)) +
+    #   geom_errorbar(data = expected %>% filter(studyyear == 'overall'), 
+    #                 aes(x = 'both vs none', y = median, ymin = lower_ci, ymax = upper_ci,
+    #                     linetype = 'Expected'), color = colorspace::lighten('#D96C06', amount = 0.4),
+    #                 width = 0.2, position = position_dodge(width = 2)) +
+    #   scale_shape_manual(values = c('Expected' = 7)) + 
+    #   scale_linetype_manual(values = c('Expected' = 2)) +
+    #   # scale_color_brewer(palette = 'BuPu') +
+    #   scale_color_brewer(palette = 'Dark2') +
+    #   geom_hline(yintercept = 0, linetype = "dashed", color = "darkred") +
+    #   labs(
+    #     x = "Arm Comparison",
+    #     y = "Relative efficacy (1-IRR)",
+    #     # title = "Median IRR with 95% CI by Intervention Comparison",
+    #     shape = NULL, linetype = NULL,
+    #     color = NULL
+    #   ) +
+    #   scale_y_continuous(breaks = seq(-1,1,0.2)) + 
+    #   theme_minimal(base_size = 12) +
+    #   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    
+    # ggsave(paste0(path, outputsfolder,'/irr_average_overall.pdf'), plot = last_plot(), width = 12, height = 6)
+    
     
 }

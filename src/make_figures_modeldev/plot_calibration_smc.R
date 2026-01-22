@@ -13,12 +13,13 @@ observed_efficacy <- read.csv(paste0(path, '/shared/smc_fits_hayley.csv')) %>%
 # this dataset is from a re-run of 3 sets of the best rounds from 2 previous sets of Latin Hypercube sampling with mean least squares 
 # ("R:/Kelly/synergy_orderly/src/fit_smc/outputs/grid_search_outputs2025-11-29.rds") and maybe the one from 12-02 ?
 # used from test_best_part22025-12-01.rds and test_best2025-12-01
-gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/grid_search2025-12-03.rds') # this one has the best one -- #67 2.333, 16.667, 0.222
-gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars2025-12-03_1.rds')
-gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars2025-12-03_7days.rds')
-gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars_shorterliverstage2025-12-09.rds') # this is with 6 days (?)
-gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars_shorterliverstage2025-12-10.rds') # this is with 8 days 
-gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars_7dayliverstage2025-12-15.rds')
+# gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/grid_search2025-12-03.rds') # this one has the best one -- #67 2.333, 16.667, 0.222
+# gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars2025-12-03_1.rds')
+# gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars2025-12-03_7days.rds')
+# gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars_shorterliverstage2025-12-09.rds') # this is with 6 days (?)
+# gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars_shorterliverstage2025-12-10.rds') # this is with 8 days 
+# gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars_7dayliverstage2025-12-15.rds')
+gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_2026-01-22pars_7dayliverstage2026-01-22.rds')
 effcumulweekly <- purrr::map_df(gridsearch, 'efficacy',.id = 'sim_id')
 pars <- purrr::map_df(gridsearch, 'params')
 mlses <- unlist(purrr::map(gridsearch, 'mls',.id = 'sim_id'))

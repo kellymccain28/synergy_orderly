@@ -28,6 +28,14 @@ outputs_folder <- 'outputs_2025-12-18_treat_0.9start_115threshold5000' # pperenn
 outputs_folder <- 'outputs_2025-12-21_treat_0.9start_122threshold5000' # seasonal, ab only, 75 vaccination, 
 
 #Updated RTSS pars (15 Jan 2026) 
+
+# perennial:
+outputs_folder <- 'outputs_2026-01-15'
+outputs_folder <- 'outputs_2026-01-22'
+# constant: 
+outputs_folder <- 'outputs_2026-01-15_2'
+
+
 # seasonal: 
 outputs_folder <- 'outputs_2026-01-15_3'
 
@@ -35,11 +43,12 @@ outputs_folder <- 'outputs_2026-01-16_4'
 outputs_folder <- 'outputs_2026-01-16_5'
 outputs_folder <- 'outputs_2026-01-16_6'
 outputs_folder <- 'outputs_2026-01-19'
+outputs_folder <- 'outputs_2026-01-19_2'
+outputs_folder <- 'outputs_2026-01-19_3' # *used in thesis as of 20 Jan
+outputs_folder <- 'outputs_2026-01-19_4'
+outputs_folder <- 'outputs_2026-01-19_6'
+outputs_folder <- 'outputs_2026-01-19_7'
 
-# perennial:
-outputs_folder <- 'outputs_2026-01-15'
-# constant: 
-outputs_folder <- 'outputs_2026-01-15_2'
 
 
 # first, do monthly inci, then order doesn't matter
@@ -49,13 +58,14 @@ plot_monthly_incidence(outputsfolder = outputs_folder)
 plot_time_to_threshold(outputsfolder = outputs_folder)
 
 # efficacy - saved figure in folder and outputs efficacy results 
-hr_results <- plot_hazard_ratios(outputsfolder = outputs_folder)
+# hr_results <- plot_hazard_ratios(outputsfolder = outputs_folder)
 
 # plot 1- IRR
 plot_irr(outputsfolder = outputs_folder)
 
 # plot 1-IRR average 
-plot_irr_average(outputsfolder = outputs_folder)
+plot_irr_average(outputsfolder = outputs_folder, agg_unit = 'year')
+plot_irr_average(outputsfolder = outputs_folder, agg_unit = 'halfyear')
 
 # initial merozoites (only if we export parasitemia)
 plot_initial_merozoites(outputsfolder = 'outputs_2026-01-16') #'outputs_2025-12-08_treat_0.9start_141threshold5000', 'outputs_2026-01-15_4'

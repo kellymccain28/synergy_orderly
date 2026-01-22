@@ -278,7 +278,7 @@ make_plots <- function(df){
     mutate(median_parasites = median(parasites))
   
   p <- ggplot(df) + 
-    geom_line(aes(x = time_withinhost2, y = parasites, group = run, color = detectable), alpha = 0.6, linewidth = 0.6) + #, color = cleared
+    geom_line(aes(x = time_withinhost2, y = parasites, group = run, color = detectable), alpha = 0.4, linewidth = 0.6) + #, color = cleared
     geom_line(aes(x = time_withinhost2, y = median_parasites, color = detectable), linewidth = 0.6)+
     geom_hline(aes(yintercept = threshold), linetype = 2, color = 'darkred', linewidth = 1) + # this is the detection limit (followiung Challenger et al.)
     geom_hline(aes(yintercept = 1e-5), linetype = 2, color = 'darkgreen', linewidth = 1) + # this is the clearance threshold

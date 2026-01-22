@@ -24,7 +24,7 @@ smc_shaded <- data.frame(
 )
 # metadata_df$vaccination_day[1] = 90
 rtss_lines <- data.frame(
-  xint = c(as.Date('2017-04-01') + c(75,75-30, 75-60)),
+  xint = c(as.Date('2017-04-01') + c(68,68-30, 68-60)),
   color = '#59114D'
 )
 
