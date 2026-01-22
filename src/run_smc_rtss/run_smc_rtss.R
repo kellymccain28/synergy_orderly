@@ -9,18 +9,18 @@ library(orderly)
 # orderly_strict_mode()
 runpars <- orderly_parameters(n_particles = NULL,
                    n_threads = NULL,
-                   t_inf_vax = NULL,# if before infection, then + number; time of infectious bite relative to vaccination, influences AB titre ####nopt anymore :and also influences the length of SMC kill vec -- t_inf/2:end
-                   ts = NULL, # number of 2 day timesteps
-                   tstep = NULL,
+                   t_inf_vax = NULL,# 30 if before infection, then + number; time of infectious bite relative to vaccination, influences AB titre ####nopt anymore :and also influences the length of SMC kill vec -- t_inf/2:end
+                   ts = NULL, # 200 number of 2 day timesteps
+                   tstep = NULL, # 1
                    max_SMC_kill_rate = 2.333333,
                    lambda = 16.66667, 
                    kappa = 0.2222222,
                    num_bites = 1,
                    threshold = 5000,
-                   season_start_day = NULL, # influences when SMC is delivered relative to the start of the infection/sim 
+                   season_start_day = NULL, # 0 influences when SMC is delivered relative to the start of the infection/sim 
                    # season_length = NULL,
                    # smc_interval = NULL,
-                   inf_start = NULL)# This is used in the formatting to shift the timesteps since start of BS for individual runs, and to subset the smc vector 
+                   inf_start = NULL)#8 This is used in the formatting to shift the timesteps since start of BS for individual runs, and to subset the smc vector 
 t_inf_vax = runpars$t_inf_vax
 ts = runpars$ts
 tstep = runpars$tstep
@@ -67,7 +67,7 @@ nothing <- run_model(n_particles = n_particles,
               infection_start_day = inf_start,
               n_particles = n_particles) %>%
   make_plots() 
-prbc <- nothing[[1]] + xlim(c(0,200))
+prbc <- nothing[[1]] + xlim(c(0,400))
 prbc
 innate <- nothing[[2]]
 genad <- nothing[[3]]
@@ -77,14 +77,16 @@ growthr <- nothing[[5]]
 mplot <- nothing[[7]]
 nothing[[11]] 
 
-plot_grid(prbc+labs(caption = NULL, x = 'Days'),
-          growthr+labs(caption = NULL, x = 'Days'),
-          innate+labs(caption = NULL, x = 'Days'),
-          genad+labs(caption = NULL, x = 'Days'),
-          varspec+labs(caption = NULL, x = 'Days'),
-          mplot+labs(caption = NULL, x = 'Days')
-) # in caption, days since start of blood-stage 
-ggsave('R:/Kelly/synergy_orderly/figures/immunity_plot.pdf')
+plot_grid(prbc+labs(caption = NULL, x = 'Days', y = expression(paste("PRBCs/", mu,"L"))),
+          mplot+labs(caption = NULL, x = 'Days', y = 'm(t)'),
+          innate+labs(caption = NULL, x = 'Days', y = expression('Innate immunity, S'["c"]~"(t)")),
+          genad+labs(caption = NULL, x = 'Days', y = expression('General adaptive immunity, S'["m"]~"(t) ")),
+          varspec+labs(caption = NULL, x = 'Days', y = expression(italic("var")~'-specific immunity, S'["v"]~"(t)")),
+          growthr+labs(caption = NULL, x = 'Days', y = expression('Growth rate (m* S'["c"]~"*S"['m']~"*S"['v']~")")),
+          labels = c('A', 'B','C','D','E','F'))
+# in caption, days since start of blood-stage 
+ggsave('R:/Kelly/synergy_orderly/figures/immunity_plot.pdf', height = 5, width = 10)
+saveRDS(nothing[[6]], paste0('R:/Kelly/synergy_orderly/figures/data/immunity_noint',Sys.Date(), '.rds'))
 nothingplt <- plot_grid(nothing[[1]] +labs(caption = NULL, x = 'Days since start of blood stage'), 
                         nothing[[2]]+labs(caption = NULL, x = 'Days since start of blood stage'),
                         nothing[[3]]+labs(caption = NULL, x = 'Days since start of blood stage'),
@@ -319,27 +321,99 @@ ggsave(filename = "vaxsmc_stoch.png", plot = vaxSMCplt, width = 11, height = 16)
 # saveRDS(dfvaxsmc, file = str_glue("df_vaxsmc_", runpars$n_particles,".rds"))
 
 # poster
-n <- nothing[[1]] + xlim(c(0,400)) + scale_color_manual(values = c("#F8766D")) +labs(caption = NULL) + theme_bw(base_size = 16) + theme(legend.position = 'none')
-v <- vax[[1]] + xlim(c(0,400)) + scale_color_manual(values = c('#7CAE00'))+labs(caption = NULL)+ theme_bw(base_size = 16) + theme(legend.position = 'none')
-s <- smc[[1]] + xlim(c(0,400)) + scale_color_manual(values = c('#00bfc4'))+labs(caption = NULL)+ theme_bw(base_size = 16) + theme(legend.position = 'none')
-vs <- vaxSMC[[1]] + xlim(c(0,400)) + scale_color_manual(values = c('#c77cff'))+labs(caption = NULL)+ theme_bw(base_size = 16) + theme(legend.position = 'none')
-library(patchwork)
-plots <- n + v + s + vs + plot_annotation(tag_levels = 'A')
-# plots
+n <- nothing[[1]] + 
+  scale_color_manual(values = c("#F8766D","#F8766D")) +
+  xlim(c(-35,400)) + 
+  labs(caption = NULL,
+       title = 'No intervention') + 
+  theme_bw(base_size = 14) + 
+  theme(legend.position = 'none',
+        plot.title = element_text(size=14))
+v <- vax[[1]] + 
+  geom_vline(xintercept = c(-t_inf_vax, -t_inf_vax + 365), linetype = 4, color = '#470024') +
+  scale_color_manual(values = c('#7CAE00','#7CAE00'))+
+  xlim(c(-35,400)) + 
+  labs(caption = NULL,
+       title = 'RTS,S only')+ 
+  theme_bw(base_size = 14) + 
+  theme(legend.position = 'none',
+        plot.title = element_text(size=14))
+s <- smc[[1]] + 
+  geom_vline(xintercept = smc_dose_days-inf_start, linetype = 4, color = '#709176') +
+  scale_color_manual(values = c('#00bfc4','#00bfc4'))+
+  xlim(c(-35,400)) + 
+  labs(caption = NULL,
+       title = 'SMC only')+ 
+  theme_bw(base_size = 14) + 
+  theme(legend.position = 'none',
+        plot.title = element_text(size=14))
+vs <- vaxSMC[[1]] + 
+  geom_vline(xintercept = c(-t_inf_vax, -t_inf_vax + 365), linetype = 4, color = '#470024') +
+  geom_vline(xintercept = smc_dose_days-inf_start, linetype = 4, color = '#709176') +
+  scale_color_manual(values = c('#c77cff','#c77cff'))+
+  xlim(c(-35,400)) + 
+  labs(caption = NULL,
+       title = 'RTS,S + SMC')+ 
+  theme_bw(base_size = 14) + 
+  theme(legend.position = 'none',
+        plot.title = element_text(size=14))
+# library(patchwork)
+# plots <- n + v + s + vs + plot_annotation(tag_levels = 'A')
+plots <- cowplot::plot_grid(n, v, s, vs)
+plots
 saveRDS(nothing[[6]], file = paste0('R:/Kelly/synergy_orderly/figures/data/none_trajectories', Sys.Date(), '.rds'))
 saveRDS(smc[[6]], file = paste0('R:/Kelly/synergy_orderly/figures/data/smc_trajectories', Sys.Date(), '.rds'))
 saveRDS(vax[[6]], file = paste0('R:/Kelly/synergy_orderly/figures/data/vax_trajectories', Sys.Date(), '.rds'))
 saveRDS(vaxSMC[[6]], file = paste0('R:/Kelly/synergy_orderly/figures/data/vaxSMC_trajectories', Sys.Date(), '.rds'))
 ggsave(filename = 'R:/Kelly/synergy_orderly/figures/trajectories.pdf', plots, height = 7, width = 11, dpi = 500)
 
+# get the percent detectable, clinical, and non-zero at start for each of the groups 
+# Function to calculate percentages for a group
+calculate_percentages <- function(df, group_name) {
+  # Clinical cases
+  clinical <- df %>%
+    filter(time_withinhost2 == 2) %>%
+    select(run, detectable) %>%
+    tabyl(detectable) %>%
+    adorn_pct_formatting()
+  
+  # Non-zero parasites at start
+  parasites <- df %>%
+    filter(time_withinhost2 == 2) %>%
+    select(run, parasites, mero_init_out) %>%
+    mutate(nonzero = ifelse(mero_init_out == 0, 'zero', 'non-zero')) %>%
+    tabyl(nonzero) %>%
+    adorn_pct_formatting()
+  
+  # Any detectable parasites 
+  detectable <- df %>%
+    group_by(run) %>%
+    mutate(anydet = ifelse(any(parasites >= 100), 'patent', 'subpatent')) %>%
+    tabyl(anydet) %>%
+    adorn_pct_formatting()
+  
+  # Extract key percentages
+  clinical_pct <- clinical %>% filter(detectable == 'detectable') %>% pull(percent)
+  zero_pct <- parasites %>% filter(nonzero == 'non-zero') %>% pull(percent)
+  
+  return(data.frame(
+    Group = group_name,
+    clinical_cases_pct = ifelse(length(clinical_pct) > 0, clinical_pct, "0.0%"),
+    nonzero_parasites_pct = ifelse(length(zero_pct) > 0, zero_pct, "0.0%")
+  ))
+}
 
+# Calculate for all groups
+results <- bind_rows(
+  calculate_percentages(nothing[[6]], "none"),
+  calculate_percentages(vax[[6]], "rtss"),
+  calculate_percentages(smc[[6]], "smc"),
+  calculate_percentages(vaxSMC[[6]], "both")
+)
 
+results
 
-
-
-
-
-
+saveRDS(results, file = paste0('R:/Kelly/synergy_orderly/figures/data/trajectories_percentages_', Sys.Date(), '.rds'))
 
 
 
