@@ -90,15 +90,25 @@ ggsave(filename = 'efficacy_trial.png', efficacies, height = 8, width = 8)
 
 # Get efficacy for 3 versus 2 doses 
 df <- primary %>%
-  # filter(nprimary %in% c(3,2)) %>%
+  select(-starts_with('y')) %>%
+  rowwise() %>%
+  mutate(year = lubridate::year(dcontact),
+         n_vaccine_doses = sum(as.numeric(nprimary), as.numeric(boost1_done), as.numeric(boost2_done), na.rm = TRUE),
+         n_vaccine_doses = ifelse(n_vaccine_doses <= 2, '2 or less', as.character(n_vaccine_doses))) %>%
   mutate(nprimary = factor(nprimary, levels = c(3, 2, 1))) %>%
-  filter(arm == 'both'| arm == 'rtss') %>%#  & year == 1)
-  filter(arm == 'rtss')
-coxdoses <- coxph(Surv(start_time, end_time, event) ~ factor(nprimary) + factor(arm),# + factor(country),
-                  data = df,
+  mutate(n_vaccine_doses = factor(n_vaccine_doses, levels = c(5, 4, 3, '2 or less'))) %>%
+  filter(arm == 'both'| arm == 'rtss') 
+
+coxdoses_adjustsmc <- coxph(Surv(start_time, end_time, event) ~ factor(n_vaccine_doses) + factor(arm) + country, #+ strata(country),# + factor(country),
+                  data = df ,
                   cluster = rid,
                   ties = "efron")
-results <- tidy(coxdoses,
+coxdoses_interactsmc <- coxph(Surv(start_time, end_time, event) ~ factor(nprimary) * arm + strata(country),
+                            data = df,
+                            cluster = rid,
+                            ties = "efron")
+
+results <- tidy(coxdoses_interactsmc,
                 exponentiate = TRUE,
                 conf.int = TRUE) %>%
   # Calculate vaccine efficacy and its confidence intervals
@@ -108,43 +118,66 @@ results <- tidy(coxdoses,
   mutate(n_events = coxdoses$nevent,
          n_obs = coxdoses$n)
 
-ggplot(results)+
+ggplot(results )+#%>% filter(term != 'factor(arm)rtss'))+
   geom_point(aes(x = term, y = VE)) + 
   geom_errorbar(aes(x = term, ymin = VE_lower, ymax = VE_upper), width = 0.2) +
   geom_hline(aes(yintercept = 0), linetype = 2) +
   labs(x = '') +
   theme_bw(base_size = 16) 
 
-# Get efficacy for 3 versus 2 doses 
-df <- primary %>%
-  # filter(nprimary %in% c(3,2)) %>%
-  mutate(nprimary = relevel(factor(nprimary), ref = 1)) %>%
-  mutate(arm = relevel(factor(arm), ref = "smc")) %>%
-  filter(arm == 'both'| arm == 'rtss') #  & year == 1)
-  # filter(arm == 'both')
-coxdoses <- coxph(Surv(start_time, end_time, event) ~ factor(nprimary) ,#+ factor(arm) +factor(arm):factor(nprimary),# + factor(country),
-                  data = df,
-                  cluster = rid,
-                  ties = "efron")
-results <- tidy(coxdoses,
-                exponentiate = TRUE,
-                conf.int = TRUE) %>%
-  # Calculate vaccine efficacy and its confidence intervals
-  mutate(VE = (1 - estimate) * 100,              # VE = 1 - HR
-         VE_lower = (1 - conf.high) * 100,       # Lower CI for VE = 1 - Upper CI for HR
-         VE_upper = (1 - conf.low) * 100) %>%     # Upper CI for VE = 1 - Lower CI for HR
-  mutate(n_events = coxdoses$nevent,
-         n_obs = coxdoses$n)
+# Stratified analysis
+results_stratified <- df %>%
+  # filter(country == 'Mali') %>%
+  # filter(dcontact < as.Date('2018-04-01')) %>%
+  group_by(arm) %>%
+  do({
+    mod <- coxph(
+      Surv(start_time, end_time, event) ~ n_vaccine_doses,#nprimary,
+      data = .,
+      cluster = rid,
+      ties = "efron"
+    )
+    tidy(mod, exponentiate = TRUE, conf.int = TRUE)
+  }) %>%
+  # filter(grepl("nprimary", term)) %>%
+  mutate(
+    VE = (1 - estimate),
+    VE_lower = (1 - conf.high),
+    VE_upper = (1 - conf.low),
+    doses = case_when(
+      term == "nprimary2" ~ "2 doses",
+      term == "nprimary1" ~ "1 dose",
+      term == 'n_vaccine_doses4' ~ "4 doses",
+      term == 'n_vaccine_doses3' ~ "3 doses",
+      term == 'n_vaccine_doses2 or less' ~ '2 or fewer doses'
+    ),
+    arm_label = ifelse(arm == "rtss", "RTS,S only", "RTS,S + SMC")
+  )
 
-ggplot(results)+
-  geom_point(aes(x = term, y = VE)) + 
-  geom_errorbar(aes(x = term, ymin = VE_lower, ymax = VE_upper), width = 0.2) +
-  geom_hline(aes(yintercept = 0), linetype = 2) +
-  labs(x = '') +
-  theme_bw(base_size = 16) +
-  theme(axis.text = element_text(angle = 90))
+# Stratified plot
+ggplot(results_stratified, aes(x = doses, y = VE, color = arm_label)) +
+  geom_point(size = 3, position = position_dodge(width = 0.3)) + 
+  geom_errorbar(aes(ymin = VE_lower, ymax = VE_upper), 
+                width = 0.2, position = position_dodge(width = 0.3)) +
+  geom_hline(yintercept = 0, linetype = 2, color = "gray50") +
+  # scale_x_discrete(limits = c("2 doses", "1 dose")) +
+  scale_color_manual(values = c("RTS,S only" = "#E69F00", 
+                                "RTS,S + SMC" = "#56B4E9")) +
+  scale_y_continuous(labels = scales::percent_format(),
+                     breaks = seq(-4, 1, 0.5)) +
+  labs(
+    x = 'Number of RTS,S doses',
+    y = 'VE (%)',
+    color = 'Study Arm'
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 0),
+    legend.position = "bottom"
+  )
 
-# The estimate for 2 doses compared to 1 dsoe is -80%, so 1 dose seems to be more (?) efficacious 
+
+# The estimate for 2 doses compared to 1 dose is -80%, so 1 dose seems to be more (?) efficacious 
 # For 3 doses, it is even worse, and the confidence interval doesn't overlap 0 . --- these first two don't matter 
 # Both combination and rtss groups cross 0 which indicates not a large difference with SMC, but rtss seems worse 
 # For RTSS+SMC versus SMC, 2 doses is 62.1% better and 3 doses is 63.8% better than 1 dose. 
@@ -181,11 +214,11 @@ saveRDS(monthly_inci, 'monthly_incidence_trial.rds')
 
 
 monthlyincidenceplot <- monthly_inci %>%
-  ggplot(aes(x = date, y = incidence_per_1000pm, color = arm)) +
-  geom_point(size = 2) +
-  geom_errorbar(aes(ymin = lower_per_1000, ymax = upper_per_1000, color = arm),
-                alpha = 0.9, width = 5, linewidth = 1) +
-  geom_line(aes(x = date, y = incidence_per_1000pm, color = arm), linewidth = 1) +
+  ggplot(aes(x = date, y = incidence_per_1000pm)) +
+  geom_point(aes(color = arm), size = 2) +
+  geom_ribbon(aes(ymin = lower_per_1000, ymax = upper_per_1000, fill = arm),
+                alpha = 0.5) + #, width = 5, linewidth = 1
+  geom_line(aes(color = arm), linewidth = 1) +
   # facet_wrap(~arm, nrow = 3) +
   scale_color_manual(values =  c('both' = '#E15554', 
                                  'none' = '#E1BC29',
@@ -193,6 +226,10 @@ monthlyincidenceplot <- monthly_inci %>%
                                  'smc' = '#7768AE',
                                  'SMC delivery' = '#4D9DE0',
                                  'RTS,S delivery' = '#470024'))+#c('#C44536','#772E25','#197278','#283D3B'))+
+  scale_fill_manual(values =  c('both' = '#E15554', 
+                                 'none' = '#E1BC29',
+                                 'rtss' = '#3BB273',
+                                 'smc' = '#7768AE'))+#c('#C44536','#772E25','#197278','#283D3B'))+
   scale_y_continuous(breaks = seq(0,150,25)) +
   scale_x_date(breaks = '2 months',
                labels = scales::label_date_short()) + 
@@ -206,7 +243,7 @@ monthlyincidenceplot <- monthly_inci %>%
   theme_minimal(base_size = 14)
 monthlyincidenceplot
 ggsave("trial_monthlyincidence.png", plot = monthlyincidenceplot, bg = 'white', width = 12, height = 6)
-
+ggsave("trial_monthlyincidence.pdf", plot = monthlyincidenceplot, width = 12, height = 6)
 
 # Average delivery times for each intervention / country 
 ggplot(delivery %>% filter(arm !='rtss')) +
@@ -237,10 +274,63 @@ delivery %>%
 # while in BF, about 41% in the Both group missed at least 1 smc round, while 61% in teh SMC only group missed at least 1 round 
 # BF: 15.6% missed at least 3 rounds in both group and 23.1% missed rounds in SMC only group 
 
-# looking at specific doses -- unsure why this doens't match up with the nsmc_received variable 
-y1cols <- grep("^y1", names(delivery), value = TRUE)
+y1cols <- y1cols[!(y1cols %in% grep('date', y1cols, value = TRUE))]
 delivery$nsmc_doses <- rowSums(!is.na(delivery[, y1cols]))
 
+# Regression to see if the number of SMC doses is related to the arm
+mm <- glm(formula = nsmc_doses ~ arm,
+          family = gaussian, 
+          data = delivery %>% filter(arm != 'rtss', country == 'BF'))
+tidy(mm, exponentiate = TRUE, conf.int = TRUE)
+
+# Calculate variance-to-mean ratio by group
+delivery %>%
+  group_by(country, arm) %>%
+  summarise(
+    mean = mean(nsmc_doses, na.rm = TRUE),
+    variance = var(nsmc_doses, na.rm = TRUE),
+    ratio = variance / mean,
+    n = n()
+  )
+# because BF is overdispersed (ratio>>1), I should use the NB distribution instead of Poisson 
+
+glm_stratified <- delivery %>%
+  filter(arm != 'rtss') %>%
+  group_by(country) %>%
+  do({
+    # mod <- glm(
+    #   nsmc_doses ~ arm,
+    #   family = poisson(link = "log"),
+    #   data = .,
+    #   control = glm.control(maxit = 100)
+    # )
+    # tidy(mod, exponentiate = TRUE, conf.int = TRUE)
+    mod_nb <- glm.nb(nsmc_doses ~ arm, 
+                     data = .,
+                     control = glm.control(maxit = 50))
+    tidy(mod_nb, exponentiate = TRUE, conf.int = TRUE)
+  }) %>%
+  filter(term == "armsmc") %>%
+  mutate(pct_reduction = (1 - estimate) * 100) %>%
+  dplyr::select(country, estimate, conf.low, conf.high, pct_reduction, p.value)
+glm_stratified
+
+# Visualization
+ggplot(glm_stratified, 
+       aes(x = country, y = estimate, color = country)) +
+  geom_point(size = 4) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  scale_y_continuous(limits = c(0.9, 1.05), breaks = seq(0.9, 1.05, 0.05)) +
+  labs(
+    x = NULL,
+    y = "Rate Ratio (SMC v both)",
+    # title = "SMC Dose Receipt: SMC-only vs Combined Intervention",
+    # subtitle = "RR < 1 indicates fewer doses in SMC-only group",
+    caption = "Reference group: both\n RR < 1 indicates fewer doses in SMC group."
+  ) +
+  theme_bw(base_size = 14) +
+  theme(legend.position = "none")
 
 delivery_avg <- delivery %>%
   group_by(country) %>%
@@ -267,7 +357,9 @@ ggplot(vaxdates) +
   # theme(axis.text.x = element_text(angle = 45)) +
   facet_wrap(~country)
 
-
+median(delivery$y1p1d1_date_received, na.rm = TRUE) # 7-27
+median(delivery$y1p2d1_date_received, na.rm = TRUE) # 8-24 
+median(delivery$y1p3d1_date_received, na.rm = TRUE) # 9-23
 
 # 
 
