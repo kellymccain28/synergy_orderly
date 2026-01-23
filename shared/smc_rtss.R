@@ -53,7 +53,7 @@ update(PBsum) <- if(time > 3) PC - sum(buffer) else 0
 # No sum before t=4, # Invalid range if ft>tminus4,  # Valid range - sum from f_t_timestep to t_minus_4_timestep
 update(sv_timestep_range) <- t_minus_4 - f_t
 initial(sv_timestep_range) <- 0
-update(PBvsum) <- if (time <= 4) 0 else if (sv_timestep_range < 0) 0 else sum(p_history[t_minus_4_ts:f_t_ts])
+update(PBvsum) <- if (time <= 4) 0 else sum(p_history[t_minus_4_ts:f_t_ts])#if (sv_timestep_range < 0) 0 else 
 initial(PBvsum) <- 0
 
 # Make array variable to keep track of paraistemia over gradually expanding time window 
@@ -173,13 +173,13 @@ DR <- vmin + (1 - vmin) * (1 / (1 + (ab / beta_ab)^alpha_ab)) # prob of survival
 
 # Parameters for spz model initial merozoites 
 # estimated and fixed parameters  
-n <- 150 #n, mean number of successful spz per challenge ; neg bin
-sigma_n <- 194 #, sigman sd of number of successful spz per challenge 
+n <- 150/5 #n, mean number of successful spz per challenge ; neg bin
+sigma_n <- 194/sqrt(5) #, sigman sd of number of successful spz per challenge 
 mu <- 2136  # mean number of merozoites released per sporozoite in Michael's model; gamma distributed
 sigma_mu <- 4460  #from Michael's model # sd of number of merozoites released per sporozoite; gamma distributed
-beta_ab <- parameter(5.83)#6.62) # anti-CSP titre for 50% reduction in spz survival prob microgram/mL
-alpha_ab <- parameter(1.38)#1.32)  # shape parameter for antibody dose-response, changed to phi in thesis to avoid duplication
-vmin <- parameter(0) # minimum survival probability  (addition to white model to reduce effectiveness of the )
+beta_ab <- parameter(2.63)#6.62) # anti-CSP titre for 50% reduction in spz survival prob microgram/mL
+alpha_ab <- parameter(1.77)#1.32)  # shape parameter for antibody dose-response, changed to phi in thesis to avoid duplication
+vmin <- parameter(0.000513) # minimum survival probability  (addition to white model to reduce effectiveness of the )
 
 
 # Parameters for Negative Binomial distribution 
@@ -195,6 +195,8 @@ kspz1 <- NegativeBinomial(size = r, mu = n*DR) #/ 5 bites
 kspz2 <- if(num_bites > 1) NegativeBinomial(size = r, mu = n*DR) else 0 # if there is a second bite on the same day, use this 
 kspz3 <- if(num_bites > 2) NegativeBinomial(size = r, mu = n*DR) else 0 # if 3 bites on teh same day 
 kspz <- kspz1 + kspz2 + kspz3 # add up the number of spz for each bite
+initial(kspz_out) <- kspz
+update(kspz_out) <- if(time == 0) kspz else 0
 # num_bites <- parameter(1) # default is a single bite 
 # kspz1 <- NegativeBinomial(size = r / 5, prob =p) #/ 5 bites
 # kspz2 <- if(num_bites > 1) NegativeBinomial(r / 5, 1-p) else 0 # if there is a second bite on the same day, use this 

@@ -69,7 +69,6 @@ run_model <- function(n_particles = 1L,
                       t_inf_vax,
                       tt,
                       VB,
-                      vmin = 0,
                       num_bites = 1,
                       det_mode = FALSE,
                       infection_start_day = 0, # external time that infection begins 
@@ -77,6 +76,7 @@ run_model <- function(n_particles = 1L,
                       SMC_kill_vec,
                       alpha_ab = 1.32, # default values from White 2013 
                       beta_ab = 6.62, # default values from White 2013
+                      vmin = 0,
                       tboost1 = 364, # timesteps after 3rd dose that the first booster is delivered
                       tboost2 = 729# timesteps after 1st booster that the second booster is delivered 
 ){

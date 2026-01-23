@@ -266,8 +266,8 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
                           infection_start_day = infection_start_day,# external time that infection begins 
                           SMC_time = unlist(SMC_time),
                           SMC_kill_vec = unlist(SMC_kill_vec),
-                          alpha_ab = alpha_ab, # default values from White 2013 
-                          beta_ab = beta_ab, # default values from White 2013
+                          alpha_ab = alpha_ab, 
+                          beta_ab = beta_ab, 
                           vmin = vmin,
                           tboost1 = t_toboost1,
                           tboost2 = t_toboost2
