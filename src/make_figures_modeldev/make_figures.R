@@ -8,6 +8,7 @@ source("./plot_monthly_incidence.R")
 source("./plot_initial_merozoites.R")
 source('./plot_hazard_ratios.R')
 source('./plot_time_to_threshold.R')
+source('./plot_compare_ratios.R')
 
 outputs_folder <- "outputs_2025-12-02_2_treat_1start_137threshold5000"
 outputs_folder <- "outputs_2025-12-02_3_treat_0.9start_150threshold5000"
@@ -49,6 +50,25 @@ outputs_folder <- 'outputs_2026-01-19_4'
 outputs_folder <- 'outputs_2026-01-19_6'
 outputs_folder <- 'outputs_2026-01-19_7'
 
+# perennial (1.66, 3.45, 0.00311) 
+outputs_folder <- 'outputs_2026-01-23_8' #- done
+
+# seasonal (1.66, 3.45, 0.00311) 
+outputs_folder <- 'outputs_2026-01-23_9' # 100 80 - done
+outputs_folder <- 'outputs_2026-01-23_10' # 100 80 - done
+outputs_folder <- 'outputs_2026-01-23_11' # 100 80
+outputs_folder <- 'outputs_2026-01-23_12' # 100 80
+outputs_folder <- 'outputs_2026-01-23_13' # 100 80
+
+# perennial (1.74, 4.69, 0.00259)
+outputs_folder <- 'outputs_2026-01-23_16' # 122 68 - done
+
+# seasonal (1.74, 4.69, 0.00259)
+outputs_folder <- 'outputs_2026-01-23_15' # balanced 122 68 - done
+outputs_folder <- 'outputs_2026-01-23_18' # early vax late smc 140 55 - done
+outputs_folder <- 'outputs_2026-01-23_19' # early 100 55 - done
+outputs_folder <- 'outputs_2026-01-23_20' # late vax early smc 100 80 - done
+outputs_folder <- 'outputs_2026-01-23_21' # late 140 80
 
 
 # first, do monthly inci, then order doesn't matter
@@ -67,5 +87,13 @@ plot_irr(outputsfolder = outputs_folder)
 plot_irr_average(outputsfolder = outputs_folder, agg_unit = 'year')
 plot_irr_average(outputsfolder = outputs_folder, agg_unit = 'halfyear')
 
+
+# compare ratios (only run after all folders in list have had monthly inci calculated, as this requires formatting )
+plot_compare_ratios(output_folders = c('outputs_2026-01-23_15',
+                                       'outputs_2026-01-23_18',
+                                       'outputs_2026-01-23_19',
+                                       'outputs_2026-01-23_20',
+                                       'outputs_2026-01-23_21'))
+
 # initial merozoites (only if we export parasitemia)
-plot_initial_merozoites(outputsfolder = 'outputs_2026-01-16') #'outputs_2025-12-08_treat_0.9start_141threshold5000', 'outputs_2026-01-15_4'
+plot_initial_merozoites(outputsfolder = 'outputs_2026-01-23_22' ) #'outputs_2026-01-16', 'outputs_2025-12-08_treat_0.9start_141threshold5000', 'outputs_2026-01-15_4'

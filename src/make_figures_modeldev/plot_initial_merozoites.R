@@ -18,13 +18,13 @@ plot_initial_merozoites <- function(outputsfolder){
   ## maybe need to use mero_init???
   VB = 1e6
   detectability_colors <- c('#F4A259', '#5B8E7D')
-  lighter <- colorspace::lighten(detectability_colors, amount = 0.3)
+  lighter <- colorspace::lighten(detectability_colors, amount = 0.5)
   # Adaptation of plot from helper_functions.R make_plots() function  
   ggplot(initial_values %>% filter(mero_init_out!=0)) + 
+    geom_jitter(aes(x = as.factor(det), y = mero_init_out, color = as.factor(det)), alpha = 0.1) + #
+    geom_hline(yintercept = 1e-5 * 1e6, color = 'darkred', linetype = 2) +
     geom_boxplot(aes(x = as.factor(det), y = mero_init_out, color = as.factor(det), fill = as.factor(det)), 
                  linewidth = 0.8, alpha = 0.8) + #
-    geom_jitter(aes(x = as.factor(det), y = mero_init_out, color = as.factor(det)), alpha = 0.25) + #
-    geom_hline(yintercept = 1e-5 * 1e6, color = 'darkred', linetype = 2) +
     facet_wrap(~factor(arm, levels = c('none','rtss','smc','both'))) +
     labs(x = NULL,#'Infection status',
          y = 'Number of merozoites initating infection') + 

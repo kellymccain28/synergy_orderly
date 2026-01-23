@@ -83,7 +83,7 @@ plot_monthly_incidence <- function(outputsfolder){
   
   # Plot incidence with p_bite overlaid 
   pbite <- params$p_bite[[1]]
-  smc_dates <- as.Date(unlist(all$smc_dose_days[10][1:4]), origin = '2017-04-01')
+  smc_dates <- as.Date(unlist(all$smc_dose_days[11][1:4]), origin = '2017-04-01')
   smc_lines <- data.frame(
     xintercept = rep(smc_dates,2),
     arm = rep(c('smc', 'both'), each = length(smc_dates)),

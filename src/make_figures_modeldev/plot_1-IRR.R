@@ -122,6 +122,8 @@ plot_irr <- function(outputsfolder){
       .groups = 'drop'
     )
   
+  saveRDS(inci_summary, paste0(path, outputsfolder,'/incidence_summary.rds'))
+  
   incilong <- inci_summary %>%
     select(yearmonth, starts_with('incidence')) %>%
     pivot_longer(cols = starts_with('incidence'),
@@ -143,7 +145,7 @@ plot_irr <- function(outputsfolder){
   metadata_df <- readRDS(paste0(path, outputsfolder, "/metadata_df.rds"))
   base_inputs <- readRDS(paste0(path, outputsfolder, "/base_inputs.rds"))
   params <- readRDS(paste0(path, outputsfolder, "/parameter_grid.rds"))
-  smc_dates <- as.Date(unlist(formatted$smc_dose_days[10][1:4]), origin = '2017-04-01')
+  smc_dates <- as.Date(unlist(formatted$smc_dose_days[11][1:4]), origin = '2017-04-01')
   smc_lines <- data.frame(
     xintercept = rep(smc_dates,2),
     arm = rep(c('smc', 'both'), each = length(smc_dates)),
@@ -326,7 +328,10 @@ plot_irr <- function(outputsfolder){
     geom_line(aes(x = as.Date(yearmonth), y = both_none_median, color = 'Model-predicted efficacy'), linewidth = 1) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = both_none_q025, ymax = both_none_q975,
                     fill = 'Model-predicted efficacy'), alpha = 0.3) +
-    # ylim(c(-0.5, 1)) + #xlim(c(min(iii_summary$yearmonth), max(iii_summary$yearmonth))) +
+    # ylim(c(-, 1)) + #xlim(c(min(iii_summary$yearmonth), max(iii_summary$yearmonth))) +
+    coord_cartesian(ylim = c(-0.15, 1)) +
+    scale_y_continuous(breaks=seq(-0.1,1, 0.1),
+                       labels=seq(-0.1,1, 0.1)) +
     geom_hline(yintercept = 0, linetype = 2) +
     scale_x_date(breaks = '3 months',
                  labels = scales::label_date_short()) +
@@ -341,7 +346,7 @@ plot_irr <- function(outputsfolder){
          color = NULL,
          fill = NULL) + 
     theme_bw(base_size = 14)
-  ggsave(paste0(path, outputsfolder,'/expected_vs_predicted_combined.pdf'), plot = exppred, width = 10, height = 4)
+  ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined.pdf'), plot = exppred, width = 10, height = 4)
   
   # Plot of ratio of expected vs predicted efficacy of both vs none 
   ratioplot <-  ggplot(inci_summary) + 
@@ -355,7 +360,9 @@ plot_irr <- function(outputsfolder){
     #                 fill = '#3E6990', alpha = 0.7) +
     # ylim(c(0.2, 1.2)) + #xlim(c(min(iii_summary$yearmonth), max(iii_summary$yearmonth))) +
      # coord_cartesian(ylim = c(0.8,1.2)) + 
-   geom_hline(yintercept = 1, linetype = 2) +
+    scale_y_continuous(breaks = seq(-0.4,1.2,0.1),
+                       labels = seq(-0.4,1.2,0.1))+
+    geom_hline(yintercept = 1, linetype = 2) +
     scale_x_date(breaks = '3 months',
                  labels = scales::label_date_short()) +
     scale_color_manual(values = c('SMC delivery' = '#709176',
@@ -368,13 +375,13 @@ plot_irr <- function(outputsfolder){
          fill = NULL) + 
     theme_bw(base_size = 14)
    
-   combinedratio <- plot_grid(exppred + ratioplot + theme(legend.position = 'none'), nrow = 2,
+   combinedratio <- plot_grid(exppred, ratioplot + theme(legend.position = 'none'), nrow = 2,
                              align = 'v')
    
    # mean(inci_summary$ratio_pred_exp_median)
    # mean(inci_summary$ratio_pred_exp_q025)
    # mean(inci_summary$ratio_pred_exp_q975)
-  ggsave(paste0(path, outputsfolder,'/expected_vs_predicted_combined_ratio.pdf'), plot = ratioplot, width = 10, height = 4)
-  ggsave(paste0(path, outputsfolder,'/expected_vs_predicted_combined_and_ratio.pdf'), plot = ratioplot, width = 10, height = 4)
+  ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_ratio.pdf'), plot = ratioplot, width = 10, height = 4)
+  ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_and_ratio.pdf'), plot = combinedratio, width = 12, height = 9)
   
 }
