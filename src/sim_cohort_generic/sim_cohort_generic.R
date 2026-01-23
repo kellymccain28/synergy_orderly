@@ -71,9 +71,9 @@ sim_cohort_generic <- function(trial_ts = 365*3,
     max_SMC_kill_rate = rep(2.33333, n_param_sets),
     lambda = rep(16.66667, n_param_sets),
     kappa = rep(0.22222, n_param_sets),
-    alpha_ab = rep(1.77, n_param_sets),#rep(1.38, n_param_sets),
-    beta_ab = rep(2.63, n_param_sets),#rep(5.83, n_param_sets)
-    vmin = rep(0.000513, n_param_sets)
+    alpha_ab = rep(1.74, n_param_sets),# from 01-23: rep(1.66, n_param_sets), #rep(1.77, n_param_sets),#rep(1.38, n_param_sets),
+    beta_ab = rep(4.69, n_param_sets),# from 01-23: rep(3.45, n_param_sets),  #rep(2.63, n_param_sets),#rep(5.83, n_param_sets)
+    vmin = rep(0.00259, n_param_sets)# from 01-23: rep(0.00311, n_param_sets) #rep(0.000513, n_param_sets)
   )
   params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", treatment_probability)
   

@@ -18,6 +18,9 @@ runpars <- orderly_parameters(n_particles = NULL,
                    num_bites = 1,
                    threshold = 5000,
                    season_start_day = NULL, # 0 influences when SMC is delivered relative to the start of the infection/sim 
+                   alpha_ab = 1.74, 
+                   beta_ab = 4.69, 
+                   vmin = 0.00259,
                    # season_length = NULL,
                    # smc_interval = NULL,
                    inf_start = NULL)#8 This is used in the formatting to shift the timesteps since start of BS for individual runs, and to subset the smc vector 
@@ -35,6 +38,9 @@ VB = 1e6
 tt <- seq(1, runpars$ts, by = runpars$tstep)#
 threshold <- runpars$threshold
 num_bites = runpars$num_bites
+alpha_ab = runpars$alpha_ab
+beta_ab = runpars$beta_ab
+vmin = runpars$vmin
 
 orderly_shared_resource("smc.R",
                         "rtss.R",
@@ -112,9 +118,9 @@ vax <- run_model(n_particles = runpars$n_particles,
                  infection_start_day = runpars$inf_start,
                  SMC_time = seq(0,100,1),
                  SMC_kill_vec = rep(0,101),
-                 alpha_ab = 1.32, 
-                 beta_ab = 6.62,
-                 vmin = 0, # higher vmin means that the probability of a sporozoite surviving is higher, so should have more infections
+                 alpha_ab = alpha_ab, 
+                 beta_ab = beta_ab,
+                 vmin = vmin, # higher vmin means that the probability of a sporozoite surviving is higher, so should have more infections
                  tt= tt,
                  VB = VB,
                  det_mode = FALSE) %>%
@@ -220,22 +226,22 @@ parasites <- ggplot(dfsmc) +
   theme_bw() + #xlim(c(0,400))+
   theme(legend.position = 'none')
 smckillplot <- ggplot(dfsmc) + 
-  geom_line(aes(x = time_withinhost2, y = smcrate, group = run, color = detectable), alpha = 0.7, linewidth = 0.6) + #
+  geom_line(aes(x = time_withinhost2, y = smcrate, group = run), color = 'maroon', alpha = 0.7, linewidth = 0.6) + #
   scale_x_continuous(limits = c(0, max(dfsmc$time_withinhost2)))+
   labs(x = 'Days since start of blood stage',
        y = 'SMC per-parasite\nclearance rate\nper 2-day timestep') + 
-  scale_color_manual(values = c('grey','maroon') ) +
+  # scale_color_manual(values = c('maroon') ) +
   scale_y_continuous(breaks = c(0,1,2,3,4), limits = c(0,4)) +
   theme_bw() + xlim(c(0,300)) + 
   theme(legend.position = 'none') 
 smcprobplot <- ggplot(dfsmc) + 
-  geom_line(aes(x = time_withinhost2, y = smc_prob, group = run, color = detectable), alpha = 0.7, linewidth = 0.6) + #
+  geom_line(aes(x = time_withinhost2, y = smc_prob, group = run), color = 'darkorchid4', alpha = 0.7, linewidth = 0.6) + #
   scale_x_continuous(breaks = c(0, 7, seq(14, max(dfsmc$time_withinhost2), 28)),
                      limits = c(0, max(dfsmc$time_withinhost2)))+
   labs(x = 'Days since start of blood stage',
        y = 'SMC per parasite\nclearance probability\nper 2-day timestep') + 
   ylim(c(0,1)) + 
-  scale_color_manual(values = c('grey','darkorchid4') ) +
+  # scale_color_manual(values = c('darkorchid4') ) +
   theme_bw() + 
   theme(legend.position = 'none') + xlim(c(0,300)) 
 numkillsmcplot <- ggplot(dfsmc ) + 
@@ -277,9 +283,9 @@ vaxSMC <- run_model(n_particles = runpars$n_particles,
                     det_mode = FALSE,
                     t_inf_vax = runpars$t_inf_vax,
                     VB = VB,
-                    alpha_ab = 1.32,
-                    beta_ab = 6.62,
-                    # vmin = 0, # higher vmin means that the probability of a sporozoite surviving is higher, so should have more infections
+                    alpha_ab = alpha_ab, 
+                    beta_ab = beta_ab,
+                    vmin = vmin, # higher vmin means that the probability of a sporozoite surviving is higher, so should have more infections
                     SMC_time = smckilltime,
                     SMC_kill_vec = smckillvec_subset,
                     infection_start_day = runpars$inf_start
