@@ -69,12 +69,12 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
   # # Generate LHS samples
   # Set up grid of parameter ranges
   # param_ranges <- list(
-  #   alpha_ab = c(1.3, 1.9),
-  #   beta_ab = c(2, 4),
-  #   vmin = c(0, 0.01)
+  #   alpha_ab = c(0.8, 4),#1.99    3.80 0.00182  and #1.65    4.05 0.00401 are decent ;  2.94    4.98 0.00691; 1.99    4.67 0.00196
+  #   beta_ab = c(2, 7),
+  #   vmin = c(0, 0.025)
   # )
   # A <- randomLHS(n_param_sets, 3)
-  # # Scale to parameter ranges
+  # # # Scale to parameter ranges
   # params_df <- data.frame(
   #   alpha_ab = qunif(A[,1], param_ranges$alpha_ab[1], param_ranges$alpha_ab[2]),
   #   beta_ab = qunif(A[,2], param_ranges$beta_ab[1], param_ranges$beta_ab[2]),
@@ -91,16 +91,25 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
   #   beta_ab = rep(2.46, n_param_sets),#c(rep(4.18, n_param_sets/2),
   #   vmin = rep(0.351, n_param_sets)#c(rep(0.322, n_param_sets/2)
   # )
-  params_df <- rbind(
-    # from post changing to mu parameterization 13/1
-    # data.frame(alpha_ab = 1.73, beta_ab = 2.37, vmin = 0.000122),
-    data.frame(alpha_ab = 1.77, beta_ab = 2.63, vmin = 0.000513)# this is the best one (see outputs from 01-13_4 and 01-14)
-    # from pre changing to mu parameterization from prob (1-p) 13/1
-    # data.frame(alpha_ab = 1.65, beta_ab = 3.26, vmin = 0.00395),
-    # data.frame(alpha_ab = 1.48, beta_ab = 2.46, vmin = 0.00225)
+  # params_df <- rbind(
+  #   # from post changing to mu parameterization 13/1
+  #   # data.frame(alpha_ab = 1.73, beta_ab = 2.37, vmin = 0.000122),
+  #   data.frame(alpha_ab = 1.77, beta_ab = 2.63, vmin = 0.000513)# this is the best one (see outputs from 01-13_4 and 01-14)
+  #   # from pre changing to mu parameterization from prob (1-p) 13/1
+  #   # data.frame(alpha_ab = 1.65, beta_ab = 3.26, vmin = 0.00395),
+  #   # data.frame(alpha_ab = 1.48, beta_ab = 2.46, vmin = 0.00225)
+  # )
+  # 
+  # params_df <- params_df %>%
+  #   slice(rep(row_number(), each = n_param_sets))
+  
+  # params_df <- params_df %>%
+  #   mutate(vmin = seq(0, 0.4, length.out = n_param_sets))
+  params_df <- data.frame( # from best from 01-23 -- this is after changing back to pars for ONE not 5 bites 
+    alpha_ab = rep(1.74, n_param_sets), #rep(1.66, n_param_sets), 
+    beta_ab = rep(4.69, n_param_sets), #rep(3.45, n_param_sets), 
+    vmin = rep(0.00259, n_param_sets) #rep(0.00311, n_param_sets)
   )
-  params_df <- params_df %>%
-    slice(rep(row_number(), each = n_param_sets))
   params_df <- params_df %>%
     mutate(
     max_SMC_kill_rate = rep(0, n_param_sets),

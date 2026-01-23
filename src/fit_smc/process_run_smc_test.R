@@ -51,31 +51,14 @@ paramsall <- map_df(lhs_parameters, "params") %>% select(max_SMC_kill_rate, lamb
   mutate(mls = mlses)
 
 gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/grid_search2025-12-03.rds') # this one has the best one -- #67 2.333, 16.667, 0.222
+gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars_7dayliverstage2025-12-15.rds') # this one has the best one -- #67 2.333, 16.667, 0.222
 effcumulweekly <- purrr::map_df(gridsearch, 'efficacy')
 pars <- purrr::map_df(gridsearch, 'params')
 mlses <- unlist(purrr::map(gridsearch, 'mls',.id = 'sim_id'))
 top5 <- order(mlses)[1:10]
 mlsesmin <- which(mlses == min(mlses, na.rm = TRUE))
 all <- map_df(gridsearch, 'params')
-# # Look at efficacy output
-# ggplot(effdaily %>% filter(days_since_smc < 70 & days_since_smc %% 2 == 0)) +
-#   geom_point(aes(x = days_since_smc, y = efficacy, group = sim_id, color = sim_id), alpha = 0.2) +
-#   geom_line(aes(x = days_since_smc, y = efficacy, group = sim_id, color = sim_id), alpha = 0.2) +
-#   ylim(c(-0.3, 1)) + #xlim(c(115, 170)) +
-#   geom_line(data = observed_efficacy, aes(x = day_since_smc, y = efficacy)) +
-#   geom_point(data = observed_efficacy, aes(x = day_since_smc, y = efficacy)) +
-#   theme_minimal() +
-#   theme(legend.position = 'none')
-# 
-# ggplot(effweekly %>% filter(weeks_since_smc < 10)) +
-#   geom_point(aes(x = weeks_since_smc, y = efficacy, group = sim_id, color = sim_id), alpha = 0.1) +
-#   geom_line(aes(x = weeks_since_smc, y = efficacy, group = sim_id, color = sim_id), alpha = 0.2) +
-#   ylim(c(-0.5, 1)) +
-#   geom_line(data = observed_efficacy, aes(x = day_since_smc/7, y = efficacy)) +
-#   geom_point(data = observed_efficacy, aes(x = day_since_smc/7, y = efficacy)) +
-#   scale_x_continuous(breaks = seq(0,9,1)) +
-#   theme_minimal() +
-#   theme(legend.position = 'none')
+
 
 # Compare weekly and daily summarized observed efficacy 
 # ggplot() + 
@@ -110,11 +93,11 @@ all <- map_df(gridsearch, 'params')
 #   theme(legend.position = 'none')
 effcumulweekly <- effcumulweekly %>%
   left_join(pars, by = "sim_id")
-ggplot(effcumulweekly %>% filter(weeks_since_smc < 10, repnum %in% c(1, 7,11,2,16,3,6) &sim_id == 67)) + # for the grid search 12-03
+ggplot(effcumulweekly)+# %>% filter(weeks_since_smc < 10, repnum %in% c(1, 7,11,2,16,3,6) &sim_id == 67)) + # for the grid search 12-03
   # geom_point(data = effcumuldaily%>% filter(days_since_smc < 70), aes(x = days_since_smc/7, y = efficacy, group = sim_id), color = 'grey', alpha = 0.1) +
   # geom_line(data = effcumuldaily%>% filter(days_since_smc < 70), aes(x = days_since_smc/7, y = efficacy, group = sim_id), color = 'grey', alpha = 0.1) +
-  geom_point(aes(x = weeks_since_smc, y = efficacy, group = as.factor(sim_id), color = as.factor(repnum)), alpha = 0.4) +
-  geom_line(aes(x = weeks_since_smc, y = efficacy, group = as.factor(sim_id), color = as.factor(repnum)), alpha = 0.3) +
+  geom_point(aes(x = weeks_since_smc, y = efficacy, group = as.factor(sim_id), color = as.factor(sim_id)), alpha = 0.4) +
+  geom_line(aes(x = weeks_since_smc, y = efficacy, group = as.factor(sim_id), color = as.factor(sim_id)), alpha = 0.3) +
   # ylim(c(-0.3, 1)) +
   geom_hline(aes(yintercept = 0), color = 'darkred', linetype = 2) +
   geom_line(data = observed_efficacy, aes(x = weeks_since_smc, y = efficacy_week)) +

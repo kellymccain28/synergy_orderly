@@ -126,7 +126,7 @@ eval_history_combined <- optimization_results %>%
 # Look at grid search results 
 # "Observed" efficacy from White model 
 observed_efficacy_rtss <- readRDS(paste0(path, '/src/fit_rtss/observed_rtss_efficacy_months.rds'))
-observed_efficacy_rtss <- readRDS(paste0(path, '/src/fit_rtss/observed_rtss_efficacy.rds'))
+# observed_efficacy_rtss <- readRDS(paste0(path, '/src/fit_rtss/observed_rtss_efficacy.rds'))
 
 rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2025-12-15_test_abonly.rds")
 rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2025-12-16.rds")
@@ -161,6 +161,9 @@ parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_202
 #final params + log normal biting 
 rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-14_2/efficacy_rtss.rds")
 parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-14_2/parameters.rds")
+
+rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-23_4/efficacy_rtss.rds")
+parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-23_4/parameters.rds")
 # rtsscumul <- rtsscumul %>% left_join(parameters)
 rtsseff <- rtsseff %>% left_join(parameters)
 
@@ -190,12 +193,12 @@ parameters$mls <- allmls
 
 
 # rtssinfs <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/infectionrecords_rtss_2025-12-02.rds")
-best <- rtsseff #%>% filter(sim_id %in% parameters[parameters$mls < 0.0025,]$sim_id )#filter(sim_id %in% parameters[parameters$mls < 0.02,]$sim_id)#
+best <- rtsseff# %>% filter(sim_id %in% parameters[parameters$mls < 0.001,]$sim_id )#filter(sim_id %in% parameters[parameters$mls < 0.02,]$sim_id)#
 ggplot(best )+#%>% filter(alpha_ab > 1.2 & alpha_ab  < 1.8 &  vmin > 0.25))+#filter(alpha_ab > 1.4 & alpha_ab  < 1.7 & beta_ab <5 & beta_ab > 3)) + #filter(alpha_ab > 1.2 & alpha_ab  < 1.8 &  vmin > 0.25)
   geom_line(aes(x = months_since_rtss, y = efficacy, group = sim_id), #color = paste0(as.factor(round(alpha_ab, 3)), ', ',
                                                                      #               as.factor(round(beta_ab,3)), ', ', 
                                                                      #               as.factor(round(vmin, 4)))),  
-            color = 'orange', alpha = 0.2, linewidth = 1) +#,,
+            color = 'orange', alpha = 0.3, linewidth = 1) +#,,
   # geom_line(aes(x = weeks_since_rtss, y = efficacy, group = sim_id), color = 'orange', alpha = 0.5) +
   geom_line(data = observed_efficacy_rtss , aes(x = months_since_rtss, y = observed_efficacy), color = 'black', linewidth= 1) +
   # geom_line(data = observed_efficacy_rtss , aes(x = weeks_since_rtss, y = observed_efficacy), color = 'black', linewidth= 1) +
@@ -216,8 +219,8 @@ ggplot(best )+#%>% filter(alpha_ab > 1.2 & alpha_ab  < 1.8 &  vmin > 0.25))+#fil
        y = 'Vaccine efficacy',
        x = 'Months since RTS,S') 
 bestpars <- best %>% distinct(alpha_ab, beta_ab, vmin)
-
-ggsave(filename = 'R:/Kelly/synergy_orderly/figures/rtss_fit.pdf', height = 6, width = 8) # as of 6/1/26, the eff from 16 Dec is in the thesis 
+bestpars
+ggsave(filename = paste0('R:/Kelly/synergy_orderly/figures/rtss_fit',Sys.Date(), '.pdf'), height = 6, width = 8) # as of 6/1/26, the eff from 16 Dec is in the thesis 
 
 dr <-p_spz_surv(ab_summary$median_ab, beta_ab = 3.538125, alpha_ab = 1.3804900)
 plot(1-dr)

@@ -130,6 +130,11 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
       lambda = rep(16.6667,n_param_sets),
       kappa = rep(0.2222222, n_param_sets),
       sim_id = seq(1:n_param_sets))
+  # params_df <- data.frame(
+  #   max_SMC_kill_rate = rep(3.01, n_param_sets),
+  #   lambda = rep(13,n_param_sets),
+  #   kappa = rep(0.454, n_param_sets),
+  #   sim_id = seq(1:n_param_sets))
   
   # params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", treatment_probability)
   prob_bite_generic <- readRDS(paste0(path, '/archive/fit_rainfall/20251009-144330-1d355186/prob_bite_generic.rds'))
@@ -409,7 +414,7 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
     parallel::stopCluster(cl)
   }
   # Save all results 
-  saveRDS(grid_search_outputs, paste0("R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars_7dayliverstage",Sys.Date(),".rds"))
+  saveRDS(grid_search_outputs, paste0("R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_2026-01-22pars_7dayliverstage",Sys.Date(),".rds"))
   # saveRDS(results2, paste0("R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc_",Sys.Date(),".rds"))
-  saveRDS(metadata_df, paste0('R:/Kelly/synergy_orderly/src/fit_smc/outputs/metadata_best_7dayliverstage', Sys.Date(), '.rds'))
+  saveRDS(metadata_df, paste0('R:/Kelly/synergy_orderly/src/fit_smc/outputs/metadata_2026-01-22pars_7dayliverstage', Sys.Date(), '.rds'))
 }
