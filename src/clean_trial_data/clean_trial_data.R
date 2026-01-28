@@ -13,6 +13,7 @@ library(gtsummary)
 library(cyphr)
 library(orderly)
 library(lubridate)
+library(tidyverse)
 
 key <- cyphr::data_key()
 
@@ -147,7 +148,7 @@ weekly <- weekly_raw %>%
 # information about every child in study, primary outcomes, and delivery details 
 # mitt - which is anyone who got th first vaccine
 mitt <- children %>%
-  left_join(delivery_detail_raw, by = c('arm','sex','country','rid','v1_date','v2_date','v3_date','last_primary_vac')) %>%
+  left_join(delivery_detail_raw)%>%# by = c('arm','sex','country','rid','v1_date','v2_date','v3_date','last_primary_vac')) %>%
   left_join(primary_raw, by = c('rid')) %>%
   # Do same cleaning as above for children
   # Get approx date of birth
@@ -206,7 +207,20 @@ primary_persontime <- primary_persontime %>%
   rename(end_time = X_t,
          start_time = X_t0,
          event = X_d) 
+primary_pt = primary_persontime
 
+# Number of clinical cases over 3 years 
+pp <- primary_persontime %>%
+  filter(poutcome == 1) %>%
+  group_by(rid) %>%
+  summarize(n = n()) %>%
+  arrange(desc(n)) %>%
+  mutate(rid = factor(rid, levels = rid)) 
+mean(pp$n) # 1.8
+median(pp$n) # 1
+ggplot(pp) + 
+  geom_bar(aes(x = as.factor(rid), y = n), stat = 'identity', width = 1)  
+  
 
 dir.create('data/')
 cyphr::encrypt(saveRDS(primary_persontime, file = 'data/primary_persontime.rds'), key)

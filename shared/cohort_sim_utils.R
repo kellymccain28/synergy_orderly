@@ -104,7 +104,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
     numbites <- setNames(as.vector(numbites), names(numbites))
     
     # children can get bitten >1 time per day, but we only run the full model once 
-    bit_kids <- unique(bites) 
+    bit_kids <- unique(bites)
     
     # Update susceptibility vector so that recovered kids would be susceptible again
     if (exists("infection_records") && nrow(infection_records) > 0 ){#& !allow_superinfections) {
