@@ -125,43 +125,46 @@ eval_history_combined <- optimization_results %>%
 
 # Look at grid search results 
 # "Observed" efficacy from White model 
-observed_efficacy_rtss <- readRDS(paste0(path, '/src/fit_rtss/observed_rtss_efficacy_months.rds'))
+# observed_efficacy_rtss <- readRDS(paste0(path, '/src/fit_rtss/observed_rtss_efficacy_months.rds'))
 # observed_efficacy_rtss <- readRDS(paste0(path, '/src/fit_rtss/observed_rtss_efficacy.rds'))
 
-rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2025-12-15_test_abonly.rds")
-rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2025-12-16.rds")
-parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/parameters_2025-12-16.rds")
-parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/parameters_2025-12-15_test_abonly.rds")
-rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2026-01-071000.rds")
-parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/parameters_2026-01-071000.rds")
-rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2026-01-081000_vmin.rds")
-parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/parameters_2026-01-081000_vmin.rds")
+# rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2025-12-15_test_abonly.rds")
+# rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2025-12-16.rds")
+# parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/parameters_2025-12-16.rds")
+# parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/parameters_2025-12-15_test_abonly.rds")
+# rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2026-01-071000.rds")
+# parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/parameters_2026-01-071000.rds")
+# rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/efficacy_rtss_2026-01-081000_vmin.rds")
+# parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/parameters_2026-01-081000_vmin.rds")
+# 
+# rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-08_2/efficacy_rtss.rds")
+# parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-08_2/parameters.rds")
+# rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-12_3/efficacy_rtss.rds")
+# parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-12_3/parameters.rds")
+# 
+# # with the vmin in correct function:
+# rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-12_4/efficacy_rtss.rds")
+# parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-12_4/parameters.rds")
+# rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13/efficacy_rtss.rds")
+# parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13/parameters.rds")
+# rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_2/efficacy_rtss.rds")
+# parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_2/parameters.rds")
+# 
+# #91f27b039d6646a37d3f24b15ff1e903 testing 4 best 
+# rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_3/efficacy_rtss.rds")
+# parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_3/parameters.rds")
+# # lognormal 
+# rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_4/efficacy_rtss.rds")
+# parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_4/parameters.rds")
+# rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-14/efficacy_rtss.rds")
+# parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-14/parameters.rds")
+# #final params + log normal biting  (but fitted to 5 bites)
+# rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-14_2/efficacy_rtss.rds")
+# parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-14_2/parameters.rds")
 
-rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-08_2/efficacy_rtss.rds")
-parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-08_2/parameters.rds")
-rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-12_3/efficacy_rtss.rds")
-parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-12_3/parameters.rds")
-
-# with the vmin in correct function:
-rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-12_4/efficacy_rtss.rds")
-parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-12_4/parameters.rds")
-rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13/efficacy_rtss.rds")
-parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13/parameters.rds")
-rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_2/efficacy_rtss.rds")
-parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_2/parameters.rds")
-
-#91f27b039d6646a37d3f24b15ff1e903 testing 4 best 
-rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_3/efficacy_rtss.rds")
-parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_3/parameters.rds")
-# lognormal 
-rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_4/efficacy_rtss.rds")
-parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-13_4/parameters.rds")
-rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-14/efficacy_rtss.rds")
-parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-14/parameters.rds")
-#final params + log normal biting 
-rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-14_2/efficacy_rtss.rds")
-parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-14_2/parameters.rds")
-
+## USE THESE!! 28 JAN - log normal and fitted to 1 bite not 5
+path = "R:/Kelly/synergy_orderly"
+observed_efficacy_rtss <- readRDS(paste0(path, '/src/fit_rtss/observed_rtss_efficacy_months.rds'))
 rtsseff <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-23_4/efficacy_rtss.rds")
 parameters <- readRDS("R:/Kelly/synergy_orderly/src/fit_rtss/outputs/outputs_2026-01-23_4/parameters.rds")
 # rtsscumul <- rtsscumul %>% left_join(parameters)
@@ -216,7 +219,7 @@ ggplot(best )+#%>% filter(alpha_ab > 1.2 & alpha_ab  < 1.8 &  vmin > 0.25))+#fil
                      # breaks = seq(0,1,0.1),
                      limits = c(0,1)) + 
   labs(#caption = '1000 threshold of detection',
-       y = 'Vaccine efficacy',
+       y = 'Vaccine efficacy against infection',
        x = 'Months since RTS,S') 
 bestpars <- best %>% distinct(alpha_ab, beta_ab, vmin)
 bestpars
