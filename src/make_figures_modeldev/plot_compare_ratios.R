@@ -1,8 +1,8 @@
 # Script to compare the ratios of multiple timings 
 
-plot_compare_ratios <- function(output_folders){
+plot_compare_ratios <- function(output_folders, cohort_folder = 'sim_cohort_generic'){
   
-  path <- 'R:/Kelly/synergy_orderly/src/sim_cohort_generic/outputs/'
+  path <- paste0('R:/Kelly/synergy_orderly/src/', cohort_folder, '/outputs/')
   
   # output_folders <- c('outputs_2026-01-19_3', # 122, 68
   #                     'outputs_2026-01-19_4', # 135, 80
@@ -50,18 +50,24 @@ plot_compare_ratios <- function(output_folders){
   # metadata_df <- readRDS(paste0(path, outputsfolder, "/metadata_df.rds"))
   # base_inputs <- readRDS(paste0(path, outputsfolder, "/base_inputs.rds"))
   # params <- readRDS(paste0(path, outputsfolder, "/parameter_grid.rds"))
-  # smc_dates <- as.Date(unlist(formatted$smc_dose_days[10][1:4]), origin = '2017-04-01')
+  # # smc_dates <- as.Date(unlist(formatted$smc_dose_days[10][1:4]), origin = '2017-04-01')
+  # smc_dates <- readRDS('R:/Kelly/synergy_orderly/shared/median_smc_dates.rds') %>%
+  #   filter(country == base_inputs$country) %>%
+  #   pull(date)
+  # # smc_dates <- as.Date(unlist(all$smc_dose_days[11][1:4]), origin = '2017-04-01')
   # smc_lines <- data.frame(
   #   xintercept = rep(smc_dates,2),
   #   arm = rep(c('smc', 'both'), each = length(smc_dates)),
-  #   color = '#4D9DE0'
+  #   color = '#709176'
   # )
-  # 
+  # # metadata_df$vaccination_day[1] = 90
   # rtss_lines <- data.frame(
-  #   xintercept = as.Date(rep(c(metadata_df$vaccination_day[1]-60, metadata_df$vaccination_day[1]-30, metadata_df$vaccination_day[1], metadata_df$vaccination_day[1]+364, metadata_df$vaccination_day[1]+730),2), origin = '2017-04-01'),
+  #   xintercept = as.Date(rep(c(mean(metadata_df$vaccination_day)-60, mean(metadata_df$vaccination_day)-30, mean(metadata_df$vaccination_day), 
+  #                              mean(metadata_df$vaccination_day)[1]+364, mean(metadata_df$vaccination_day)+730),2), origin = '2017-04-01'),
   #   arm = rep(c('rtss','both'), length(6)),
   #   color = '#59114D'
   # )
+  
   
   # Plot of ratios of expected vs predicted efficacy of both vs none 
   ratioplot <- ggplot(incidence_df) + 

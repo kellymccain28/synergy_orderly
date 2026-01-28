@@ -1,13 +1,15 @@
 # plot overall 1-IRR for each year 
 
 plot_irr_average <- function(outputsfolder, 
-                             agg_unit = 'year'){
+                             agg_unit = 'year',
+                             cohort_folder = 'sim_cohort_generic'){
   # Load packages
   library(zoo)
   library(survival)
   library(survminer)
   library(broom)
   library(ggplot2)
+  library(tidyverse)
   
   source("R:/Kelly/synergy_orderly/shared/format_model_output.R")
   source("R:/Kelly/synergy_orderly/shared/get_incidence.R")
@@ -15,7 +17,7 @@ plot_irr_average <- function(outputsfolder,
   source("R:/Kelly/synergy_orderly/shared/get_cox_efficacy.R")
   source("R:/Kelly/synergy_orderly/shared/likelihood.R")
   
-  path <- 'R:/Kelly/synergy_orderly/src/sim_cohort_generic/outputs/'
+  path <- paste0('R:/Kelly/synergy_orderly/src/', cohort_folder, '/outputs/')
   
   # Using the outputs from monthly_incidence_plot.R
   inci <- readRDS(paste0(path, outputsfolder, '/incidence.rds'))
@@ -23,6 +25,7 @@ plot_irr_average <- function(outputsfolder,
   if(agg_unit == 'year'){
   # Get annual and overall incidence 
   inci_annual <- inci %>%
+    filter(!is.na(date)) %>%
     mutate(studyyear = case_when(date < '2018-04-01' ~ 1,
                                  date < '2019-04-01' ~ 2,
                                  date < '2020-04-01' ~ 3)) %>%
@@ -33,6 +36,7 @@ plot_irr_average <- function(outputsfolder,
            studyyear = as.character(studyyear))
   } else if (agg_unit == 'halfyear'){
     inci_annual <- inci %>%
+      filter(!is.na(date)) %>%
       mutate(studyyear = case_when(date < '2017-10-01' ~ 1,
                               date < '2018-04-01' ~ 2,
                               date < '2018-10-01' ~ 3,

@@ -1,5 +1,5 @@
 # Script to produce nice outputs of the monthly incidence of the generic cohort 
-plot_monthly_incidence <- function(outputsfolder){
+plot_monthly_incidence <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   # Load packages
   library(zoo)
   library(survival)
@@ -14,7 +14,7 @@ plot_monthly_incidence <- function(outputsfolder){
   source("R:/Kelly/synergy_orderly/shared/get_cox_efficacy.R")
   source("R:/Kelly/synergy_orderly/shared/likelihood.R")
   
-  path <- 'R:/Kelly/synergy_orderly/src/sim_cohort_generic/outputs/'
+  path <- paste0('R:/Kelly/synergy_orderly/src/', cohort_folder, '/outputs/')
   # outputsfolder <- 'outputs_2025-12-01_2'
   
   # sim_results <- readRDS(paste0(path, outputsfolder, "/sim_results.rds"))
@@ -83,7 +83,13 @@ plot_monthly_incidence <- function(outputsfolder){
   
   # Plot incidence with p_bite overlaid 
   pbite <- params$p_bite[[1]]
-  smc_dates <- as.Date(unlist(all$smc_dose_days[11][1:4]), origin = '2017-04-01')
+  if(cohort_folder == 'sim_cohort_generic'){
+    smc_dates <- as.Date(unlist(formatted$smc_dose_days[11][1:4]), origin = '2017-04-01')
+  } else if(cohort_folder == 'sim_trial_cohort'){
+    smc_dates <- readRDS('R:/Kelly/synergy_orderly/shared/median_smc_dates.rds') %>%
+      filter(country == base_inputs$country) %>%
+      pull(date)
+  }
   smc_lines <- data.frame(
     xintercept = rep(smc_dates,2),
     arm = rep(c('smc', 'both'), each = length(smc_dates)),
@@ -91,7 +97,8 @@ plot_monthly_incidence <- function(outputsfolder){
   )
   # metadata_df$vaccination_day[1] = 90
   rtss_lines <- data.frame(
-    xintercept = as.Date(rep(c(metadata_df$vaccination_day[1]-60, metadata_df$vaccination_day[1]-30, metadata_df$vaccination_day[1], metadata_df$vaccination_day[1]+364, metadata_df$vaccination_day[1]+730),2), origin = '2017-04-01'),
+    xintercept = as.Date(rep(c(mean(metadata_df$vaccination_day)-60, mean(metadata_df$vaccination_day)-30, mean(metadata_df$vaccination_day), 
+                               mean(metadata_df$vaccination_day)[1]+364, mean(metadata_df$vaccination_day)+730),2), origin = '2017-04-01'),
     arm = rep(c('rtss','both'), length(6)),
     color = '#59114D'
   )
@@ -101,10 +108,17 @@ plot_monthly_incidence <- function(outputsfolder){
     geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
     geom_line(aes(x = as.Date(yearmonth), y = incidence_per_1000pm, color = arm), linewidth = 0.8) +
     # geom_point(aes(x = as.Date(yearmonth), y = incidence_per_1000pm/100, color = arm), size = 4) +
-    geom_errorbar(aes(x = as.Date(yearmonth), ymin = incidence_per_1000pm_lower, ymax = incidence_per_1000pm_upper, color = arm),
-                  linewidth = 1, width = 25) +
+    geom_ribbon(aes(x = as.Date(yearmonth), ymin = incidence_per_1000pm_lower, ymax = incidence_per_1000pm_upper, fill = arm),# color = arm),
+                  linewidth = 1, width = 25, alpha = 0.3) +
     # geom_line(data = pbite, aes(x = date, y = prob_lagged*100), alpha = 0.2) +
     scale_color_manual(values =  c('both' = '#E15554', 
+                                   'none' = '#E1BC29',
+                                   'rtss' = '#3BB273',
+                                   'smc' = '#7768AE',
+                                   'SMC delivery' = '#709176',
+                                   'RTS,S delivery' = '#470024'),
+                       breaks = c('both','none','rtss','smc','SMC delivery','RTS,S delivery'))+#c('#C44536','#772E25','#197278','#283D3B'))+
+    scale_fill_manual(values =  c('both' = '#E15554', 
                                    'none' = '#E1BC29',
                                    'rtss' = '#3BB273',
                                    'smc' = '#7768AE',

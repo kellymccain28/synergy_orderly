@@ -1,5 +1,5 @@
 # Script to plot the time it takes for each infection to reach the threshold, by arm 
-plot_time_to_threshold <- function(outputsfolder){
+plot_time_to_threshold <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   # Load packages
   library(ggplot2)
   library(colorspace)
@@ -12,8 +12,8 @@ plot_time_to_threshold <- function(outputsfolder){
                   '#E15554')
   lighter_arm_colors <- colorspace::lighten(arm_colors, amount = 0.3)
   
-  path <- 'R:/Kelly/synergy_orderly/src/sim_cohort_generic/outputs/'
-
+  path <- paste0('R:/Kelly/synergy_orderly/src/', cohort_folder, '/outputs/')
+  
   # Using the outputs from monthly_incidence_plot.R
   formatted <- readRDS(paste0(path, outputsfolder, '/formatted_infrecords.rds')) %>%
     filter(detectable==1 ) %>%

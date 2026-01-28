@@ -70,22 +70,37 @@ outputs_folder <- 'outputs_2026-01-23_19' # early 100 55 - done
 outputs_folder <- 'outputs_2026-01-23_20' # late vax early smc 100 80 - done
 outputs_folder <- 'outputs_2026-01-23_21' # late 140 80
 
+outputs_folder <- 'outputs_2026-01-26' # balanced with 32*3 runs
+
+# Real trial simulations 
+outputs_folder <- 'outputs_2026-01-27_8'
+
 
 # first, do monthly inci, then order doesn't matter
 plot_monthly_incidence(outputsfolder = outputs_folder)
+plot_monthly_incidence(outputsfolder = outputs_folder,
+                       cohort_folder = 'sim_trial_cohort')
 
 # time to threshold
 plot_time_to_threshold(outputsfolder = outputs_folder)
+plot_time_to_threshold(outputsfolder = outputs_folder,
+                       cohort_folder = 'sim_trial_cohort')
 
 # efficacy - saved figure in folder and outputs efficacy results 
 # hr_results <- plot_hazard_ratios(outputsfolder = outputs_folder)
 
 # plot 1- IRR
 plot_irr(outputsfolder = outputs_folder)
+plot_irr(outputsfolder = outputs_folder,
+         cohort_folder = 'sim_trial_cohort')
 
 # plot 1-IRR average 
 plot_irr_average(outputsfolder = outputs_folder, agg_unit = 'year')
 plot_irr_average(outputsfolder = outputs_folder, agg_unit = 'halfyear')
+plot_irr_average(outputsfolder = outputs_folder, agg_unit = 'year',
+                 cohort_folder = 'sim_trial_cohort')
+plot_irr_average(outputsfolder = outputs_folder, agg_unit = 'halfyear',
+                 cohort_folder = 'sim_trial_cohort')
 
 
 # compare ratios (only run after all folders in list have had monthly inci calculated, as this requires formatting )
