@@ -1,5 +1,4 @@
 # Reproducing trial outputs from Chandramohan et al 2021
-library(tidyverse)
 library(survival)
 library(survminer)
 library(labelled)
@@ -12,6 +11,9 @@ library(cyphr)
 library(lubridate)
 library(purrr)
 library(orderly)
+library(MASS)
+library(tidyr)
+library(tidyverse)
 
 subfolder <- 'figures/'
 
@@ -90,7 +92,7 @@ ggsave(filename = 'efficacy_trial.png', efficacies, height = 8, width = 8)
 
 # Get efficacy for 3 versus 2 doses 
 df <- primary %>%
-  select(-starts_with('y')) %>%
+  dplyr::select(-tidyselect::starts_with('y')) %>%
   rowwise() %>%
   mutate(year = lubridate::year(dcontact),
          n_vaccine_doses = sum(as.numeric(nprimary), as.numeric(boost1_done), as.numeric(boost2_done), na.rm = TRUE),
@@ -115,8 +117,8 @@ results <- tidy(coxdoses_interactsmc,
   mutate(VE = (1 - estimate) * 100,              # VE = 1 - HR
          VE_lower = (1 - conf.high) * 100,       # Lower CI for VE = 1 - Upper CI for HR
          VE_upper = (1 - conf.low) * 100) %>%     # Upper CI for VE = 1 - Lower CI for HR
-  mutate(n_events = coxdoses$nevent,
-         n_obs = coxdoses$n)
+  mutate(n_events = coxdoses_interactsmc$nevent,
+         n_obs = coxdoses_interactsmc$n)
 
 ggplot(results )+#%>% filter(term != 'factor(arm)rtss'))+
   geom_point(aes(x = term, y = VE)) + 
@@ -273,7 +275,7 @@ delivery %>%
 # Mali: about 19-20% missed at least 3 rounds
 # while in BF, about 41% in the Both group missed at least 1 smc round, while 61% in teh SMC only group missed at least 1 round 
 # BF: 15.6% missed at least 3 rounds in both group and 23.1% missed rounds in SMC only group 
-
+y1cols <- grep("^y1", names(delivery), value = TRUE)
 y1cols <- y1cols[!(y1cols %in% grep('date', y1cols, value = TRUE))]
 delivery$nsmc_doses <- rowSums(!is.na(delivery[, y1cols]))
 
@@ -336,18 +338,26 @@ delivery_avg <- delivery %>%
   group_by(country) %>%
   summarize(across(contains('date'),
                    list(median = ~median(.x, na.rm = TRUE)),
-                   .names = "{.col}_{.fn}")) %>%
-  pivot_longer(cols = v1_date_median:fu_end_date_median)
+                   .names = "{.col}_{.fn}")) #%>%
+  # pivot_longer(cols = v1_date_median:fu_end_date_median)
+vax_dates_avg <- delivery_avg %>%
+  dplyr::select(country, v1_date_median, v2_date_median, v3_date_median, boost1_date_median, boost2_date_median) %>%
+  pivot_longer(cols = c(v1_date_median, v2_date_median, v3_date_median, boost1_date_median, boost2_date_median),
+               names_to = 'dose',
+               values_to = 'date') %>%
+  mutate(dose = factor(str_replace(dose, "_date_median", ""), levels = c("v1",'v2','v3','boost1', 'boost2')))
+saveRDS(vax_dates_avg, 'R:/Kelly/synergy_orderly/shared/median_rtss_dates.rds')
 
 
 vaxdates <- delivery %>%
   pivot_longer(cols = c(v1_date, v2_date, v3_date, boost1_date, boost2_date),
                names_to = 'dose',
                values_to = 'date') %>%
-  mutate(dose = factor(str_replace(dose, "_date", ""), levels = c("v1",'v2','v3','boost1', 'boost2')))
+  mutate(dose = factor(str_replace(dose, "_date", ""), levels = c("v1",'v2','v3','boost1', 'boost2')),
+         date = ifelse(country == 'BF' & dose == 'boost2', 1400, date))
 
-ggplot(vaxdates) +
-  geom_histogram(aes(x = date, fill = dose)) +
+ggplot(delivery_avg) +
+  geom_histogram(data = vaxdates, aes(x = date, fill = dose)) +
   scale_x_date(date_breaks = '1 months', labels = scales::label_date_short()) +
   geom_vline(data = delivery_avg, aes(xintercept = v1_date_median, color = 'v1'))+
   geom_vline(data = delivery_avg, aes(xintercept = v2_date_median, color = 'v2'))+
@@ -361,8 +371,15 @@ median(delivery$y1p1d1_date_received, na.rm = TRUE) # 7-27
 median(delivery$y1p2d1_date_received, na.rm = TRUE) # 8-24 
 median(delivery$y1p3d1_date_received, na.rm = TRUE) # 9-23
 
-# 
+smcdates <- delivery_avg %>%
+  select(country, contains('d3')) %>%
+  pivot_longer(cols = contains('date_received'),
+               names_to = 'smcdose',
+               values_to = 'date') 
+ggplot(smcdates) +
+  geom_vline(aes(xintercept = date, color = smcdose)) + facet_wrap(~country)
 
+saveRDS(smcdates, 'R:/Kelly/synergy_orderly/shared/median_smc_dates.rds')
 
 
 
