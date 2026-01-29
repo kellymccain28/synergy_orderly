@@ -16,30 +16,8 @@ plot_compare_ratios <- function(output_folders, cohort_folder = 'sim_cohort_gene
   )
   
   incidence_df <- incidence_df %>%
-    mutate(
-      rtsstiming = case_when(
-        output_folder == 'outputs_2026-01-19_3' ~ 68,
-        output_folder == 'outputs_2026-01-19_4' ~ 80,
-        output_folder == 'outputs_2026-01-19_2' ~ 60,
-        output_folder == 'outputs_2026-01-23_15' ~ 68,
-        output_folder == 'outputs_2026-01-23_18' ~ 55,
-        output_folder == 'outputs_2026-01-23_19' ~ 55,
-        output_folder == 'outputs_2026-01-23_20' ~ 80,
-        output_folder == 'outputs_2026-01-23_21' ~ 80,
-        TRUE ~ NA),
-      smctiming = case_when(
-        output_folder == 'outputs_2026-01-19_3' ~ 122,
-        output_folder == 'outputs_2026-01-19_4' ~ 135,
-        output_folder == 'outputs_2026-01-19_2' ~ 100,
-        output_folder == 'outputs_2026-01-23_15' ~ 122,
-        output_folder == 'outputs_2026-01-23_18' ~ 140,
-        output_folder == 'outputs_2026-01-23_19' ~ 100,
-        output_folder == 'outputs_2026-01-23_20' ~ 100,
-        output_folder == 'outputs_2026-01-23_21' ~ 140,
-        TRUE ~ NA)
-    ) %>%
     mutate(scenario = case_when(
-      output_folder == 'outputs_2026-01-23_15' ~ 'Balanced',
+      output_folder == 'outputs_2026-01-23_15' | output_folder == 'outputs_2026-01-26' ~ 'Balanced',
       output_folder == 'outputs_2026-01-23_19' ~ 'Early',
       output_folder == 'outputs_2026-01-23_21' ~ 'Late',
       output_folder == 'outputs_2026-01-23_18' ~ 'Early vaccine, late SMC',
@@ -50,11 +28,13 @@ plot_compare_ratios <- function(output_folders, cohort_folder = 'sim_cohort_gene
   # metadata_df <- readRDS(paste0(path, outputsfolder, "/metadata_df.rds"))
   # base_inputs <- readRDS(paste0(path, outputsfolder, "/base_inputs.rds"))
   # params <- readRDS(paste0(path, outputsfolder, "/parameter_grid.rds"))
-  # # smc_dates <- as.Date(unlist(formatted$smc_dose_days[10][1:4]), origin = '2017-04-01')
-  # smc_dates <- readRDS('R:/Kelly/synergy_orderly/shared/median_smc_dates.rds') %>%
-  #   filter(country == base_inputs$country) %>%
-  #   pull(date)
-  # # smc_dates <- as.Date(unlist(all$smc_dose_days[11][1:4]), origin = '2017-04-01')
+  # if(cohort_folder == 'sim_cohort_generic'){
+  #   smc_dates <- as.Date(unlist(formatted$smc_dose_days[11][1:4]), origin = '2017-04-01')
+  # } else if(cohort_folder == 'sim_trial_cohort'){
+  #   smc_dates <- readRDS('R:/Kelly/synergy_orderly/shared/median_smc_dates.rds') %>%
+  #     filter(country == base_inputs$country) %>%
+  #     pull(date)
+  # }
   # smc_lines <- data.frame(
   #   xintercept = rep(smc_dates,2),
   #   arm = rep(c('smc', 'both'), each = length(smc_dates)),
@@ -71,19 +51,23 @@ plot_compare_ratios <- function(output_folders, cohort_folder = 'sim_cohort_gene
   
   # Plot of ratios of expected vs predicted efficacy of both vs none 
   ratioplot <- ggplot(incidence_df) + 
-    # geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), 
+    # geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'),
     #            linetype = 2, linewidth = 0.8, alpha = 0.7)+
-    # geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), 
+    # geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'),
     #            linetype = 3, linewidth = 0.8, alpha = 0.7) +
+    geom_ribbon(aes(x = as.Date(yearmonth), ymin = ratio_pred_exp_q025, ymax = ratio_pred_exp_q975,
+                fill = scenario), alpha = 0.1) +
     geom_line(aes(x = as.Date(yearmonth), y = ratio_pred_exp_median, group = scenario,#paste0('RTSS: ', rtsstiming, '; SMC: ', smctiming), 
                   color = scenario),#paste0('RTSS: ', rtsstiming, '; SMC: ', smctiming)), 
               # color = '#3E6990', 
-              alpha = 0.7,
+              alpha = 0.8,
               linewidth = 0.8) +
     geom_hline(yintercept = 1, linetype = 2) +
     scale_x_date(breaks = '3 months',
                  labels = scales::label_date_short()) +
     scale_color_brewer(palette = 'Dark2') +
+    scale_fill_brewer(palette = 'Dark2') +
+    coord_cartesian(ylim = c(0.5,1.4))+
     # scale_color_manual(values = c('SMC delivery' = '#709176',
     #                               'RTS,S delivery' = '#470024')) +#'#449DD1'
     labs(x = 'Date',

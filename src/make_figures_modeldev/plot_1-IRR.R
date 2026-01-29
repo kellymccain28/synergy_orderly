@@ -7,6 +7,7 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   library(broom)
   library(ggplot2)
   library(cowplot)
+  library(dplyr)
   
   source("R:/Kelly/synergy_orderly/shared/format_model_output.R")
   source("R:/Kelly/synergy_orderly/shared/get_incidence.R")
@@ -20,120 +21,124 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   # Using the outputs from monthly_incidence_plot.R
   formatted <- readRDS(paste0(path, outputsfolder, '/formatted_infrecords.rds'))
   inci <- readRDS(paste0(path, outputsfolder, '/incidence.rds'))
-  
+  # Using outputs from summarize_IRRs.R
+  inci_summary <- readRDS(paste0(path, outputsfolder, '/inci_summary_wide_yearmonth.rds')) %>%
+    rename(yearmonth = time_value)
+  inci_long <- readRDS(paste0(path, outputsfolder, '/inci_summary_all_yearmonth.rds')) %>%
+    filter(metric == 'incidence') %>%
+    rename(yearmonth = time_value)
   # First need to get IRR values for each combination 
   
   # Pivot wider 
-  inci_wide <- inci %>%
-    split(.$sim_id) %>%
-    map_dfr(~ .x %>%
-              select(arm, year, month, yearmonth,
-                     person_months, rate, incidence_per_1000pm) %>%
-              pivot_wider(
-                names_from = arm,
-                values_from = c(person_months, rate, incidence_per_1000pm),
-                id_cols = c(year, month, yearmonth)
-              ),
-            .id = "sim_id")
+  # inci_wide <- inci %>%
+  #   split(.$sim_id) %>%
+  #   map_dfr(~ .x %>%
+  #             select(arm, year, month, yearmonth,
+  #                    person_months, rate, incidence_per_1000pm) %>%
+  #             pivot_wider(
+  #               names_from = arm,
+  #               values_from = c(person_months, rate, incidence_per_1000pm),
+  #               id_cols = c(year, month, yearmonth)
+  #             ),
+  #           .id = "sim_id")
+  # 
+  # 
+  # # Get IRRs
+  # inci_wide <- inci_wide %>%
+  #   mutate(rtss_none_irr = (incidence_per_1000pm_rtss / incidence_per_1000pm_none),
+  #          smc_none_irr = (incidence_per_1000pm_smc / incidence_per_1000pm_none),
+  #          both_none_irr = (incidence_per_1000pm_both / incidence_per_1000pm_none),
+  #          rtss_smc_irr = (incidence_per_1000pm_rtss / incidence_per_1000pm_smc),
+  #          both_smc_irr = (incidence_per_1000pm_both / incidence_per_1000pm_smc),
+  #          both_rtss_irr = (incidence_per_1000pm_both / incidence_per_1000pm_rtss),
+  #          smc_rtss_irr = (incidence_per_1000pm_smc / incidence_per_1000pm_rtss)  )%>%
+  #   mutate(expected_efficacy = 1 - (rtss_none_irr * smc_none_irr),
+  #          ratio_pred_exp = (1-both_none_irr) / expected_efficacy)
+  # 
+  # # Calculate median and IQR for each month
+  # inci_summary <- inci_wide %>%
+  #   group_by(yearmonth) %>%
+  #   reframe(
+  #     # incidence smc 
+  #     incidence_smc_median = median(incidence_per_1000pm_smc, na.rm = TRUE),
+  #     incidence_smc_q25 = quantile(incidence_per_1000pm_smc, 0.25, na.rm = TRUE),
+  #     incidence_smc_q75 = quantile(incidence_per_1000pm_smc, 0.75, na.rm = TRUE),
+  #     incidence_smc_q025 = quantile(incidence_per_1000pm_smc, 0.025, na.rm = TRUE),
+  #     incidence_smc_q975 = quantile(incidence_per_1000pm_smc, 0.975, na.rm = TRUE),
+  #     # incidence rtss 
+  #     incidence_rtss_median = median(incidence_per_1000pm_rtss, na.rm = TRUE),
+  #     incidence_rtss_q25 = quantile(incidence_per_1000pm_rtss, 0.25, na.rm = TRUE),
+  #     incidence_rtss_q75 = quantile(incidence_per_1000pm_rtss, 0.75, na.rm = TRUE),
+  #     incidence_rtss_q025 = quantile(incidence_per_1000pm_rtss, 0.025, na.rm = TRUE),
+  #     incidence_rtss_q975 = quantile(incidence_per_1000pm_rtss, 0.975, na.rm = TRUE),
+  #     # incidence none 
+  #     incidence_none_median = median(incidence_per_1000pm_none, na.rm = TRUE),
+  #     incidence_none_q25 = quantile(incidence_per_1000pm_none, 0.25, na.rm = TRUE),
+  #     incidence_none_q75 = quantile(incidence_per_1000pm_none, 0.75, na.rm = TRUE),
+  #     incidence_none_q025 = quantile(incidence_per_1000pm_none, 0.025, na.rm = TRUE),
+  #     incidence_none_q975 = quantile(incidence_per_1000pm_none, 0.975, na.rm = TRUE),
+  #     # incidence both 
+  #     incidence_both_median = median(incidence_per_1000pm_both, na.rm = TRUE),
+  #     incidence_both_q25 = quantile(incidence_per_1000pm_both, 0.25, na.rm = TRUE),
+  #     incidence_both_q75 = quantile(incidence_per_1000pm_both, 0.75, na.rm = TRUE),
+  #     incidence_both_q025 = quantile(incidence_per_1000pm_both, 0.025, na.rm = TRUE),
+  #     incidence_both_q975 = quantile(incidence_per_1000pm_both, 0.975, na.rm = TRUE),
+  #     # Expected efficacy 
+  #     expected_efficacy_median = median(expected_efficacy, na.rm = TRUE),
+  #     expected_efficacy_q25 = quantile(expected_efficacy, 0.25, na.rm = TRUE),
+  #     expected_efficacy_q75 = quantile(expected_efficacy, 0.75, na.rm = TRUE),
+  #     expected_efficacy_q025 = quantile(expected_efficacy, 0.025, na.rm = TRUE),
+  #     expected_efficacy_q975 = quantile(expected_efficacy, 0.975, na.rm = TRUE),
+  #     # Both vs SMC
+  #     both_smc_median = 1 - median(both_smc_irr, na.rm = TRUE),
+  #     both_smc_q25 = 1 - quantile(both_smc_irr, 0.25, na.rm = TRUE),
+  #     both_smc_q75 = 1 - quantile(both_smc_irr, 0.75, na.rm = TRUE),
+  #     both_smc_q025 = 1 - quantile(both_smc_irr, 0.025, na.rm = TRUE),
+  #     both_smc_q975 = 1 - quantile(both_smc_irr, 0.975, na.rm = TRUE),
+  #     # RTSS vs none
+  #     rtss_none_median = 1 - median(rtss_none_irr, na.rm = TRUE),
+  #     rtss_none_q25 = 1 - quantile(rtss_none_irr, 0.25, na.rm = TRUE),
+  #     rtss_none_q75 = 1 - quantile(rtss_none_irr, 0.75, na.rm = TRUE),
+  #     rtss_none_q025 = 1 - quantile(rtss_none_irr, 0.025, na.rm = TRUE),
+  #     rtss_none_q975 = 1 - quantile(rtss_none_irr, 0.975, na.rm = TRUE),
+  #     # Both vs RTSS
+  #     both_rtss_median = 1 - median(both_rtss_irr, na.rm = TRUE),
+  #     both_rtss_q25 = 1 - quantile(both_rtss_irr, 0.25, na.rm = TRUE),
+  #     both_rtss_q75 = 1 - quantile(both_rtss_irr, 0.75, na.rm = TRUE),
+  #     both_rtss_q025 = 1 - quantile(both_rtss_irr, 0.025, na.rm = TRUE),
+  #     both_rtss_q975 = 1 - quantile(both_rtss_irr, 0.975, na.rm = TRUE),
+  #     # SMC vs none
+  #     smc_none_median = 1 - median(smc_none_irr, na.rm = TRUE),
+  #     smc_none_q25 = 1 - quantile(smc_none_irr, 0.25, na.rm = TRUE),
+  #     smc_none_q75 = 1 - quantile(smc_none_irr, 0.75, na.rm = TRUE),
+  #     smc_none_q025 = 1 - quantile(smc_none_irr, 0.025, na.rm = TRUE),
+  #     smc_none_q975 = 1 - quantile(smc_none_irr, 0.975, na.rm = TRUE),
+  #     # Both vs none
+  #     both_none_median = 1 - median(both_none_irr, na.rm = TRUE),
+  #     both_none_q25 = 1 - quantile(both_none_irr, 0.25, na.rm = TRUE),
+  #     both_none_q75 = 1 - quantile(both_none_irr, 0.75, na.rm = TRUE),
+  #     both_none_q025 = 1 - quantile(both_none_irr, 0.025, na.rm = TRUE),
+  #     both_none_q975 = 1 - quantile(both_none_irr, 0.975, na.rm = TRUE),
+  #     # Ratio of predicted 
+  #     ratio_pred_exp_median = median(ratio_pred_exp, na.rm = TRUE),
+  #     boot_ci = list(bootstrap_metric(ratio_pred_exp))
+  #   ) %>%
+  #   mutate(ratio_pred_exp_q025 = sapply(boot_ci, `[`, '2.5%'),
+  #          ratio_pred_exp_q975 = sapply(boot_ci, `[`, '97.5%')) %>%
+  #   select(-boot_ci)
+  # 
+  # saveRDS(inci_summary, paste0(path, outputsfolder,'/incidence_summary.rds'))
   
-  
-  # Get IRRs
-  inci_wide <- inci_wide %>%
-    mutate(rtss_none_irr = (incidence_per_1000pm_rtss / incidence_per_1000pm_none),
-           smc_none_irr = (incidence_per_1000pm_smc / incidence_per_1000pm_none),
-           both_none_irr = (incidence_per_1000pm_both / incidence_per_1000pm_none),
-           rtss_smc_irr = (incidence_per_1000pm_rtss / incidence_per_1000pm_smc),
-           both_smc_irr = (incidence_per_1000pm_both / incidence_per_1000pm_smc),
-           both_rtss_irr = (incidence_per_1000pm_both / incidence_per_1000pm_rtss),
-           smc_rtss_irr = (incidence_per_1000pm_smc / incidence_per_1000pm_rtss)  )%>%
-    mutate(expected_efficacy = 1 - (rtss_none_irr * smc_none_irr),
-           ratio_pred_exp = (1-both_none_irr) / expected_efficacy)
-  
-  # Calculate median and IQR for each month
-  inci_summary <- inci_wide %>%
-    group_by(yearmonth) %>%
-    summarise(
-      # incidence smc 
-      incidence_smc_median = median(incidence_per_1000pm_smc, na.rm = TRUE),
-      incidence_smc_q25 = quantile(incidence_per_1000pm_smc, 0.25, na.rm = TRUE),
-      incidence_smc_q75 = quantile(incidence_per_1000pm_smc, 0.75, na.rm = TRUE),
-      incidence_smc_q025 = quantile(incidence_per_1000pm_smc, 0.025, na.rm = TRUE),
-      incidence_smc_q975 = quantile(incidence_per_1000pm_smc, 0.975, na.rm = TRUE),
-      # incidence rtss 
-      incidence_rtss_median = median(incidence_per_1000pm_rtss, na.rm = TRUE),
-      incidence_rtss_q25 = quantile(incidence_per_1000pm_rtss, 0.25, na.rm = TRUE),
-      incidence_rtss_q75 = quantile(incidence_per_1000pm_rtss, 0.75, na.rm = TRUE),
-      incidence_rtss_q025 = quantile(incidence_per_1000pm_rtss, 0.025, na.rm = TRUE),
-      incidence_rtss_q975 = quantile(incidence_per_1000pm_rtss, 0.975, na.rm = TRUE),
-      # incidence none 
-      incidence_none_median = median(incidence_per_1000pm_none, na.rm = TRUE),
-      incidence_none_q25 = quantile(incidence_per_1000pm_none, 0.25, na.rm = TRUE),
-      incidence_none_q75 = quantile(incidence_per_1000pm_none, 0.75, na.rm = TRUE),
-      incidence_none_q025 = quantile(incidence_per_1000pm_none, 0.025, na.rm = TRUE),
-      incidence_none_q975 = quantile(incidence_per_1000pm_none, 0.975, na.rm = TRUE),
-      # incidence both 
-      incidence_both_median = median(incidence_per_1000pm_both, na.rm = TRUE),
-      incidence_both_q25 = quantile(incidence_per_1000pm_both, 0.25, na.rm = TRUE),
-      incidence_both_q75 = quantile(incidence_per_1000pm_both, 0.75, na.rm = TRUE),
-      incidence_both_q025 = quantile(incidence_per_1000pm_both, 0.025, na.rm = TRUE),
-      incidence_both_q975 = quantile(incidence_per_1000pm_both, 0.975, na.rm = TRUE),
-      # Expected efficacy 
-      expected_efficacy_median = median(expected_efficacy, na.rm = TRUE),
-      expected_efficacy_q25 = quantile(expected_efficacy, 0.25, na.rm = TRUE),
-      expected_efficacy_q75 = quantile(expected_efficacy, 0.75, na.rm = TRUE),
-      expected_efficacy_q025 = quantile(expected_efficacy, 0.025, na.rm = TRUE),
-      expected_efficacy_q975 = quantile(expected_efficacy, 0.975, na.rm = TRUE),
-      # Both vs SMC
-      both_smc_median = 1 - median(both_smc_irr, na.rm = TRUE),
-      both_smc_q25 = 1 - quantile(both_smc_irr, 0.25, na.rm = TRUE),
-      both_smc_q75 = 1 - quantile(both_smc_irr, 0.75, na.rm = TRUE),
-      both_smc_q025 = 1 - quantile(both_smc_irr, 0.025, na.rm = TRUE),
-      both_smc_q975 = 1 - quantile(both_smc_irr, 0.975, na.rm = TRUE),
-      # RTSS vs none
-      rtss_none_median = 1 - median(rtss_none_irr, na.rm = TRUE),
-      rtss_none_q25 = 1 - quantile(rtss_none_irr, 0.25, na.rm = TRUE),
-      rtss_none_q75 = 1 - quantile(rtss_none_irr, 0.75, na.rm = TRUE),
-      rtss_none_q025 = 1 - quantile(rtss_none_irr, 0.025, na.rm = TRUE),
-      rtss_none_q975 = 1 - quantile(rtss_none_irr, 0.975, na.rm = TRUE),
-      # Both vs RTSS
-      both_rtss_median = 1 - median(both_rtss_irr, na.rm = TRUE),
-      both_rtss_q25 = 1 - quantile(both_rtss_irr, 0.25, na.rm = TRUE),
-      both_rtss_q75 = 1 - quantile(both_rtss_irr, 0.75, na.rm = TRUE),
-      both_rtss_q025 = 1 - quantile(both_rtss_irr, 0.025, na.rm = TRUE),
-      both_rtss_q975 = 1 - quantile(both_rtss_irr, 0.975, na.rm = TRUE),
-      # SMC vs none
-      smc_none_median = 1 - median(smc_none_irr, na.rm = TRUE),
-      smc_none_q25 = 1 - quantile(smc_none_irr, 0.25, na.rm = TRUE),
-      smc_none_q75 = 1 - quantile(smc_none_irr, 0.75, na.rm = TRUE),
-      smc_none_q025 = 1 - quantile(smc_none_irr, 0.025, na.rm = TRUE),
-      smc_none_q975 = 1 - quantile(smc_none_irr, 0.975, na.rm = TRUE),
-      # Both vs none
-      both_none_median = 1 - median(both_none_irr, na.rm = TRUE),
-      both_none_q25 = 1 - quantile(both_none_irr, 0.25, na.rm = TRUE),
-      both_none_q75 = 1 - quantile(both_none_irr, 0.75, na.rm = TRUE),
-      both_none_q025 = 1 - quantile(both_none_irr, 0.025, na.rm = TRUE),
-      both_none_q975 = 1 - quantile(both_none_irr, 0.975, na.rm = TRUE),
-      # Ratio of predicted 
-      ratio_pred_exp_median = median(ratio_pred_exp, na.rm = TRUE),
-      ratio_pred_exp_q25 = quantile(ratio_pred_exp, 0.25, na.rm = TRUE),
-      ratio_pred_exp_q75 = quantile(ratio_pred_exp, 0.75, na.rm = TRUE),
-      ratio_pred_exp_q025 = quantile(ratio_pred_exp, 0.025, na.rm = TRUE),
-      ratio_pred_exp_q975 = quantile(ratio_pred_exp, 0.975, na.rm = TRUE),
-      .groups = 'drop'
-    )
-  
-  saveRDS(inci_summary, paste0(path, outputsfolder,'/incidence_summary.rds'))
-  
-  incilong <- inci_summary %>%
-    select(yearmonth, starts_with('incidence')) %>%
-    pivot_longer(cols = starts_with('incidence'),
-                 names_to = c("incidence", "arm", "stat"),
-                 names_pattern = "(.*)_(.*)_(.*)",
-                 values_to = "value")%>%
-    pivot_wider(
-      names_from = stat,
-      values_from = value
-    )
+  # incilong <- inci_summary %>%
+  #   select(yearmonth, starts_with('incidence')) %>%
+  #   pivot_longer(cols = starts_with('incidence'),
+  #                names_to = c("incidence", "arm", "stat"),
+  #                names_pattern = "(.*)_(.*)_(.*)",
+  #                values_to = "value")%>%
+  #   pivot_wider(
+  #     names_from = stat,
+  #     values_from = value
+  #   )
   
   # iii <- inci_wide %>% filter(as.Date(inci_wide$yearmonth) > as.Date('2017-06-01') &
   #                               as.Date(inci_wide$yearmonth) < as.Date('2018-01-01'))
@@ -167,10 +172,10 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   
   
   # First make incidence plot to combine 
-  inciall <- ggplot(incilong) + 
+  inciall <- ggplot(inci_long) + 
     geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 3, linewidth = 0.8)+
     geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 2, linewidth = 0.8) +
-    geom_ribbon(aes(x = as.Date(yearmonth), ymin = q025, ymax = q975, fill = arm), 
+    geom_ribbon(aes(x = as.Date(yearmonth), ymin = lower_ci, ymax = upper_ci, fill = arm), 
                 alpha = 0.3) +
     geom_line(aes(x = as.Date(yearmonth), y = median, color = arm), 
               linewidth = 1) +
@@ -364,12 +369,12 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
                linetype = 3, linewidth = 0.8, alpha = 0.7) +
     geom_line(aes(x = as.Date(yearmonth), y = ratio_pred_exp_median), 
               color = '#3E6990', linewidth = 1) +
-    # geom_ribbon(aes(x = as.Date(yearmonth), ymin = ratio_pred_exp_q025, ymax = ratio_pred_exp_q975),
-    #                 fill = '#3E6990', alpha = 0.7) +
+    geom_ribbon(aes(x = as.Date(yearmonth), ymin = ratio_pred_exp_q025, ymax = ratio_pred_exp_q975),
+                    fill = '#3E6990', alpha = 0.5) +
     # ylim(c(0.2, 1.2)) + #xlim(c(min(iii_summary$yearmonth), max(iii_summary$yearmonth))) +
      # coord_cartesian(ylim = c(0.8,1.2)) + 
-    scale_y_continuous(breaks = seq(-0.4,1.2,0.1),
-                       labels = seq(-0.4,1.2,0.1))+
+    # scale_y_continuous(breaks = seq(-0.4,1.2,0.1),
+    #                    labels = seq(-0.4,1.2,0.1))+
     geom_hline(yintercept = 1, linetype = 2) +
     scale_x_date(breaks = '3 months',
                  labels = scales::label_date_short()) +
@@ -378,7 +383,7 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
     # scale_fill_manual(values = c('Expected efficacy' = '#6457A6',
     #                              'Model-predicted efficacy' = '#59C9A5')) +#'#449DD1'
     labs(x = 'Date',
-         y = 'Ratio of modelled/predicted',
+         y = 'Ratio of model-predicted to expected efficacy',
          color = NULL,
          fill = NULL) + 
     theme_bw(base_size = 14)
@@ -392,4 +397,16 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_ratio.pdf'), plot = ratioplot, width = 10, height = 4)
   ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_and_ratio.pdf'), plot = combinedratio, width = 12, height = 9)
   
+  # Find percentage of cases that fall in July to November each year 
+  cases_in_season <- inci %>% 
+    mutate(in_season = case_when(
+      (yearmonth >= '2017-06-01' & yearmonth <= '2017-11-30') ~ 1, 
+      (yearmonth >= '2018-06-01' & yearmonth <= '2018-11-30') ~ 1,
+      (yearmonth >= '2019-06-01' & yearmonth <= '2019-11-30') ~ 1,
+      TRUE ~ 0)) %>%
+    group_by(in_season) %>%
+    summarize(n_cases = sum(n_cases)) %>%
+    mutate(total = sum(n_cases),
+           p_in_season = n_cases / total * 100)
+  cases_in_season
 }

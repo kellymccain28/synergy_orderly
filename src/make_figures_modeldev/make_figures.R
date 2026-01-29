@@ -9,6 +9,8 @@ source("./plot_initial_merozoites.R")
 source('./plot_hazard_ratios.R')
 source('./plot_time_to_threshold.R')
 source('./plot_compare_ratios.R')
+source('./bootstrap_metric.R')
+source('./summarize_IRRs.R')
 
 outputs_folder <- "outputs_2025-12-02_2_treat_1start_137threshold5000"
 outputs_folder <- "outputs_2025-12-02_3_treat_0.9start_150threshold5000"
@@ -64,51 +66,57 @@ outputs_folder <- 'outputs_2026-01-23_13' # 100 80
 outputs_folder <- 'outputs_2026-01-23_16' # 122 68 - done
 
 # seasonal (1.74, 4.69, 0.00259)
-outputs_folder <- 'outputs_2026-01-23_15' # balanced 122 68 - done
+outputs_folder <- 'outputs_2026-01-23_15' # **** in thesis; balanced 122 68 - done
 outputs_folder <- 'outputs_2026-01-23_18' # early vax late smc 140 55 - done
 outputs_folder <- 'outputs_2026-01-23_19' # early 100 55 - done
 outputs_folder <- 'outputs_2026-01-23_20' # late vax early smc 100 80 - done
 outputs_folder <- 'outputs_2026-01-23_21' # late 140 80
 
-outputs_folder <- 'outputs_2026-01-26' # balanced with 32*3 runs
+cohort_folder <- 'sim_cohort_generic'
+outputs_folder <- 'outputs_2026-01-26' # balanced with 32*3 runs -- use this as of 29 Jan 
 
-# Real trial simulations 
+# Real trial simulations -- need to use cohort_folder = 'sim_trial_cohort'
+cohort_folder = 'sim_trial_cohort'
 outputs_folder <- 'outputs_2026-01-27_8'
 
 
 # first, do monthly inci, then order doesn't matter
-plot_monthly_incidence(outputsfolder = outputs_folder)
 plot_monthly_incidence(outputsfolder = outputs_folder,
-                       cohort_folder = 'sim_trial_cohort')
+                       cohort_folder = cohort_folder)
+
+# next, calculate the IRRs over simulations 
+summarize_IRRs(outputsfolder = outputs_folder,
+               agg_unit = 'year')
+summarize_IRRs(outputsfolder = outputs_folder, 
+               agg_unit = 'halfyear')
+summarize_IRRs(outputsfolder = outputs_folder, 
+               agg_unit = 'yearmonth')
 
 # time to threshold
-plot_time_to_threshold(outputsfolder = outputs_folder)
 plot_time_to_threshold(outputsfolder = outputs_folder,
-                       cohort_folder = 'sim_trial_cohort')
+                       cohort_folder = cohort_folder)
 
 # efficacy - saved figure in folder and outputs efficacy results 
 # hr_results <- plot_hazard_ratios(outputsfolder = outputs_folder)
 
 # plot 1- IRR
-plot_irr(outputsfolder = outputs_folder)
 plot_irr(outputsfolder = outputs_folder,
-         cohort_folder = 'sim_trial_cohort')
+         cohort_folder = cohort_folder)
 
 # plot 1-IRR average 
-plot_irr_average(outputsfolder = outputs_folder, agg_unit = 'year')
-plot_irr_average(outputsfolder = outputs_folder, agg_unit = 'halfyear')
 plot_irr_average(outputsfolder = outputs_folder, agg_unit = 'year',
-                 cohort_folder = 'sim_trial_cohort')
+                 cohort_folder = cohort_folder)
 plot_irr_average(outputsfolder = outputs_folder, agg_unit = 'halfyear',
-                 cohort_folder = 'sim_trial_cohort')
+                 cohort_folder = cohort_folder)
 
 
 # compare ratios (only run after all folders in list have had monthly inci calculated, as this requires formatting )
-plot_compare_ratios(output_folders = c('outputs_2026-01-23_15',
+plot_compare_ratios(output_folders = c(#'outputs_2026-01-23_15',
                                        'outputs_2026-01-23_18',
                                        'outputs_2026-01-23_19',
                                        'outputs_2026-01-23_20',
-                                       'outputs_2026-01-23_21'))
+                                       'outputs_2026-01-23_21',
+                                       'outputs_2026-01-26'))
 
 # initial merozoites (only if we export parasitemia)
 plot_initial_merozoites(outputsfolder = 'outputs_2026-01-23_22' ) #'outputs_2026-01-16', 'outputs_2025-12-08_treat_0.9start_141threshold5000', 'outputs_2026-01-15_4'
