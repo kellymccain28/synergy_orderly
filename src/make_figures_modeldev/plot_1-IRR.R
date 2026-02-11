@@ -27,121 +27,7 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   inci_long <- readRDS(paste0(path, outputsfolder, '/inci_summary_all_yearmonth.rds')) %>%
     filter(metric == 'incidence') %>%
     rename(yearmonth = time_value)
-  # First need to get IRR values for each combination 
-  
-  # Pivot wider 
-  # inci_wide <- inci %>%
-  #   split(.$sim_id) %>%
-  #   map_dfr(~ .x %>%
-  #             select(arm, year, month, yearmonth,
-  #                    person_months, rate, incidence_per_1000pm) %>%
-  #             pivot_wider(
-  #               names_from = arm,
-  #               values_from = c(person_months, rate, incidence_per_1000pm),
-  #               id_cols = c(year, month, yearmonth)
-  #             ),
-  #           .id = "sim_id")
-  # 
-  # 
-  # # Get IRRs
-  # inci_wide <- inci_wide %>%
-  #   mutate(rtss_none_irr = (incidence_per_1000pm_rtss / incidence_per_1000pm_none),
-  #          smc_none_irr = (incidence_per_1000pm_smc / incidence_per_1000pm_none),
-  #          both_none_irr = (incidence_per_1000pm_both / incidence_per_1000pm_none),
-  #          rtss_smc_irr = (incidence_per_1000pm_rtss / incidence_per_1000pm_smc),
-  #          both_smc_irr = (incidence_per_1000pm_both / incidence_per_1000pm_smc),
-  #          both_rtss_irr = (incidence_per_1000pm_both / incidence_per_1000pm_rtss),
-  #          smc_rtss_irr = (incidence_per_1000pm_smc / incidence_per_1000pm_rtss)  )%>%
-  #   mutate(expected_efficacy = 1 - (rtss_none_irr * smc_none_irr),
-  #          ratio_pred_exp = (1-both_none_irr) / expected_efficacy)
-  # 
-  # # Calculate median and IQR for each month
-  # inci_summary <- inci_wide %>%
-  #   group_by(yearmonth) %>%
-  #   reframe(
-  #     # incidence smc 
-  #     incidence_smc_median = median(incidence_per_1000pm_smc, na.rm = TRUE),
-  #     incidence_smc_q25 = quantile(incidence_per_1000pm_smc, 0.25, na.rm = TRUE),
-  #     incidence_smc_q75 = quantile(incidence_per_1000pm_smc, 0.75, na.rm = TRUE),
-  #     incidence_smc_q025 = quantile(incidence_per_1000pm_smc, 0.025, na.rm = TRUE),
-  #     incidence_smc_q975 = quantile(incidence_per_1000pm_smc, 0.975, na.rm = TRUE),
-  #     # incidence rtss 
-  #     incidence_rtss_median = median(incidence_per_1000pm_rtss, na.rm = TRUE),
-  #     incidence_rtss_q25 = quantile(incidence_per_1000pm_rtss, 0.25, na.rm = TRUE),
-  #     incidence_rtss_q75 = quantile(incidence_per_1000pm_rtss, 0.75, na.rm = TRUE),
-  #     incidence_rtss_q025 = quantile(incidence_per_1000pm_rtss, 0.025, na.rm = TRUE),
-  #     incidence_rtss_q975 = quantile(incidence_per_1000pm_rtss, 0.975, na.rm = TRUE),
-  #     # incidence none 
-  #     incidence_none_median = median(incidence_per_1000pm_none, na.rm = TRUE),
-  #     incidence_none_q25 = quantile(incidence_per_1000pm_none, 0.25, na.rm = TRUE),
-  #     incidence_none_q75 = quantile(incidence_per_1000pm_none, 0.75, na.rm = TRUE),
-  #     incidence_none_q025 = quantile(incidence_per_1000pm_none, 0.025, na.rm = TRUE),
-  #     incidence_none_q975 = quantile(incidence_per_1000pm_none, 0.975, na.rm = TRUE),
-  #     # incidence both 
-  #     incidence_both_median = median(incidence_per_1000pm_both, na.rm = TRUE),
-  #     incidence_both_q25 = quantile(incidence_per_1000pm_both, 0.25, na.rm = TRUE),
-  #     incidence_both_q75 = quantile(incidence_per_1000pm_both, 0.75, na.rm = TRUE),
-  #     incidence_both_q025 = quantile(incidence_per_1000pm_both, 0.025, na.rm = TRUE),
-  #     incidence_both_q975 = quantile(incidence_per_1000pm_both, 0.975, na.rm = TRUE),
-  #     # Expected efficacy 
-  #     expected_efficacy_median = median(expected_efficacy, na.rm = TRUE),
-  #     expected_efficacy_q25 = quantile(expected_efficacy, 0.25, na.rm = TRUE),
-  #     expected_efficacy_q75 = quantile(expected_efficacy, 0.75, na.rm = TRUE),
-  #     expected_efficacy_q025 = quantile(expected_efficacy, 0.025, na.rm = TRUE),
-  #     expected_efficacy_q975 = quantile(expected_efficacy, 0.975, na.rm = TRUE),
-  #     # Both vs SMC
-  #     both_smc_median = 1 - median(both_smc_irr, na.rm = TRUE),
-  #     both_smc_q25 = 1 - quantile(both_smc_irr, 0.25, na.rm = TRUE),
-  #     both_smc_q75 = 1 - quantile(both_smc_irr, 0.75, na.rm = TRUE),
-  #     both_smc_q025 = 1 - quantile(both_smc_irr, 0.025, na.rm = TRUE),
-  #     both_smc_q975 = 1 - quantile(both_smc_irr, 0.975, na.rm = TRUE),
-  #     # RTSS vs none
-  #     rtss_none_median = 1 - median(rtss_none_irr, na.rm = TRUE),
-  #     rtss_none_q25 = 1 - quantile(rtss_none_irr, 0.25, na.rm = TRUE),
-  #     rtss_none_q75 = 1 - quantile(rtss_none_irr, 0.75, na.rm = TRUE),
-  #     rtss_none_q025 = 1 - quantile(rtss_none_irr, 0.025, na.rm = TRUE),
-  #     rtss_none_q975 = 1 - quantile(rtss_none_irr, 0.975, na.rm = TRUE),
-  #     # Both vs RTSS
-  #     both_rtss_median = 1 - median(both_rtss_irr, na.rm = TRUE),
-  #     both_rtss_q25 = 1 - quantile(both_rtss_irr, 0.25, na.rm = TRUE),
-  #     both_rtss_q75 = 1 - quantile(both_rtss_irr, 0.75, na.rm = TRUE),
-  #     both_rtss_q025 = 1 - quantile(both_rtss_irr, 0.025, na.rm = TRUE),
-  #     both_rtss_q975 = 1 - quantile(both_rtss_irr, 0.975, na.rm = TRUE),
-  #     # SMC vs none
-  #     smc_none_median = 1 - median(smc_none_irr, na.rm = TRUE),
-  #     smc_none_q25 = 1 - quantile(smc_none_irr, 0.25, na.rm = TRUE),
-  #     smc_none_q75 = 1 - quantile(smc_none_irr, 0.75, na.rm = TRUE),
-  #     smc_none_q025 = 1 - quantile(smc_none_irr, 0.025, na.rm = TRUE),
-  #     smc_none_q975 = 1 - quantile(smc_none_irr, 0.975, na.rm = TRUE),
-  #     # Both vs none
-  #     both_none_median = 1 - median(both_none_irr, na.rm = TRUE),
-  #     both_none_q25 = 1 - quantile(both_none_irr, 0.25, na.rm = TRUE),
-  #     both_none_q75 = 1 - quantile(both_none_irr, 0.75, na.rm = TRUE),
-  #     both_none_q025 = 1 - quantile(both_none_irr, 0.025, na.rm = TRUE),
-  #     both_none_q975 = 1 - quantile(both_none_irr, 0.975, na.rm = TRUE),
-  #     # Ratio of predicted 
-  #     ratio_pred_exp_median = median(ratio_pred_exp, na.rm = TRUE),
-  #     boot_ci = list(bootstrap_metric(ratio_pred_exp))
-  #   ) %>%
-  #   mutate(ratio_pred_exp_q025 = sapply(boot_ci, `[`, '2.5%'),
-  #          ratio_pred_exp_q975 = sapply(boot_ci, `[`, '97.5%')) %>%
-  #   select(-boot_ci)
-  # 
-  # saveRDS(inci_summary, paste0(path, outputsfolder,'/incidence_summary.rds'))
-  
-  # incilong <- inci_summary %>%
-  #   select(yearmonth, starts_with('incidence')) %>%
-  #   pivot_longer(cols = starts_with('incidence'),
-  #                names_to = c("incidence", "arm", "stat"),
-  #                names_pattern = "(.*)_(.*)_(.*)",
-  #                values_to = "value")%>%
-  #   pivot_wider(
-  #     names_from = stat,
-  #     values_from = value
-  #   )
-  
-  # iii <- inci_wide %>% filter(as.Date(inci_wide$yearmonth) > as.Date('2017-06-01') &
-  #                               as.Date(inci_wide$yearmonth) < as.Date('2018-01-01'))
+
   # Filter for specific date range
   iii_summary <- inci_summary %>% 
     filter(as.Date(yearmonth) > as.Date('2017-06-01') &
@@ -226,7 +112,7 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   ggsave(paste0(path, outputsfolder,'/irr_addingrtss_filtered.pdf'), plot = last_plot())
   
   # Plot 2: Adding RTSS (non-filtered)
-  addrtss <-   ggplot(inci_summary) + 
+  addrtss <- ggplot(inci_summary) + 
     geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 3, linewidth = 0.8)+
     geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 2, linewidth = 0.8) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = both_smc_q025, ymax = both_smc_q975), 
@@ -320,19 +206,19 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   ggsave(paste0(path, outputsfolder,'/irr_addingsmc_nonfiltered_andincidence.pdf'), plot = combinedsmc, width = 15, height = 10)
   
   # Print summary statistics
-  cat("Mean of both_smc_irr (filtered):", mean(iii_summary$both_smc_median), "\n")
-  cat("Mean of rtss_none_irr (filtered):", mean(iii_summary$rtss_none_median), "\n")
-  cat("Mean of both_smc_irr (non-filtered):", mean(inci_summary$both_smc_median), "\n")
-  cat("Mean of rtss_none_irr (non-filtered):", mean(inci_summary$rtss_none_median), "\n")
-  
-  cat("Mean of both_rtss_irr (filtered, Jun 2017-Jan 2018):", mean(iii_summary_smc$both_rtss_median), "\n")
-  cat("Mean of smc_none_irr (filtered, Jun 2017-Jan 2018:", mean(iii_summary_smc$smc_none_median), "\n")
-  cat("Mean of both_rtss_irr (non-filtered):", mean(inci_summary$both_rtss_median), "\n")
-  cat("Mean of smc_none_irr (non-filtered):", mean(inci_summary$smc_none_median), "\n")
+  # cat("Mean of both_smc_irr (filtered):", mean(iii_summary$both_smc_median), "\n")
+  # cat("Mean of rtss_none_irr (filtered):", mean(iii_summary$rtss_none_median), "\n")
+  # cat("Mean of both_smc_irr (non-filtered):", mean(inci_summary$both_smc_median), "\n")
+  # cat("Mean of rtss_none_irr (non-filtered):", mean(inci_summary$rtss_none_median), "\n")
+  # 
+  # cat("Mean of both_rtss_irr (filtered, Jun 2017-Jan 2018):", mean(iii_summary_smc$both_rtss_median), "\n")
+  # cat("Mean of smc_none_irr (filtered, Jun 2017-Jan 2018:", mean(iii_summary_smc$smc_none_median), "\n")
+  # cat("Mean of both_rtss_irr (non-filtered):", mean(inci_summary$both_rtss_median), "\n")
+  # cat("Mean of smc_none_irr (non-filtered):", mean(inci_summary$smc_none_median), "\n")
   
   
   # Plot of expected vs predicted efficacy of both vs none 
-  exppred <- ggplot(inci_summary) + 
+  exppred <- ggplot(inci_summary %>% filter(yearmonth > '2017-05-01')) + 
     geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 2, linewidth = 0.8)+
     geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
     geom_line(aes(x = as.Date(yearmonth), y = expected_efficacy_median, color = 'Expected efficacy'), linewidth = 1) +
@@ -355,14 +241,14 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
     scale_fill_manual(values = c('Expected efficacy' = '#6457A6',
                                   'Model-predicted efficacy' = '#59C9A5')) +#'#449DD1'
     labs(x = 'Date',
-         y = 'Relative efficacy (1-IRR)',
+         y = 'Efficacy (1-IRR)',
          color = NULL,
          fill = NULL) + 
     theme_bw(base_size = 14)
   ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined.pdf'), plot = exppred, width = 10, height = 4)
   
   # Plot of ratio of expected vs predicted efficacy of both vs none 
-  ratioplot <-  ggplot(inci_summary) + 
+  ratioplot <-  ggplot(inci_summary %>% filter(yearmonth > '2017-05-01')) + 
     geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), 
                linetype = 2, linewidth = 0.8, alpha = 0.7)+
     geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), 

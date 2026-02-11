@@ -16,11 +16,11 @@ generic_seas <- generic_seas %>%
 
 smc_lines <- data.frame(
   xint = c(as.Date('2017-04-01') + 115 + c(0,30,60,90)),
-  color = '#4D9DE0'
+  color = '#709176'
 )
 smc_shaded <- data.frame(
   xint = c(as.Date('2017-04-01') + 115 + c(0,30,60,90, 120)),
-  color = '#4D9DE0'
+  color = '#709176'
 )
 # metadata_df$vaccination_day[1] = 90
 rtss_lines <- data.frame(
@@ -31,27 +31,27 @@ rtss_lines <- data.frame(
 ggplot(generic_seas) + 
   # geom_line(data = prob_bite_generic %>% filter(year == 2017), aes(x = date, y = prob_infectious_bite*5, color = '#AE0939'), linewidth = 2)+
   geom_line(aes(x = date_clin, y = profile, color = "Probability of\ninfectious bite"), linewidth = 2) +
-  geom_vline(data = rtss_lines, aes(xintercept = xint, color = 'Vaccine doses'), linetype = 2) +
+  geom_vline(data = rtss_lines, aes(xintercept = xint, color = 'Vaccine doses'), linetype = 3) +
   geom_vline(data = smc_lines, aes(xintercept = xint, color = 'SMC rounds'), linetype = 2) +
-  geom_area(data = smc_shaded, aes(x = xint, y = 1), fill = colorspace::lighten('#4D9DE0', amount = 0.5), alpha = 0.15) +
-  theme_minimal(base_size = 14) +
+  geom_area(data = smc_shaded, aes(x = xint, y = 1), fill = colorspace::lighten('#709176', amount = 0.5), alpha = 0.15) +
+  theme_classic(base_size = 14) +
   theme(#axis.text.y = element_blank(),
         legend.position = c(0.9,0.8)) + 
   scale_x_date(breaks = '1 month',
                labels = scales::label_date_short())+
-  scale_color_manual(values =  c('SMC rounds' = '#4D9DE0',
-                                 'Vaccine doses' = '#470024',
+  scale_color_manual(values =  c('SMC rounds' = '#709176',
+                                 'Vaccine doses' = '#59114D',
                                  "Probability of\ninfectious bite" = '#AE0939'))+
   labs(y = "Probability",
        x = NULL,
        color = NULL) 
 
-ggsave('R:/Kelly/synergy_orderly/figures/generic_seasonal_interventions.pdf')
+ggsave('R:/Kelly/synergy_orderly/figures/generic_seasonal_interventions.pdf', height = 6, width = 8)
  
 # 
-ggplot(outputs_generic %>%
-         filter(date < as.Date('2018-01-01'))) +
-  geom_point(aes(x = date, y = n_bitten)) +
-  geom_line(data = generic_seas, aes(x = date, y = profile*1000)) +
-  scale_x_date(breaks = '1 month') + 
-  theme(axis.text.x = element_text(angle = 90))
+# ggplot(outputs_generic %>%
+#          filter(date < as.Date('2018-01-01'))) +
+#   geom_point(aes(x = date, y = n_bitten)) +
+#   geom_line(data = generic_seas, aes(x = date, y = profile*1000)) +
+#   scale_x_date(breaks = '1 month') + 
+#   theme(axis.text.x = element_text(angle = 90))

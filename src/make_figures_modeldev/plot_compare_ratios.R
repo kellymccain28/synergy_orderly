@@ -11,8 +11,10 @@ plot_compare_ratios <- function(output_folders, cohort_folder = 'sim_cohort_gene
   
   incidence_df <- purrr::map_dfr(
     output_folders,
-    ~ readRDS(paste0(path, .x, "/incidence_summary.rds")) |>
-      mutate(output_folder = .x)
+    ~ readRDS(paste0(path, .x, "/inci_summary_all_yearmonth.rds")) |>
+      mutate(output_folder = .x) %>%
+      rename(yearmonth = time_value) %>%
+      filter(metric == 'ratio pred to exp')
   )
   
   incidence_df <- incidence_df %>%
@@ -22,6 +24,12 @@ plot_compare_ratios <- function(output_folders, cohort_folder = 'sim_cohort_gene
       output_folder == 'outputs_2026-01-23_21' ~ 'Late',
       output_folder == 'outputs_2026-01-23_18' ~ 'Early vaccine, late SMC',
       output_folder == 'outputs_2026-01-23_20' ~ 'Late vaccine, early SMC',
+      
+      output_folder == 'outputs_2026-02-10_2'  ~ 'Balanced',
+      output_folder == 'outputs_2026-02-10_5' ~ 'Early',
+      output_folder == 'outputs_2026-02-10_6' ~ 'Late',
+      output_folder == 'outputs_2026-02-10_8' ~ 'Early vaccine, late SMC',
+      output_folder == 'outputs_2026-02-10_7' ~ 'Late vaccine, early SMC',
       TRUE ~ NA
     ))
   
@@ -55,9 +63,9 @@ plot_compare_ratios <- function(output_folders, cohort_folder = 'sim_cohort_gene
     #            linetype = 2, linewidth = 0.8, alpha = 0.7)+
     # geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'),
     #            linetype = 3, linewidth = 0.8, alpha = 0.7) +
-    geom_ribbon(aes(x = as.Date(yearmonth), ymin = ratio_pred_exp_q025, ymax = ratio_pred_exp_q975,
-                fill = scenario), alpha = 0.1) +
-    geom_line(aes(x = as.Date(yearmonth), y = ratio_pred_exp_median, group = scenario,#paste0('RTSS: ', rtsstiming, '; SMC: ', smctiming), 
+    geom_ribbon(aes(x = as.Date(yearmonth), ymin = lower_ci, ymax = upper_ci,
+                fill = scenario), alpha = 0.2) +
+    geom_line(aes(x = as.Date(yearmonth), y = median, group = scenario,#paste0('RTSS: ', rtsstiming, '; SMC: ', smctiming), 
                   color = scenario),#paste0('RTSS: ', rtsstiming, '; SMC: ', smctiming)), 
               # color = '#3E6990', 
               alpha = 0.8,
@@ -67,7 +75,7 @@ plot_compare_ratios <- function(output_folders, cohort_folder = 'sim_cohort_gene
                  labels = scales::label_date_short()) +
     scale_color_brewer(palette = 'Dark2') +
     scale_fill_brewer(palette = 'Dark2') +
-    coord_cartesian(ylim = c(0.5,1.4))+
+    coord_cartesian(ylim = c(0.0,1.2))+
     # scale_color_manual(values = c('SMC delivery' = '#709176',
     #                               'RTS,S delivery' = '#470024')) +#'#449DD1'
     labs(x = 'Date',
@@ -77,7 +85,7 @@ plot_compare_ratios <- function(output_folders, cohort_folder = 'sim_cohort_gene
     theme_bw(base_size = 14)
   
   ratioplot
-  ggsave('R:/Kelly/synergy_orderly/figures/predicted_vs_expected_compare_ratios.pdf', plot = ratioplot, width = 10, height = 4)
+  ggsave(paste0('R:/Kelly/synergy_orderly/figures/predicted_vs_expected_compare_ratios',Sys.Date(),'.pdf'), plot = ratioplot, width = 10, height = 4)
   
 }
 

@@ -20,17 +20,20 @@ observed_efficacy <- read.csv(paste0(path, '/shared/smc_fits_hayley.csv')) %>%
 # gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars_shorterliverstage2025-12-10.rds') # this is with 8 days 
 # gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_best_smcpars_7dayliverstage2025-12-15.rds')
 gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_2026-01-22pars_7dayliverstage2026-01-22.rds')
+gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_2026-01-22pars_7dayliverstage2026-02-05.rds')
+gridsearch <- readRDS('R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_pars_7dayliverstage2026-02-06.rds')
 effcumulweekly <- purrr::map_df(gridsearch, 'efficacy',.id = 'sim_id')
-pars <- purrr::map_df(gridsearch, 'params')
+pars <- purrr::map_df(gridsearch, 'params') %>%
+  mutate(sim_id = as.character(row_number()))
 mlses <- unlist(purrr::map(gridsearch, 'mls',.id = 'sim_id'))
-top5 <- order(mlses)[1:2]
+top5 <- order(mlses)[1:3]
 mlsesmin <- which(mlses == min(mlses, na.rm = TRUE))
 all <- map_df(gridsearch[top5], 'params', .id = 'sim_id')
 
-map_df(gridsearch[mlsesmin], 'params')
+map_df(gridsearch[top5], 'params')
 
-# effcumulweekly <- effcumulweekly %>%
-#   left_join(pars, by = "sim_id")
+effcumulweekly <- effcumulweekly %>%
+  left_join(pars, by = "sim_id")
 # ggplot(effcumulweekly %>% filter(weeks_since_smc < 10, repnum %in% c(1, 7,11,2,16,3,6) &sim_id == 67)) + # for the grid search 12-03
 #   geom_point(aes(x = weeks_since_smc, y = efficacy, group = as.factor(sim_id), color = as.factor(repnum)), alpha = 0.4) +
 #   geom_line(aes(x = weeks_since_smc, y = efficacy, group = as.factor(sim_id), color = as.factor(repnum)), alpha = 0.3) +
@@ -43,9 +46,13 @@ map_df(gridsearch[mlsesmin], 'params')
 #   facet_wrap(~ repnum)
 
 # if no repnum because just a repetition:
-ggplot(effcumulweekly %>% filter(weeks_since_smc < 10) ) + # for the grid search 12-03
+ggplot(effcumulweekly %>% filter(weeks_since_smc < 10)) + # for the grid search 12-03
   # geom_point(aes(x = weeks_since_smc, y = efficacy, group = as.factor(sim_id)), color = '#709176', alpha = 0.3) +
-  geom_line(aes(x = weeks_since_smc, y = efficacy, group = as.factor(sim_id)), color = '#709176', alpha = 0.2) +
+  geom_line(aes(x = weeks_since_smc, y = efficacy, group = as.factor(sim_id)#, 
+                # color = as.factor(max_SMC_kill_rate)
+                ), 
+            color = '#709176',
+            alpha = 0.4) +
   geom_hline(aes(yintercept = 0), color = 'darkred', linetype = 2, linewidth = 1) +
   geom_line(data = observed_efficacy, aes(x = weeks_since_smc, y = efficacy_week), linewidth = 1) +
   geom_point(data = observed_efficacy, aes(x = weeks_since_smc, y = efficacy_week), size = 2) +
@@ -54,6 +61,7 @@ ggplot(effcumulweekly %>% filter(weeks_since_smc < 10) ) + # for the grid search
   theme_minimal(base_size = 14) +
   labs(x = 'Weeks since SMC',
        y = 'Efficacy') + 
+  # facet_wrap(~ max_SMC_kill_rate) +
   theme(legend.position = 'none')
 ggsave(paste0(path, '/figures/smc_fit.pdf'), plot = last_plot(), height = 5, width = 7) # this is 64 runs
 

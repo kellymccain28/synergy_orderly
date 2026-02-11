@@ -1,6 +1,9 @@
 # Script to run all figure-producing scripts that analyse the outputs of the cohort simulations
 setwd('R:/Kelly/synergy_orderly/src/make_figures_modeldev')
 
+library(purrr)
+library(tidyr)
+
 filestosource <- list.files(full.names = TRUE)
 source("./plot_1-IRR.R")
 source('./plot_1-IRR_average.R')
@@ -79,6 +82,13 @@ outputs_folder <- 'outputs_2026-01-26' # balanced with 32*3 runs -- use this as 
 cohort_folder = 'sim_trial_cohort'
 outputs_folder <- 'outputs_2026-01-27_8'
 
+# With updated SMC parameters fitted to threshold of 3000 -- as of 10 feb
+outputs_folder <- 'outputs_2026-02-10_2'
+outputs_folder <- 'outputs_2026-02-10_4'
+outputs_folder <- 'outputs_2026-02-10_5'
+outputs_folder <- 'outputs_2026-02-10_6'
+outputs_folder <- 'outputs_2026-02-10_7'
+outputs_folder <- 'outputs_2026-02-10_8'
 
 # first, do monthly inci, then order doesn't matter
 plot_monthly_incidence(outputsfolder = outputs_folder,
@@ -97,6 +107,7 @@ plot_time_to_threshold(outputsfolder = outputs_folder,
                        cohort_folder = cohort_folder)
 
 # efficacy - saved figure in folder and outputs efficacy results 
+
 # hr_results <- plot_hazard_ratios(outputsfolder = outputs_folder)
 
 # plot 1- IRR
@@ -111,12 +122,17 @@ plot_irr_average(outputsfolder = outputs_folder, agg_unit = 'halfyear',
 
 
 # compare ratios (only run after all folders in list have had monthly inci calculated, as this requires formatting )
-plot_compare_ratios(output_folders = c(#'outputs_2026-01-23_15',
-                                       'outputs_2026-01-23_18',
-                                       'outputs_2026-01-23_19',
-                                       'outputs_2026-01-23_20',
-                                       'outputs_2026-01-23_21',
-                                       'outputs_2026-01-26'))
+plot_compare_ratios(output_folders = c('outputs_2026-02-10_2', # balanced
+                                         'outputs_2026-02-10_5', #early
+                                         'outputs_2026-02-10_6', # late
+                                         'outputs_2026-02-10_7', # early smc, late vax
+                                         'outputs_2026-02-10_8')) # late smc, early vax
+# plot_compare_ratios(output_folders = c(#'outputs_2026-01-23_15',
+#                                        'outputs_2026-01-23_18',
+#                                        'outputs_2026-01-23_19',
+#                                        'outputs_2026-01-23_20',
+#                                        'outputs_2026-01-23_21',
+#                                        'outputs_2026-01-26'))
 
 # initial merozoites (only if we export parasitemia)
 plot_initial_merozoites(outputsfolder = 'outputs_2026-01-23_22' ) #'outputs_2026-01-16', 'outputs_2025-12-08_treat_0.9start_141threshold5000', 'outputs_2026-01-15_4'

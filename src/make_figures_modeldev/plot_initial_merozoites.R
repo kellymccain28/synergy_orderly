@@ -21,10 +21,10 @@ plot_initial_merozoites <- function(outputsfolder){
   lighter <- colorspace::lighten(detectability_colors, amount = 0.5)
   # Adaptation of plot from helper_functions.R make_plots() function  
   ggplot(initial_values %>% filter(mero_init_out!=0)) + 
-    geom_jitter(aes(x = as.factor(det), y = mero_init_out, color = as.factor(det)), alpha = 0.1) + #
+    geom_jitter(aes(x = as.factor(det), y = mero_init_out, color = as.factor(det)), alpha = 0.1, size = 1) + #
     geom_hline(yintercept = 1e-5 * 1e6, color = 'darkred', linetype = 2) +
     geom_boxplot(aes(x = as.factor(det), y = mero_init_out, color = as.factor(det), fill = as.factor(det)), 
-                 linewidth = 0.8, alpha = 0.8) + #
+                 linewidth = 0.7, alpha = 1) + #
     facet_wrap(~factor(arm, levels = c('none','rtss','smc','both'))) +
     labs(x = NULL,#'Infection status',
          y = 'Number of merozoites initating infection') + 
@@ -39,7 +39,7 @@ plot_initial_merozoites <- function(outputsfolder){
     theme(legend.position = 'none')
   
   ggsave(paste0(path, outputsfolder,'/initial_merozoites.pdf'), plot = last_plot(),
-         height = 5, width = 8)
+         height = 6, width = 8)
   
   
   # over all interventions

@@ -5,6 +5,7 @@
 
 summarize_IRRs <- function(outputsfolder, 
                            agg_unit){
+  library(purrr)
   path <- paste0('R:/Kelly/synergy_orderly/src/', cohort_folder, '/outputs/')
   inci <- readRDS(paste0(path, outputsfolder, '/incidence.rds'))
   
@@ -12,10 +13,13 @@ summarize_IRRs <- function(outputsfolder,
     # Get annual and overall incidence 
     inci_annual <- inci %>%
       filter(!is.na(date)) %>%
-      mutate(time_value = case_when(date < '2018-04-01' ~ 1,
-                                   date < '2019-04-01' ~ 2,
-                                   date < '2020-04-01' ~ 3)) %>%
-      group_by(time_value, arm, sim_id) %>%
+      mutate(time_value = case_when(date < '2018-04-01' & date > '2017-05-01' ~ 'Jun 2017-Mar 2018',
+                                   date < '2019-04-01' ~ 'Apr 2018-Mar 2019',
+                                   date < '2020-04-01' ~ 'Apr 2019-Mar 2020'),
+             time_value_num = case_when(date < '2018-04-01' & date > '2017-05-01' ~ '1',
+                                        date < '2019-04-01' ~ '2',
+                                        date < '2020-04-01' ~ '3')) %>%
+      group_by(time_value, time_value_num, arm, sim_id) %>%
       summarize(person_months = sum(person_months),
                 n_cases = sum(n_cases)) %>%
       mutate(incidence_per_1000pm = n_cases / person_months * 1000,
@@ -27,21 +31,32 @@ summarize_IRRs <- function(outputsfolder,
       summarize(person_months = sum(person_months),
                 n_cases = sum(n_cases)) %>%
       mutate(incidence_per_1000pm = n_cases / person_months * 1000,
-             time_value = 'overall',
+             time_value = 'Overall',
+             time_value_num = 'Overall',
              time_unit = agg_unit)
     
-    inci <- rbind(inci_annual, inci_overall)
+    inci <- rbind(inci_annual, inci_overall) %>%
+      mutate(time_value = factor(time_value, levels = c('Jun 2017-Mar 2018',
+                                                        'Apr 2018-Mar 2019',
+                                                        'Apr 2019-Mar 2020',
+                                                        'Overall')))
     
   } else if (agg_unit == 'halfyear'){
     inci_annual <- inci %>%
       filter(!is.na(date)) %>%
-      mutate(time_value = case_when(date < '2017-10-01' ~ 1,
-                                   date < '2018-04-01' ~ 2,
-                                   date < '2018-10-01' ~ 3,
-                                   date < '2019-04-01' ~ 4,
-                                   date < '2019-10-01' ~ 5,
-                                   date < '2020-04-01' ~ 6)) %>%
-      group_by(time_value, arm, sim_id) %>%
+      mutate(time_value = case_when(date < '2017-10-01' & date > '2017-05-01' ~ 'June 2017-Sep 2017',
+                                   date < '2018-04-01' ~ 'Oct 2017-March 2018',
+                                   date < '2018-10-01' ~ 'April 2018-Sep 2018',
+                                   date < '2019-04-01' ~ 'Oct 2018-March 2019',
+                                   date < '2019-10-01' ~ 'April 2019-Sep 2019',
+                                   date < '2020-04-01' ~ 'Oct 2019-March 2020'),
+             time_value_num = case_when(date < '2017-10-01' & date > '2017-05-01' ~ '1',
+                                        date < '2018-04-01' ~ '2',
+                                        date < '2018-10-01' ~ '3',
+                                        date < '2019-04-01' ~ '4',
+                                        date < '2019-10-01' ~ '5',
+                                        date < '2020-04-01' ~ '6')) %>%
+      group_by(time_value, time_value_num, arm, sim_id) %>%
       summarize(person_months = sum(person_months),
                 n_cases = sum(n_cases)) %>%
       mutate(incidence_per_1000pm = n_cases / person_months * 1000,
@@ -53,13 +68,22 @@ summarize_IRRs <- function(outputsfolder,
       summarize(person_months = sum(person_months),
                 n_cases = sum(n_cases)) %>%
       mutate(incidence_per_1000pm = n_cases / person_months * 1000,
-             time_value = 'overall',
+             time_value = 'Overall',
+             time_value_num = 'Overall',
              time_unit = agg_unit)
     
-    inci <- rbind(inci_annual, inci_overall)
+    inci <- rbind(inci_annual, inci_overall) %>%
+      mutate(time_value = factor(time_value, levels = c('June 2017-Sep 2017',
+                                                        'Oct 2017-March 2018',
+                                                        'April 2018-Sep 2018',
+                                                        'Oct 2018-March 2019',
+                                                        'April 2019-Sep 2019',
+                                                        'Oct 2019-March 2020',
+                                                        'Overall')))
   } else if( agg_unit == 'yearmonth'){
     inci <- inci %>%
       mutate(time_value = yearmonth, 
+             time_value_num = yearmonth,
              time_unit = agg_unit)
   }
   
@@ -67,12 +91,12 @@ summarize_IRRs <- function(outputsfolder,
   inci_wide <- inci %>%
     split(.$sim_id) %>%
     map_dfr(~ .x %>%
-              select(arm, time_value, time_unit, 
+              select(arm, time_value, time_value_num, time_unit, 
                      person_months, incidence_per_1000pm) %>%
               pivot_wider(
                 names_from = arm,
                 values_from = c(person_months, incidence_per_1000pm),
-                id_cols = c(time_value, time_unit)
+                id_cols = c(time_value, time_value_num, time_unit)
               ),
             .id = "sim_id")
   
@@ -90,7 +114,7 @@ summarize_IRRs <- function(outputsfolder,
   
   # Calculate median and IQR for each metric by time aggregation unit 
   inci_summary <- inci_wide %>%
-    group_by(time_value, time_unit) %>%
+    group_by(time_value, time_value_num, time_unit) %>%
     reframe(
       # For incidence, can take direct median and quantiles
       # incidence smc 
@@ -202,7 +226,7 @@ summarize_IRRs <- function(outputsfolder,
   
   # Make long 
   inci_long <- inci_summary %>%
-    select(time_value, time_unit, starts_with('incidence')) %>%
+    select(time_value, time_value_num, time_unit, starts_with('incidence')) %>%
     pivot_longer(cols = starts_with('incidence'),
                  names_to = c("arm", "stat"),
                  names_pattern = "incidence_(.*)_(.*)",
@@ -214,7 +238,7 @@ summarize_IRRs <- function(outputsfolder,
     mutate(metric = 'incidence', comparison = NA)
   
   irrs_long <- inci_summary %>%
-    select(time_value, time_unit, both_smc_median:smc_rtss_q75, expected_efficacy_median:expected_efficacy_q75) %>%
+    select(time_value, time_value_num, time_unit, both_smc_median:smc_rtss_q75, expected_efficacy_median:expected_efficacy_q75) %>%
     pivot_longer(cols =  c(both_smc_median:smc_rtss_q75,expected_efficacy_median:expected_efficacy_q75),
                  names_to = 'comparison',
                  values_to = "irr")%>%
@@ -234,7 +258,7 @@ summarize_IRRs <- function(outputsfolder,
            arm = NA)
   
   exp_ratio_long <- inci_summary %>%
-    select(time_value, time_unit, contains('ratio')) %>%
+    select(time_value,time_value_num,  time_unit, contains('ratio')) %>%
     pivot_longer(cols =  contains('ratio'),
                  names_to = 'statistic',
                  values_to = "ratio_pred_exp",

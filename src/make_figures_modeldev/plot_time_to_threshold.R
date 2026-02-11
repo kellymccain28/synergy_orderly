@@ -26,7 +26,7 @@ plot_time_to_threshold <- function(outputsfolder, cohort_folder = 'sim_cohort_ge
     geom_boxplot(aes(x = arm, y = t_toreach_threshold, color = arm, fill = arm), 
                  linewidth = 0.8, outlier.alpha = 0.1) + 
     geom_text(data = distr, 
-              aes(x = arm, y = 12, label = paste0('n = ', round(n, 1))),
+              aes(x = arm, y = 12, label = paste0('n = ', round(n, 1)," (", scales::percent(round(percent, 2)), ")")),
                   size = 3.5, fontface = 'bold') +
     # geom_jitter(aes(x = arm, y = t_toreach_threshold, color = arm), alpha = 0.2) + 
     scale_y_log10(breaks = c(10, 30, 50, 100, 200, 300),
