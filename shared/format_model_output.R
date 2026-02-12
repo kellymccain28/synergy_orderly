@@ -27,10 +27,9 @@ format_model_output <- function(model_data,
   # Function to format rows with detectable cases by specific years-- 
   format_cases_by_year <- function(model_data, yr){
     
-    censor_date = as.Date(start_cohort + 365*yr)
-    
     df <- model_data %>%
-      
+      mutate(censor_date = case_when(fu_end_date > as.Date(start_cohort + 365*yr) ~ as.Date(start_cohort + 365*yr - 1),
+                                     TRUE ~ fu_end_date)) %>%
       # First, filter to only include rows with infections 
       filter(
          detection_day <= censor_date & 
@@ -57,7 +56,7 @@ format_model_output <- function(model_data,
           TRUE ~ lag(detection_day)#time_length(interval(start_cohort, lag(detection_day)), unit = 'years') #(lag(detection_day) - start_cohort) / 365.25
         ),
         
-        # End time is when this infection was detected or the end of the year, whichever is first 
+        # End time is when this infection was detected or the end of the year/followup time, whichever is first 
         end_date = pmin(detection_day, censor_date),#if_else(detection_day < censor_date, detection_day, censor_date),#time_length(interval(start_cohort, detection_day), unit = 'years') ,#(detection_day - start_cohort) / 365.25,
         
         # All these are events (infections)
@@ -133,7 +132,7 @@ format_model_output <- function(model_data,
     anti_join(all_cases %>%
                 distinct(rid, year), by = c('rid','year'))
   
-  # Create censoring intervals for missing combinations of rid and yearso that they contribute person time 
+  # Create censoring intervals for missing combinations of rid and year so that they contribute person time 
   censoring_intervals <- missing_combinations %>%
     mutate(
       start_date = year_start, 
@@ -162,7 +161,9 @@ format_model_output <- function(model_data,
       receives_treatment = NA,
       treatment_efficacy = NA, 
       treatment_successful = NA,
-      num_bites = NA
+      num_bites = NA,
+      fu_end_date = year_end,
+      censor_date = year_end
     ) %>% 
     select(-year_start, -year_end) %>%
     # add children_in_group var

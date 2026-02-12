@@ -19,7 +19,7 @@ get_incidence <- function(model = TRUE,
   
   # expand all children 
   person_months_df <- df_children %>%
-    mutate(fu_end_date = ymd('2020-03-31'),# this should change to when the follow up actually ended
+    mutate(#fu_end_date = ymd('2020-03-31'),# this should change to when the follow up actually ended
            start_date = v1_date) %>%
     
     ungroup() %>% 

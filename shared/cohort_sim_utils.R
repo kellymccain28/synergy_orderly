@@ -4,7 +4,7 @@
 run_cohort_simulation <- function(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
                                   metadata_df, 
                                   base_inputs, 
-                                  return_parasitemia = TRUE,
+                                  return_parasitemia = FALSE,
                                   output_dir = "R:/Kelly/src/fit_smc/simulation_outputs",
                                   save_outputs = FALSE) {
   
@@ -97,8 +97,19 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
     # message("probability of a bite:", p_bite[t])
     if (n_infectious_bites == 0) next
     
+    # Filter to children still in follow-up at time t
+    t_external <- t - burnin
+    still_in_followup <- metadata_df$fu_end_day >= t_external 
+    active_children <- metadata_df$rid[still_in_followup]
+    
     # Sample random children to be bitten 
-    bites <- sample(metadata_df$rid, size = n_infectious_bites, prob = weights, replace = TRUE)
+    bites <- sample(metadata_df$rid, 
+                    size = n_infectious_bites, 
+                    prob = weights * still_in_followup, # adds 0 weight for inactive children 
+                    replace = TRUE) 
+    # Remove any inactive children that somehow got sampled (shouldn't happen but safe)
+    bites <- bites[bites %in% active_children]
+    
     numbites <- table(bites)
     # create named vector of the number of bites for each child 
     numbites <- setNames(as.vector(numbites), names(numbites))
@@ -154,35 +165,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
     if(length(bit_kids) > 0) {
       kid_metadata <- metadata_df[metadata_df$rid %in% bit_kids, ]
       
-      # if(t < burnin) {
-      #   # No interventions during burnin
-      #   PEV_vec <- rep(0, length(bit_kids))
-      #   # these both need a placeholder value (won't matter if PEV = 0 or SMC = 0)
-      #   t_since_vax_vec <- rep(0, length(bit_kids))
-      #   t_toboost1_vec <- rep(500, length(bit_kids))
-      #   t_toboost2_vec <- rep(1000, length(bit_kids))
-      #   
-      #   # Because the SMC vector is already made, with a padded start for the burnin, we need to have SMC on in the model for the SMC children 
-      #   # Make named vector of SMC and map to bit_kids order 
-      #   smc_lookup <- setNames(kid_metadata$SMC, kid_metadata$rid)
-      #   SMC_vec <- smc_lookup[as.character(bit_kids)]
-      #   
-      #   # Get the kill rate vectors for SMC
-      #   # Find the row index for the target rid
-      #   smc_kill_vec_lookup <- setNames(kid_metadata$smckillvec, kid_metadata$rid)
-      #   SMC_kill_vec <- smc_kill_vec_lookup[as.character(bit_kids)]
-      #   # subset the kill rate vector to be from the external time (t includes the burnin) to the end of the vector
-      #   # vector is every two days 
-      #   SMC_kill_vec <- lapply(SMC_kill_vec, function(smcvec){
-      #     subset <- smcvec[floor((t + t_liverstage) / 2) :length(smcvec)] # t_liverstage added because we want to subset from when BS infection starts + the liver stage time, to the end; +burnin removed because it is already taken into account in the t
-      #     return(subset)
-      #   })
-      #   
-      #   SMC_timev <- rep(list(0:(length(SMC_kill_vec[[1]])-1)), 
-      #                    length = length(bit_kids))
-      # } else {
-        
-        # Create named vectors of PEVand vaccination days 
+      # Create named vectors of PEVand vaccination days 
         pev_lookup <- setNames(kid_metadata$PEV, kid_metadata$rid)
         vax_day_lookup <- setNames(kid_metadata$vaccination_day, kid_metadata$rid)
         t_toboost1_lookup <- setNames(kid_metadata$t_to_boost1, kid_metadata$rid)
@@ -278,22 +261,6 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
                         return(result)
                       })
       
-      # Vectorized data frame creation of infection records
-      # new_records <- data.frame(
-      #   rid = bit_kids,
-      #   time_ext = rep(t - burnin, length(bit_kids)),                                                      # external cohort time (t is the cohort time, then we wnat to scale to be + if after burnin)
-      #   t = t,  # simulation day
-      #   infectious_bite_day = rep((t - burnin) - t_liverstage, length(bit_kids)),                          # bitten on day t, then assuming the liver stage takes t_liverstage days
-      #   BSinfection_day = rep((t - burnin), length(bit_kids)),                                             # after liver stage, the BS begins #+ t_liverstage
-      #   threshold_day = sapply(outputs, function(x) x$threshold_day),               # days since BS starts that threshold is reached
-      #   detection_day = (t - burnin) + sapply(outputs, function(x) x$threshold_day),# day in cohort simulation that threshold is reached, threshold is the day since BS infection that reaches threshold #+ t_liverstage 
-      #   t_toreach_threshold = sapply(outputs, function(x) x$threshold_day) + t_liverstage,   # time to reach threshold value / detection since the bite  
-      #   vaccination_day =  kid_metadata$vaccination_day, #if(t < burnin) rep(NA, length(bit_kids)) else  # day of vaccination relative to the start of follow-up (day 0 external time)
-      #   prob_bite = rep(p_bite[t], length(bit_kids)),
-      #   recovery_day = ((t - burnin) + sapply(outputs, function(x) x$threshold_day)) + 12 - t_liverstage, # day that the child would be 'recovered' if we assume that a child is treated and has a period of prophylaxis for 12 days after detection day 
-      #   # (90% at 12 days in paper but here, assuming 100% for 12 days) after the day of treatment and that all infectiosn are treated with AL 10.1038/ncomms6606
-      #   country = country_to_run
-      # ) 
       # Vectorized data frame creation of infection records with infectious bite day as central day 
       new_records <- data.frame(
         rid = bit_kids,
