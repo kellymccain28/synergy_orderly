@@ -13,12 +13,13 @@ summarize_IRRs <- function(outputsfolder,
     # Get annual and overall incidence 
     inci_annual <- inci %>%
       filter(!is.na(date)) %>%
-      mutate(time_value = case_when(date < '2018-04-01' & date > '2017-05-01' ~ 'Jun 2017-Mar 2018',
-                                   date < '2019-04-01' ~ 'Apr 2018-Mar 2019',
-                                   date < '2020-04-01' ~ 'Apr 2019-Mar 2020'),
-             time_value_num = case_when(date < '2018-04-01' & date > '2017-05-01' ~ '1',
-                                        date < '2019-04-01' ~ '2',
-                                        date < '2020-04-01' ~ '3')) %>%
+      filter(date > '2017-05-01') %>%
+      mutate(time_value = case_when(date >= '2017-06-01' & date < '2018-04-01' ~ 'Jun 2017-Mar 2018',
+                                    date >= '2018-04-01' & date < '2019-04-01' ~ 'Apr 2018-Mar 2019',
+                                    date >= '2019-04-01' & date < '2020-04-01' ~ 'Apr 2019-Mar 2020'),
+             time_value_num = case_when(date >= '2017-06-01' & date < '2018-04-01' ~ '1',
+                                        date >= '2018-04-01' & date < '2019-04-01' ~ '2',
+                                        date >= '2019-04-01' & date < '2020-04-01' ~ '3')) %>%
       group_by(time_value, time_value_num, arm, sim_id) %>%
       summarize(person_months = sum(person_months),
                 n_cases = sum(n_cases)) %>%
@@ -44,6 +45,7 @@ summarize_IRRs <- function(outputsfolder,
   } else if (agg_unit == 'halfyear'){
     inci_annual <- inci %>%
       filter(!is.na(date)) %>%
+      filter(date > '2017-05-01') %>%
       mutate(time_value = case_when(date < '2017-10-01' & date > '2017-05-01' ~ 'June 2017-Sep 2017',
                                    date < '2018-04-01' ~ 'Oct 2017-March 2018',
                                    date < '2018-10-01' ~ 'April 2018-Sep 2018',
@@ -82,6 +84,7 @@ summarize_IRRs <- function(outputsfolder,
                                                         'Overall')))
   } else if( agg_unit == 'yearmonth'){
     inci <- inci %>%
+      filter(date > '2017-05-01') %>%
       mutate(time_value = yearmonth, 
              time_value_num = yearmonth,
              time_unit = agg_unit)

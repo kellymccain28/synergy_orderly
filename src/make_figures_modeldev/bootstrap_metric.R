@@ -1,5 +1,5 @@
 # Function to bootstrap one time point
-bootstrap_ratio_ci <- function(ratios, n_boot = 1000) {
+bootstrap_ratio_ci <- function(ratios, n_boot = 5000) {
   boot_medians <- replicate(n_boot, {
     median(sample(ratios, replace = TRUE), na.rm = TRUE)
   })

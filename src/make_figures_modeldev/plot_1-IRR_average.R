@@ -27,7 +27,7 @@ plot_irr_average <- function(outputsfolder,
   
   # get the values for the text
   inci_summary %>%
-    filter(time_value == 'overall' & metric == 'efficacy')  %>%
+    filter(time_value == 'Overall' & metric == 'efficacy')  %>%
     saveRDS(paste0(path, outputsfolder, '/summary_efficacy.rds'))
   
   # Plotting

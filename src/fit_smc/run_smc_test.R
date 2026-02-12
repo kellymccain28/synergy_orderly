@@ -3,6 +3,7 @@
 run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
                         n_param_sets,
                         treatment_prob = 0.9, # default is 1 (which gives children prophylaxis)
+                        threshold = 5000,
                         N = 800){
   # Script to fit smc parameters to Hayley's curve 
   library(lhs)
@@ -43,7 +44,7 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
   n_particles = 1L
   n_threads = 1L
   burnints = 30
-  threshold = 5000
+  # threshold = 5000
   tstep = 1
   t_liverstage = 7 # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC267587/
   VB = 1e6
@@ -68,18 +69,28 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
   
   # Set up grid of parameters
   # param_ranges <- list(
-  #   max_SMC_kill_rate = c(2, 3),# parasites per uL per 2-day timestep
-  #   lambda = c(15, 19),
-  #   kappa = c(0.1, 5)
+  #   max_SMC_kill_rate = c(2.2, 2.6),# parasites per uL per 2-day timestep
+  #   lambda = c(14, 19),
+  #   kappa = c(0.1, 0.6)
   # )
-  # # Generate LHS samples
+  # # # Generate LHS samples
   # A <- randomLHS(n_param_sets, 3)
-  # # Scale to parameter ranges
+  # # # Scale to parameter ranges
   # params_df <- data.frame(
   #   max_SMC_kill_rate = qunif(A[,1], param_ranges$max_SMC_kill_rate[1], param_ranges$max_SMC_kill_rate[2]),
   #   lambda = qunif(A[,2], param_ranges$lambda[1], param_ranges$lambda[2]),
   #   kappa = qunif(A[,3], param_ranges$kappa[1], param_ranges$kappa[2])
   # )
+  # params_df <- structure(list(max_SMC_kill_rate = c(2.397, 2.383, 
+  #                                                   2.370, 2.565, 2.462), 
+  #                             lambda = c(18.822, 18.006, 18.486, 
+  #                                        14.536, 15.942), 
+  #                             kappa = c(0.341, 0.376, 0.337, 
+  #                                       0.256, 0.363)), 
+  #                        row.names = c(NA, -5L), 
+  #                        class = c("tbl_df", "tbl", "data.frame"))
+  # params_df <- bind_rows(replicate(n_param_sets/5, params_df, simplify = FALSE)) %>%
+  #   mutate(sim_id = row_number())
   # Make grid search list 
   # Define ranges
   # kill_vals  <- seq(2, 3,  length.out = 10)
@@ -124,17 +135,18 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
   # params_df <- rbind(params_df, params_df, params_df)
   # params_df$sim_id <- rownames(params_df)
   
-  # Do multiple repetitions of the final parameters 
-  params_df <- data.frame(
-    max_SMC_kill_rate = rep(2.333333, n_param_sets),
-      lambda = rep(16.6667,n_param_sets),
-      kappa = rep(0.2222222, n_param_sets),
-      sim_id = seq(1:n_param_sets))
+  # Do multiple repetitions of the final parameters  -- these were good for threhsold of 5000 but not great with 3000
   # params_df <- data.frame(
-  #   max_SMC_kill_rate = rep(3.01, n_param_sets),
-  #   lambda = rep(13,n_param_sets),
-  #   kappa = rep(0.454, n_param_sets),
-  #   sim_id = seq(1:n_param_sets))
+  #   max_SMC_kill_rate = rep(2.333333, n_param_sets),
+  #     lambda = rep(16.6667,n_param_sets),
+  #     kappa = rep(0.2222222, n_param_sets),
+  #     sim_id = seq(1:n_param_sets))
+  # new with 3000 threshold 
+  params_df <- data.frame(
+    max_SMC_kill_rate = rep(2.37, n_param_sets),
+    lambda = rep(18.486,n_param_sets),
+    kappa = rep(0.337, n_param_sets),
+    sim_id = seq(1:n_param_sets))
   
   # params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", treatment_probability)
   prob_bite_generic <- readRDS(paste0(path, '/archive/fit_rainfall/20251009-144330-1d355186/prob_bite_generic.rds'))
@@ -414,7 +426,7 @@ run_smc_test <- function(path = "R:/Kelly/synergy_orderly",
     parallel::stopCluster(cl)
   }
   # Save all results 
-  saveRDS(grid_search_outputs, paste0("R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_2026-01-22pars_7dayliverstage",Sys.Date(),".rds"))
+  saveRDS(grid_search_outputs, paste0("R:/Kelly/synergy_orderly/src/fit_smc/outputs/runs_pars_7dayliverstage",Sys.Date(),".rds"))
   # saveRDS(results2, paste0("R:/Kelly/synergy_orderly/src/fit_smc/outputs/test_fitted_params_smc_",Sys.Date(),".rds"))
-  saveRDS(metadata_df, paste0('R:/Kelly/synergy_orderly/src/fit_smc/outputs/metadata_2026-01-22pars_7dayliverstage', Sys.Date(), '.rds'))
+  saveRDS(metadata_df, paste0('R:/Kelly/synergy_orderly/src/fit_smc/outputs/metadata_pars_7dayliverstage', Sys.Date(), '.rds'))
 }
