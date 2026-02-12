@@ -81,15 +81,26 @@ varspec <- nothing[[4]]
 growthr <- nothing[[5]]
 # nothing[[6]]
 mplot <- nothing[[7]]
-nothing[[11]] 
+# nothing[[11]] 
 
-plot_grid(prbc+labs(caption = NULL, x = 'Days', y = expression(paste("PRBCs/", mu,"L"))),
-          mplot+labs(caption = NULL, x = 'Days', y = 'm(t)'),
-          innate+labs(caption = NULL, x = 'Days', y = expression('Innate immunity, S'["c"]~"(t)")),
-          genad+labs(caption = NULL, x = 'Days', y = expression('General adaptive immunity, S'["m"]~"(t) ")),
-          varspec+labs(caption = NULL, x = 'Days', y = expression(italic("var")~'-specific immunity, S'["v"]~"(t)")),
-          growthr+labs(caption = NULL, x = 'Days', y = expression('Growth rate (m* S'["c"]~"*S"['m']~"*S"['v']~")")),
-          labels = c('A', 'B','C','D','E','F'))
+
+plot_grid(
+  prbc + labs(caption = NULL, x = 'Days', 
+              y = expression(atop("Parasitised red blood", 
+                                  paste("cells, PRBCs/", mu, "L")))),
+  mplot + labs(caption = NULL, x = 'Days', 
+               y = expression(atop("Growth rate", "m(t)"))),
+  innate + labs(caption = NULL, x = 'Days', 
+                y = expression(atop("Innate immunity", S["c"]~"(t)"))),
+  genad + labs(caption = NULL, x = 'Days', 
+               y = expression(atop("General adaptive", paste('immunity, ', S["m"]~"(t)")))),
+  varspec + labs(caption = NULL, x = 'Days', 
+                 y = expression(atop(italic("var")~'-specific immunity,', S["v"]~"(t)"))),
+  growthr + labs(caption = NULL, x = 'Days', 
+                 y = expression(atop("Adjusted growth rate", 
+                                     paste("(m * ", S["c"], " * ", S['m'], " * ", S['v'], ")")))),
+  labels = c('A', 'B', 'C', 'D', 'E', 'F')
+)
 # in caption, days since start of blood-stage 
 ggsave('R:/Kelly/synergy_orderly/figures/immunity_plot.pdf', height = 5, width = 10)
 saveRDS(nothing[[6]], paste0('R:/Kelly/synergy_orderly/figures/data/immunity_noint',Sys.Date(), '.rds'))
@@ -336,7 +347,7 @@ n <- nothing[[1]] +
   theme(legend.position = 'none',
         plot.title = element_text(size=14))
 v <- vax[[1]] + 
-  geom_vline(xintercept = c(-t_inf_vax, -t_inf_vax + 365), linetype = 4, color = '#470024') +
+  geom_vline(xintercept = c(-t_inf_vax, -t_inf_vax + 365), linetype = 3, color = '#59114D') +
   scale_color_manual(values = c('#7CAE00','#7CAE00'))+
   xlim(c(-35,400)) + 
   labs(caption = NULL,
@@ -345,7 +356,7 @@ v <- vax[[1]] +
   theme(legend.position = 'none',
         plot.title = element_text(size=14))
 s <- smc[[1]] + 
-  geom_vline(xintercept = smc_dose_days-inf_start, linetype = 4, color = '#709176') +
+  geom_vline(xintercept = smc_dose_days-inf_start, linetype = 2, color = '#709176') +
   scale_color_manual(values = c('#00bfc4','#00bfc4'))+
   xlim(c(-35,400)) + 
   labs(caption = NULL,
@@ -354,8 +365,8 @@ s <- smc[[1]] +
   theme(legend.position = 'none',
         plot.title = element_text(size=14))
 vs <- vaxSMC[[1]] + 
-  geom_vline(xintercept = c(-t_inf_vax, -t_inf_vax + 365), linetype = 4, color = '#470024') +
-  geom_vline(xintercept = smc_dose_days-inf_start, linetype = 4, color = '#709176') +
+  geom_vline(xintercept = c(-t_inf_vax, -t_inf_vax + 365), linetype = 3, color = '#59114D') +
+  geom_vline(xintercept = smc_dose_days-inf_start, linetype = 2, color = '#709176') +
   scale_color_manual(values = c('#c77cff','#c77cff'))+
   xlim(c(-35,400)) + 
   labs(caption = NULL,

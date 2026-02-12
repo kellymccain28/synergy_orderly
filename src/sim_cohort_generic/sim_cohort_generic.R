@@ -68,9 +68,9 @@ sim_cohort_generic <- function(trial_ts = 365*3,
   set.seed(123)
   
   params_df <- params_df <- data.frame(
-    max_SMC_kill_rate = rep(2.33333, n_param_sets),
-    lambda = rep(16.66667, n_param_sets),
-    kappa = rep(0.22222, n_param_sets),
+    max_SMC_kill_rate = rep(2.37, n_param_sets),
+    lambda = rep(18.5, n_param_sets),
+    kappa = rep(0.337, n_param_sets),
     alpha_ab = rep(1.74, n_param_sets),# from 01-23: rep(1.66, n_param_sets), #rep(1.77, n_param_sets),#rep(1.38, n_param_sets),
     beta_ab = rep(4.69, n_param_sets),# from 01-23: rep(3.45, n_param_sets),  #rep(2.63, n_param_sets),#rep(5.83, n_param_sets)
     vmin = rep(0.00259, n_param_sets)# from 01-23: rep(0.00311, n_param_sets) #rep(0.000513, n_param_sets)
@@ -128,7 +128,9 @@ sim_cohort_generic <- function(trial_ts = 365*3,
            country = country_to_run) %>%
     mutate(rid_original =paste0(country_short, sprintf("%04d", rid)),
            country = 'generic',
-           v1_date = as.Date('2017-04-01') + vax_day - 60) # before was just april1 (start of), but now the first dose is dependent on the 3rd(specified by vax_day), 3rd dose is ~60 days after first
+           v1_date = as.Date('2017-04-01') + vax_day - 60) %>%# before was just april1 (start of), but now the first dose is dependent on the 3rd(specified by vax_day), 3rd dose is ~60 days after first
+    mutate(fu_end_date = as.Date('2020-03-31'),
+           fu_end_day = as.Date('2020-03-31') - as.Date('2017-04-01'))
   
   output_dir = paste0(path, 'src/sim_cohort_generic/outputs/outputs_', Sys.Date())
   # If base directory doesn't exist, create it
