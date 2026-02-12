@@ -205,8 +205,8 @@ ggplot(best )+#%>% filter(alpha_ab > 1.2 & alpha_ab  < 1.8 &  vmin > 0.25))+#fil
   # geom_line(aes(x = weeks_since_rtss, y = efficacy, group = sim_id), color = 'orange', alpha = 0.5) +
   geom_line(data = observed_efficacy_rtss , aes(x = months_since_rtss, y = observed_efficacy), color = 'black', linewidth= 1) +
   # geom_line(data = observed_efficacy_rtss , aes(x = weeks_since_rtss, y = observed_efficacy), color = 'black', linewidth= 1) +
-  geom_vline(xintercept = 0, linetype = 2, color = 'blue') +
-  geom_vline(xintercept = 52, linetype = 2, color = 'blue') +
+  # geom_vline(xintercept = 0, linetype = 2, color = 'blue') +
+  # geom_vline(xintercept = 52, linetype = 2, color = 'blue') +
   ylim(c(-0,100)) + 
   theme_minimal(base_size = 14) +
   xlim(c(0,14)) + 

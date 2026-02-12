@@ -43,7 +43,7 @@ calculate_efficacy_likelihood <- function(params_row,
     #   return(1e10)  # Return large penalty, not -Inf
     # }
     # 
-    # Calculate mean least squares
+    # Calculate mean squared error
     mls <- mean((matched_complete$observed_efficacy - matched_complete$predicted_efficacy)^2)
     
     message("Mean Least Squares: ", mls)

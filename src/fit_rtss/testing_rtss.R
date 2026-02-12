@@ -94,17 +94,30 @@ ggplot(pars %>% filter(alpha_ab > 1.2), aes(x = ts, y = 1 - dr,
 
 
 
-
+# Below shows that the parameterization to reduce the number of bites from 5 to 1 
+# shows the same density when we sum up 5 draws from the 1 parameterization 
+# assumes independence between the individual bites 
 
 # Parameters from the model
-n <- 150           # mean number of surviving sporozoites (unvaccinated)
-sig_n <- 194       # standard deviation
-r <- (n^2)/(sig_n^2 - n) /5 # shape parameter
+n5 <- 150           # mean number of surviving sporozoites (unvaccinated)
+sig_n5 <- 194       # standard deviation
+r5 <- (n5^2)/(sig_n5^2 - n5)  # shape parameter
 
-# above is the same as :
-n <- 150/5
-sig_n <- 194/sqrt(5)
-r <- (n^2)/(sig_n^2 - n)
+sim5 <- rnbinom(10000, size = r5, mu = n5)
+
+# above is the same as : -- this is good 
+n1 <- 150/5
+sig_n1 <- 194/sqrt(5)
+r1 <- (n1^2)/(sig_n1^2 - n1)
+
+
+sim1 <- replicate(10000, sum(rnbinom(5, mu = n1, size = r1)))
+
+plot(density(sim5), col = 'blue')
+lines(density(sim1), col = 'red')
+
+
+
 
 
 # Range of possible values for k (number of surviving sporozoites)
