@@ -37,6 +37,8 @@ countrycode
 terra
 cyphr
 hipercow.dide
+colorspace
+zoo
 
 # Github
 github::mrc-ide/umbrella

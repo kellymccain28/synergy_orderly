@@ -214,6 +214,16 @@ monthly_inci <- get_incidence(model = FALSE,
                               casedata = mitt)
 saveRDS(monthly_inci, 'monthly_incidence_trial.rds')
 
+monthly_inci_BF <- get_incidence(model = FALSE, 
+                              df_children = children %>% filter(country == 'BF'), 
+                              casedata = mitt %>% filter(country == 'BF'))
+saveRDS(monthly_inci_BF, 'monthly_incidence_trial_BF.rds')
+
+monthly_inci_Mali <- get_incidence(model = FALSE, 
+                              df_children = children %>% filter(country == 'Mali'), 
+                              casedata = mitt %>% filter(country == 'Mali'))
+saveRDS(monthly_inci_Mali, 'monthly_incidence_trial_Mali.rds')
+
 
 monthlyincidenceplot <- monthly_inci %>%
   ggplot(aes(x = date, y = incidence_per_1000pm)) +
@@ -372,7 +382,7 @@ median(delivery$y1p2d1_date_received, na.rm = TRUE) # 8-24
 median(delivery$y1p3d1_date_received, na.rm = TRUE) # 9-23
 
 smcdates <- delivery_avg %>%
-  select(country, contains('d3')) %>%
+  dplyr::select(country, contains('d3')) %>%
   pivot_longer(cols = contains('date_received'),
                names_to = 'smcdose',
                values_to = 'date') 

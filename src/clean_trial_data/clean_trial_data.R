@@ -91,8 +91,10 @@ children <- children_raw %>%
   # mutate(ageatV3 = (v3_date - dob),
   #        ageatlastvac = last_primary_vac - dob) %>%
   # select(-dob) %>%
+  left_join(primary_persontime %>% select(rid, dcontact) %>% group_by(rid) %>% slice_max(dcontact)) %>%
+  rename(fu_end_date = dcontact)
   # add same end date for now (should be updated from Paul)
-  mutate(fu_end_date = ymd('2020-03-31'))  
+  # mutate(fu_end_date = dcontact)#ymd('2020-03-31'))  
 
 
 # Get total children per arm
@@ -230,3 +232,5 @@ cyphr::encrypt(saveRDS(serology, file = 'data/serology.rds'), key)
 cyphr::encrypt(saveRDS(delivery_detail, file = 'data/delivery_detail.rds'), key)
 cyphr::encrypt(saveRDS(primary, file = 'data/primary.rds'), key)
 cyphr::encrypt(saveRDS(children, file = 'data/children.rds'), key)
+
+saveRDS(children %>% select(-dob), file = 'R:/Kelly/synergy_orderly/shared/children_deanonymised.rds')

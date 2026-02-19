@@ -27,38 +27,38 @@ orderly_run(name = 'run_smc_rtss',
             ))
 
 # to run cohort with one set of parameters (this no longer works with process_model_output and compare as of 28 July)
-param_ranges <- list(
-  max_SMC_kill_rate = c(3, 25),      # days, adjust to realistic range
-  smc_lambda = c(0.1, 45),   # adjust based on your hill function
-  smc_kappa = c(0.5, 5),    # adjust based on your hill function
-  season_start_day = c(20, 120)            # days, adjust as needed
-)
-# Generate LHS samples (increase to 200-500 for better coverage)
-n_lhs <- 20
-lhs_design <- randomLHS(n_lhs, 4)
-# Scale to parameter ranges
-lhs_params <- data.frame(
-  max_SMC_kill_rate = lhs_design[,1] * diff(param_ranges$max_SMC_kill_rate) + param_ranges$max_SMC_kill_rate[1],
-  smc_lambda = lhs_design[,2] * diff(param_ranges$smc_lambda) + param_ranges$smc_lambda[1],
-  smc_kappa = lhs_design[,3] * diff(param_ranges$smc_kappa) + param_ranges$smc_kappa[1],
-  season_start_day = lhs_design[,4] * diff(param_ranges$season_start_day) + param_ranges$season_start_day[1]
-)
-saveRDS(lhs_params,file = paste0("R:/Kelly/synergy_orderly/cohort_param_sets/lhs_params", Sys.Date(), ".rds"))
-# send all of these runs to the cluster, iterating through the
-cohortruns <- task_create_bulk_expr(
-  orderly::orderly_run(name = 'sim_cohort',
-                        parameters = list(N = 3200,
-                                          trial_ts = 365*3,
-                                          burnin = 90,
-                                          max_SMC_kill_rate = max_SMC_kill_rate,
-                                          smc_lambda = smc_lambda,
-                                          smc_kappa = smc_kappa,
-                                          season_start_day = season_start_day,
-                                          sim_allow_superinfections = TRUE)),
-  lhs_params
-)
-hipercow_bundle_status('freezable_kakarikis')
-hipercow_bundle_log_value('freezable_kakarikis')[[10]]
+# param_ranges <- list(
+#   max_SMC_kill_rate = c(3, 25),      # days, adjust to realistic range
+#   smc_lambda = c(0.1, 45),   # adjust based on your hill function
+#   smc_kappa = c(0.5, 5),    # adjust based on your hill function
+#   season_start_day = c(20, 120)            # days, adjust as needed
+# )
+# # Generate LHS samples (increase to 200-500 for better coverage)
+# n_lhs <- 20
+# lhs_design <- randomLHS(n_lhs, 4)
+# # Scale to parameter ranges
+# lhs_params <- data.frame(
+#   max_SMC_kill_rate = lhs_design[,1] * diff(param_ranges$max_SMC_kill_rate) + param_ranges$max_SMC_kill_rate[1],
+#   smc_lambda = lhs_design[,2] * diff(param_ranges$smc_lambda) + param_ranges$smc_lambda[1],
+#   smc_kappa = lhs_design[,3] * diff(param_ranges$smc_kappa) + param_ranges$smc_kappa[1],
+#   season_start_day = lhs_design[,4] * diff(param_ranges$season_start_day) + param_ranges$season_start_day[1]
+# )
+# saveRDS(lhs_params,file = paste0("R:/Kelly/synergy_orderly/cohort_param_sets/lhs_params", Sys.Date(), ".rds"))
+# # send all of these runs to the cluster, iterating through the
+# cohortruns <- task_create_bulk_expr(
+#   orderly::orderly_run(name = 'sim_cohort',
+#                         parameters = list(N = 3200,
+#                                           trial_ts = 365*3,
+#                                           burnin = 90,
+#                                           max_SMC_kill_rate = max_SMC_kill_rate,
+#                                           smc_lambda = smc_lambda,
+#                                           smc_kappa = smc_kappa,
+#                                           season_start_day = season_start_day,
+#                                           sim_allow_superinfections = TRUE)),
+#   lhs_params
+# )
+# hipercow_bundle_status('freezable_kakarikis')
+# hipercow_bundle_log_value('freezable_kakarikis')[[10]]
 
 
 # Fit SMC -- need to update the parmaeters if i want to do any lhs fitting -- atm it is just running the 'best' parameters n_param_sets times 
@@ -115,39 +115,55 @@ rtss_grid_final_1000threshold_0liver_2000_vmin_lognormal <- task_create_expr(exp
 task_log_show(rtss_grid_final_1000threshold_0liver_2000_vmin_lognormal)
 
 # run generic cohort 
-hipercow_environment_create(name = 'generic',
-                            sources = c("shared/rtss.R",
-                                        "shared/helper_functions.R",
-                                        "shared/cohort_sim_utils.R",
-                                        'src/sim_cohort_generic/sim_cohort_generic.R',
-                                        'src/sim_trial_cohort/sim_trial_cohort.R'
-))
-nparams = 32*3
-ncores = if(nparams > (32-4)) 32 else nparams + 4
-task_create_expr(sim_cohort_generic(trial_ts = 365*3, 
-                                    treatment_prob = 0.9, # default is 0.9 (which gives children prophylaxis)
-                                    season_start_day = 122, # 137 is to start on August 15 (days since April 1) -- this was good for highly seasonal; 
-                                    # 115 days is July 25 which is close to trial dates; 122 is Aug 1
-                                    vax_day = 68, #75;# for perennial, trying an earlier start day of vaccination so they overlap less 
-                                    threshold = 5000, # default is 5000 parasites per microL
-                                    country_to_run = 'generic',
-                                    season = 'seasonal',         
-                                    N = 3000,
-                                    n_param_sets = nparams,
-                                    get_parasit = FALSE,
-                                    notes = 'season from 122 and vax from 68; 365*3; threshold at 5000, log normal weighting, seasonal generic, fitted rtss (1.77, 2.63, 0.000513) and smc pars (2.37, 18.5, 0.337)'),
-                 environment = 'generic',
-                 resources = hipercow_resources(cores = ncores)) 
-# 'e5eb6c04b305ab4e9695e353fc4392e1' - 
-task_log_show('e5eb6c04b305ab4e9695e353fc4392e1') 
+# hipercow_environment_create(name = 'generic',
+#                             sources = c("shared/rtss.R",
+#                                         "shared/helper_functions.R",
+#                                         "shared/cohort_sim_utils.R",
+#                                         'src/sim_cohort_generic/sim_cohort_generic.R',
+#                                         'src/sim_trial_cohort/sim_trial_cohort.R'
+# ))
+# nparams = 32*3
+# ncores = if(nparams > (32-4)) 32 else nparams + 4
+# task_create_expr(sim_cohort_generic(trial_ts = 365*3, 
+#                                     treatment_prob = 0.9, # default is 0.9 (which gives children prophylaxis)
+#                                     season_start_day = 122, # 137 is to start on August 15 (days since April 1) -- this was good for highly seasonal; 
+#                                     # 115 days is July 25 which is close to trial dates; 122 is Aug 1
+#                                     vax_day = 68, #75;# for perennial, trying an earlier start day of vaccination so they overlap less 
+#                                     threshold = 5000, # default is 5000 parasites per microL
+#                                     country_to_run = 'generic',
+#                                     season = 'seasonal',         
+#                                     N = 3000,
+#                                     n_param_sets = nparams,
+#                                     get_parasit = FALSE,
+#                                     notes = 'season from 122 and vax from 68; 365*3; threshold at 5000, log normal weighting, seasonal generic, fitted rtss (1.77, 2.63, 0.000513) and smc pars (2.37, 18.5, 0.337)'),
+#                  environment = 'generic',
+#                  resources = hipercow_resources(cores = ncores)) 
 source('R:/Kelly/synergy_orderly/src/sim_cohort_generic/extract_sim_notes.R')
 
 # send jobs to run generic simulation to cluster by parameter dataset: 
-pars <- readxl::read_xlsx("R:/Kelly/synergy_orderly/figures/parameters_tbl.xlsx",
-                 sheet = 'Sheet4')
-nparams = 32*3
+# pars <- readxl::read_xlsx("R:/Kelly/synergy_orderly/figures/parameters_tbl.xlsx",
+#                  sheet = 'Sheet4')
+
+# get a range of timings for vaccine and smc 
+earliest_vax_3rd <- as.Date('2017-05-01')
+latest_vax_3rd <- as.Date('2017-07-01')
+earliest_smc_start <- as.Date('2017-07-01')
+latest_smc_start <- as.Date('2017-09-01')
+
+vax_day <- seq(earliest_vax_3rd, latest_vax_3rd, by = '2 weeks')
+vax_day <- vax_day - as.Date('2017-04-01')
+season_start_day <- seq(earliest_smc_start, latest_smc_start, by = '2 weeks')
+season_start_day <- season_start_day - as.Date('2017-04-01')
+
+combos <- crossing(vax_day, season_start_day)
+combos$season = 'seasonal'
+combos$get_parasit = FALSE
+combos$notes = paste(combos$vax_day, combos$season_start_day, combos$season, sep = '_')
+
+nparams = 32*2
 ncores = if(nparams > (32-4)) 32 else nparams + 4
-task_ids <- pmap(pars, function(vax_day, season_start_day, get_parasit, season, notes) {
+
+task_ids <- pmap(combos, function(vax_day, season_start_day, get_parasit, season, notes) {
   if(get_parasit == TRUE){
     trial_ts_ = 50
   } else {trial_ts_ = 365 * 3}
@@ -164,10 +180,7 @@ task_ids <- pmap(pars, function(vax_day, season_start_day, get_parasit, season, 
       N = 3000,
       n_param_sets = nparams,
       get_parasit = !!get_parasit,
-      notes = paste0('season from ', !!season_start_day, ' and vax from ', !!vax_day,
-                     '; 365*3; threshold at 5000, log normal weighting, ',
-                     !!season, ' generic, fitted rtss (1.74, 4.69, 0.00237) and
-                     smc (2.37, 18.5, 0.337) pars')
+      notes = notes
     ),
     environment = 'generic',
     resources = hipercow_resources(cores = ncores)
@@ -179,30 +192,31 @@ task_status(unlist(task_ids))
 task_log_show(unlist(task_ids)[1])
 
 # run trial cohort simulation 
-hipercow_environment_create(name = 'trial_simulations',
-                            sources = c("shared/rtss.R",
-                                        "shared/helper_functions.R",
-                                        "shared/cohort_sim_utils.R",
-                                        'src/sim_trial_cohort/sim_trial_cohort.R',
-                                        'src/sim_trial_cohort/compare_incidence.R'
-                            ))
+# hipercow_environment_create(name = 'trial_simulations',
+#                             sources = c("shared/rtss.R",
+#                                         "shared/helper_functions.R",
+#                                         "shared/cohort_sim_utils.R",
+#                                         'src/sim_trial_cohort/sim_trial_cohort.R',
+#                                         'src/sim_trial_cohort/compare_incidence.R'
+#                             ))
 # hipercow_provision(method = 'pkgdepends', refs = c('cyphr', 'mrc-ide/hipercow@mrc-6733'),
 #                    environment = 'trial_simulations')
-nparams = 32 
+nparams = 32*4
 ncores = if(nparams > 32) 32 else nparams
-country = 'BF'
+country = 'BF'#'BF'#
 trial_sim2 <- task_create_expr(sim_trial_cohort(trial_ts = 365*3, 
-                                               treatment_prob = 0.9, # default is 1 (which gives children prophylaxis)
+                                               treatment_prob = 1, # default is 1 (which gives children prophylaxis)
                                                threshold = 5000, # default is 5000 parasites per microL
                                                country_to_run = country, # should be BF or Mali
                                                n_param_sets = nparams,
                                                get_parasit = FALSE,
                                                path = "R:/Kelly/synergy_orderly/",
-                                               notes = 'test simulations with grid and likelihood/rsme calculations, without offset'),
+                                               notes = paste0(country, ': grid of lag (0-40 range) and scalers for each year (0.005, 0.07 for first year, 0.02, 0.06 after), simulations with grid and likelihood/rsme calculations and plotting, without offset')),
                               environment = 'trial_simulations',
                               resources = hipercow_resources(cores = ncores))
-task_log_show(trial_sim2)
-
+task_log_show(trial_sim2) # updated with more 
+task_log_show('07a496830257e4304af3548ad7466743') # bf
+task_log_show('6df25d93aaa7dd5021f86cd096b07590') # mali
 
 # run trial cohort simulation -- old
 # nparams = 50
