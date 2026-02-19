@@ -44,14 +44,14 @@ plot_time_to_threshold <- function(outputsfolder, cohort_folder = 'sim_cohort_ge
   ggsave('R:/Kelly/synergy_orderly/figures/time_to_threshold.pdf', plot = last_plot(), height = 4, width = 6)
   ggsave(paste0(path, outputsfolder,'/time_to_threshold.pdf'), plot = last_plot(), height = 4, width = 6)
   
-  formatted %>%
+  return(formatted %>%
     group_by(arm) %>%
     summarize(min_t_threshold = min(t_toreach_threshold),
               max_t_threshold = max(t_toreach_threshold),
               median_t_threshold = median(t_toreach_threshold),
               mean_t_threshold = mean(t_toreach_threshold),
               lower_t_threshold = quantile(t_toreach_threshold, 0.025),
-              upper_t_threshold = quantile(t_toreach_threshold, 0.975))
+              upper_t_threshold = quantile(t_toreach_threshold, 0.975)))
 }
 # A tibble: 4 × 5
 # arm   median_t_threshold mean_t_threshold lower_t_threshold upper_t_threshold

@@ -15,11 +15,11 @@ generic_seas <- generic_seas %>%
          date_clin = date + 45) # to approximate the lag between rainfall and probability of a bite 
 
 smc_lines <- data.frame(
-  xint = c(as.Date('2017-04-01') + 115 + c(0,30,60,90)),
+  xint = c(as.Date('2017-04-01') + 122 + c(0,30,60,90)),
   color = '#709176'
 )
 smc_shaded <- data.frame(
-  xint = c(as.Date('2017-04-01') + 115 + c(0,30,60,90, 120)),
+  xint = c(as.Date('2017-04-01') + 122 + c(0,30,60,90, 120)),
   color = '#709176'
 )
 # metadata_df$vaccination_day[1] = 90

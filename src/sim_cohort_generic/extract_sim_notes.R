@@ -48,7 +48,7 @@ results_df <- results_df %>%
   mutate(date = as.Date(str_extract(folder_name, "\\d{4}-\\d{2}-\\d{2}"))) %>%
   filter(date >= as.Date("2024-12-01")) %>%
   arrange(desc(date), desc(folder_name)) %>%
-  select(-date)
+  dplyr::select(-date)
 
 # Write to CSV
 output_csv <- file.path(outputs_path, "sim_notes_summary.csv")

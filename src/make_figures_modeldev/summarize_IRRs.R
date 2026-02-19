@@ -1,7 +1,8 @@
 # Function to use in 'plot_1-IRR_average.R' which uses time aggregation of 'year' or 'halfyear', or in 
 # 'plot_1-IRR.R' which uses 'yearmonth' 
 # This function will aggregate incidence as needed, calculate IRRs, then summarize by the time unit 
-# to get median and 95% CrIs of the IRRs, efficacy (1-IRR), and the ratio of efficacy between expected and model-predicted using bootstrapping
+# to get median and 95% CrIs of the IRRs, efficacy (1-IRR), 
+# and the ratio of efficacy and difference of inci/cases averted between expected and model-predicted using bootstrapping
 
 summarize_IRRs <- function(outputsfolder, 
                            agg_unit){
@@ -88,13 +89,13 @@ summarize_IRRs <- function(outputsfolder,
       mutate(time_value = yearmonth, 
              time_value_num = yearmonth,
              time_unit = agg_unit)
-  }
+  } 
   
   # Pivot wider 
   inci_wide <- inci %>%
     split(.$sim_id) %>%
     map_dfr(~ .x %>%
-              select(arm, time_value, time_value_num, time_unit, 
+              dplyr::select(arm, time_value, time_value_num, time_unit, 
                      person_months, incidence_per_1000pm) %>%
               pivot_wider(
                 names_from = arm,
@@ -113,7 +114,15 @@ summarize_IRRs <- function(outputsfolder,
            both_rtss_irr = (incidence_per_1000pm_both / incidence_per_1000pm_rtss),
            smc_rtss_irr = (incidence_per_1000pm_smc / incidence_per_1000pm_rtss)  )%>%
     mutate(expected_efficacy = 1 - (rtss_none_irr * smc_none_irr),
-           ratio_pred_exp = (1-both_none_irr) / expected_efficacy)
+           ratio_pred_exp = (1-both_none_irr) / expected_efficacy,
+           ratio_inci_rate_only = both_none_irr / (rtss_none_irr * smc_none_irr),
+           inci_averted_model = incidence_per_1000pm_none - incidence_per_1000pm_both,
+           cases_averted_model = inci_averted_model * 1000, # if pop is 1000
+           inci_averted_expected = incidence_per_1000pm_none - 
+             (incidence_per_1000pm_rtss * incidence_per_1000pm_smc)/incidence_per_1000pm_none,
+           cases_averted_expected = inci_averted_expected * 1000, # if pop is 1000
+           difference_inci_averted_pred_exp = inci_averted_model - inci_averted_expected,
+           difference_cases_averted_pred_exp = cases_averted_model - cases_averted_expected)
   
   # Calculate median and IQR for each metric by time aggregation unit 
   inci_summary <- inci_wide %>%
@@ -157,7 +166,17 @@ summarize_IRRs <- function(outputsfolder,
       expected_efficacy = list(bootstrap_metric(expected_efficacy)),
       
       # Bootstrap for ratio
-      ratio_pred_exp = list(bootstrap_metric(ratio_pred_exp))
+      ratio_pred_exp = list(bootstrap_metric(ratio_pred_exp)),
+      
+      # Bootstrap for incidence and cases averted 
+      inci_averted_model = list(bootstrap_metric(inci_averted_model)),
+      cases_averted_model = list(bootstrap_metric(cases_averted_model)),
+      inci_averted_expected = list(bootstrap_metric(inci_averted_expected)),
+      cases_averted_expected = list(bootstrap_metric(cases_averted_expected)),
+      difference_inci_averted_pred_exp = list(bootstrap_metric(difference_inci_averted_pred_exp)),
+      difference_cases_averted_pred_exp =  list(bootstrap_metric(difference_cases_averted_pred_exp)),
+      
+      ratio_inci_rate_only = list(bootstrap_metric(ratio_inci_rate_only))
     ) %>%
     # Unpack all the bootstrap results
     mutate(
@@ -222,14 +241,55 @@ summarize_IRRs <- function(outputsfolder,
       ratio_pred_exp_q025 = sapply(ratio_pred_exp, `[`, 2),
       ratio_pred_exp_q975 = sapply(ratio_pred_exp, `[`, 3),
       ratio_pred_exp_q25 = sapply(ratio_pred_exp, `[`, 4),
-      ratio_pred_exp_q75 = sapply(ratio_pred_exp, `[`, 5)
+      ratio_pred_exp_q75 = sapply(ratio_pred_exp, `[`, 5),
+      
+      # Incidence averted 
+      inci_averted_model_median = sapply(inci_averted_model, `[`, 1),
+      inci_averted_model_q025 = sapply(inci_averted_model, `[`, 2),
+      inci_averted_model_q975 = sapply(inci_averted_model, `[`, 3),
+      
+      inci_averted_expected_median = sapply(inci_averted_expected, `[`, 1),
+      inci_averted_expected_q025 = sapply(inci_averted_expected, `[`, 2),
+      inci_averted_expected_q975 = sapply(inci_averted_expected, `[`, 3),
+      
+      # Cases averted 
+      cases_averted_model_median = sapply(cases_averted_model, `[`, 1),
+      cases_averted_model_q025 = sapply(cases_averted_model, `[`, 2),
+      cases_averted_model_q975 = sapply(cases_averted_model, `[`, 3),
+      
+      cases_averted_expected_median = sapply(cases_averted_expected, `[`, 1),
+      cases_averted_expected_q025 = sapply(cases_averted_expected, `[`, 2),
+      cases_averted_expected_q975 = sapply(cases_averted_expected, `[`, 3),
+      
+      # Ratios  averted
+      difference_inci_averted_pred_exp_median = sapply(difference_inci_averted_pred_exp, `[`, 1),
+      difference_inci_averted_pred_exp_q025 = sapply(difference_inci_averted_pred_exp, `[`, 2),
+      difference_inci_averted_pred_exp_q975 = sapply(difference_inci_averted_pred_exp, `[`, 3),
+      
+      difference_cases_averted_pred_exp_median = sapply(difference_cases_averted_pred_exp, `[`, 1),
+      difference_cases_averted_pred_exp_q025 = sapply(difference_cases_averted_pred_exp, `[`, 2),
+      difference_cases_averted_pred_exp_q975 = sapply(difference_cases_averted_pred_exp, `[`, 3),
+      
+      # Ratio incidence rate only 
+      ratio_inci_rate_only_median = sapply(ratio_inci_rate_only, `[`, 1),
+      ratio_inci_rate_only_q025 = sapply(ratio_inci_rate_only, `[`, 2),
+      ratio_inci_rate_only_q975 = sapply(ratio_inci_rate_only, `[`, 3)
+      
     ) %>%
-    select(-both_smc, -rtss_none, -both_rtss, -smc_none, -both_none, 
-           -expected_efficacy, -ratio_pred_exp)
+    dplyr::select(-both_smc, -rtss_none, -both_rtss, -smc_none, -both_none, 
+           -expected_efficacy, -ratio_pred_exp,
+           -inci_averted_model, -cases_averted_model , -inci_averted_expected ,
+           -cases_averted_expected , -difference_inci_averted_pred_exp , -difference_cases_averted_pred_exp,
+           -ratio_inci_rate_only)
+  
+  if(agg_unit == 'year'){
+    overallinci <- inci_summary %>% filter(time_value_num == 'Overall')
+    saveRDS(overallinci, paste0(path, outputsfolder, '/inci_summary_overall.rds'))
+  }
   
   # Make long 
   inci_long <- inci_summary %>%
-    select(time_value, time_value_num, time_unit, starts_with('incidence')) %>%
+    dplyr::select(time_value, time_value_num, time_unit, starts_with('incidence')) %>%
     pivot_longer(cols = starts_with('incidence'),
                  names_to = c("arm", "stat"),
                  names_pattern = "incidence_(.*)_(.*)",
@@ -241,7 +301,7 @@ summarize_IRRs <- function(outputsfolder,
     mutate(metric = 'incidence', comparison = NA)
   
   irrs_long <- inci_summary %>%
-    select(time_value, time_value_num, time_unit, both_smc_median:smc_rtss_q75, expected_efficacy_median:expected_efficacy_q75) %>%
+    dplyr::select(time_value, time_value_num, time_unit, both_smc_median:smc_rtss_q75, expected_efficacy_median:expected_efficacy_q75) %>%
     pivot_longer(cols =  c(both_smc_median:smc_rtss_q75,expected_efficacy_median:expected_efficacy_q75),
                  names_to = 'comparison',
                  values_to = "irr")%>%
@@ -261,7 +321,8 @@ summarize_IRRs <- function(outputsfolder,
            arm = NA)
   
   exp_ratio_long <- inci_summary %>%
-    select(time_value,time_value_num,  time_unit, contains('ratio')) %>%
+    dplyr::select(time_value,time_value_num,  time_unit, contains('ratio'), 
+           -contains('averted'), -contains('ratio_inci_rate_only')) %>%
     pivot_longer(cols =  contains('ratio'),
                  names_to = 'statistic',
                  values_to = "ratio_pred_exp",
@@ -272,9 +333,22 @@ summarize_IRRs <- function(outputsfolder,
     ) %>% 
     mutate(metric = 'ratio pred to exp', arm = NA, comparison = NA)
   
+  
+  inci_averted_long <- inci_summary %>%
+    dplyr::select(time_value,time_value_num,  time_unit, contains('averted'), contains('ratio_inci_rate_only')) %>%
+    pivot_longer(cols =  c(contains('ratio_inci_rate_only'), contains('averted')),
+                 names_to = c("metric", "statistic"),
+                 names_pattern = "^(.+)_(median|q025|q975)$") %>%
+    pivot_wider(
+      names_from = statistic,
+      values_from = value
+    ) %>% 
+    mutate(arm = NA, comparison = NA, q25 = NA, q75 = NA)
+  
   inci_summary_all <- rbind(inci_long, 
                             irrs_long,
-                            exp_ratio_long) %>%
+                            exp_ratio_long,
+                            inci_averted_long) %>%
     rename(lower_ci = q025, 
            upper_ci = q975)
   

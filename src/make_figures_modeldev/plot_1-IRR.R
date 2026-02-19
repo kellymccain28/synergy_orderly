@@ -37,7 +37,15 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   base_inputs <- readRDS(paste0(path, outputsfolder, "/base_inputs.rds"))
   params <- readRDS(paste0(path, outputsfolder, "/parameter_grid.rds"))
   if(cohort_folder == 'sim_cohort_generic'){
-    smc_dates <- as.Date(unlist(formatted$smc_dose_days[11][1:4]), origin = '2017-04-01')
+    if(!is.null(unlist(formatted$smc_dose_days[1]))){
+      smc_dates <- as.Date(unlist(formatted$smc_dose_days[1]), origin = '2017-04-01')
+    } else if(!is.null(unlist(formatted$smc_dose_days[2]))){
+      smc_dates <- as.Date(unlist(formatted$smc_dose_days[2]), origin = '2017-04-01')
+    } else if(!is.null(unlist(formatted$smc_dose_days[3]))){
+      smc_dates <- as.Date(unlist(formatted$smc_dose_days[3]), origin = '2017-04-01')
+    } else if(!is.null(unlist(formatted$smc_dose_days[4]))){
+      smc_dates <- as.Date(unlist(formatted$smc_dose_days[4]), origin = '2017-04-01')
+    }
   } else if(cohort_folder == 'sim_trial_cohort'){
   smc_dates <- readRDS('R:/Kelly/synergy_orderly/shared/median_smc_dates.rds') %>%
     filter(country == base_inputs$country) %>%
@@ -146,7 +154,7 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   
   # Filter for SMC comparison
   iii_summary_smc <- inci_summary %>% 
-    filter(as.Date(yearmonth) > as.Date('2017-06-01') & as.Date(yearmonth) < as.Date('2018-01-01'))
+    filter(as.Date(yearmonth) > as.Date('2017-05-01') & as.Date(yearmonth) < as.Date('2018-01-01'))
   
   # Plot 3: Adding SMC (filtered)
   ggplot(iii_summary_smc) + 
@@ -192,8 +200,8 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
                                   'RTS,S delivery' = '#470024',
                                   'Expected efficacy' = '#6457A6')) +
     # ylim(c(-0.3, 1)) +
-    scale_y_continuous(breaks = c(-1.5, -1.25, -1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1),
-                       limits = c(-1.5, 1)) +
+    scale_y_continuous(breaks = c(-1, -1.25, -1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1),
+                       limits = c(-1, 1)) +
     labs(x = 'Date',
          y = 'Relative efficacy (1-IRR)',
          color = 'Comparison') + 
@@ -245,7 +253,7 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
          color = NULL,
          fill = NULL) + 
     theme_bw(base_size = 14)
-  ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined.pdf'), plot = exppred, width = 10, height = 4)
+  ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_efficacy.pdf'), plot = exppred, width = 10, height = 4)
   
   # Plot of ratio of expected vs predicted efficacy of both vs none 
   ratioplot <-  ggplot(inci_summary %>% filter(yearmonth > '2017-05-01')) + 
@@ -282,6 +290,68 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
    # mean(inci_summary$ratio_pred_exp_q975)
   ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_ratio.pdf'), plot = ratioplot, width = 10, height = 4)
   ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_and_ratio.pdf'), plot = combinedratio, width = 12, height = 9)
+  
+  
+  # Plot of expected vs predicted cases averted per 1000 of both vs none 
+  exppred_inci <- ggplot(inci_summary %>% filter(yearmonth > '2017-03-01')) + 
+    geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 2, linewidth = 0.8)+
+    geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
+    geom_line(aes(x = as.Date(yearmonth), y = inci_averted_expected_median, color = 'Expected cases averted\nper 1000 person months'), linewidth = 1) +
+    geom_ribbon(aes(x = as.Date(yearmonth), ymin = inci_averted_expected_q025, ymax = inci_averted_expected_q975,
+                    fill = 'Expected cases averted\nper 1000 person months'), alpha = 0.3) +
+    geom_line(aes(x = as.Date(yearmonth), y = inci_averted_model_median, color = 'Model-predicted cases averted\nper 1000 person months'), 
+              linewidth = 1) +
+    geom_ribbon(aes(x = as.Date(yearmonth), ymin = inci_averted_model_q025, ymax = inci_averted_model_q975,
+                    fill = 'Model-predicted cases averted\nper 1000 person months'), alpha = 0.3) +
+    # ylim(c(-, 1)) + #xlim(c(min(iii_summary$yearmonth), max(iii_summary$yearmonth))) +
+    # coord_cartesian(ylim = c(-0.15, 1)) +
+    # scale_y_continuous(breaks=seq(-0.1,1, 0.1),
+    #                    labels=seq(-0.1,1, 0.1)) +
+    geom_hline(yintercept = 0, linetype = 2) +
+    scale_x_date(breaks = '3 months',
+                 labels = scales::label_date_short()) +
+    scale_color_manual(values = c('Model-predicted cases averted\nper 1000 person months' = '#59C9A5',
+                                  'SMC delivery' = '#709176',
+                                  'RTS,S delivery' = '#470024',
+                                  'Expected cases averted\nper 1000 person months' = '#6457A6')) +#'#449DD1'
+    scale_fill_manual(values = c('Expected cases averted\nper 1000 person months' = '#6457A6',
+                                 'Model-predicted cases averted\nper 1000 person months' = '#59C9A5')) +#'#449DD1'
+    labs(x = 'Date',
+         y = 'Cases averted per 1000 person months',
+         color = NULL,
+         fill = NULL) + 
+    theme_bw(base_size = 14)
+  ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_incidenceaverted.pdf'), plot = exppred_inci, width = 10, height = 4)
+  
+  # Plot of difference of expected vs predicted cases averted per 1000 of both vs none 
+  diffplot <-  ggplot(inci_summary %>% filter(yearmonth > '2017-05-01')) + 
+    geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), 
+               linetype = 2, linewidth = 0.8, alpha = 0.7)+
+    geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), 
+               linetype = 3, linewidth = 0.8, alpha = 0.7) +
+    geom_line(aes(x = as.Date(yearmonth), y = difference_inci_averted_pred_exp_median), 
+              color = '#3E6990', linewidth = 1) +
+    geom_ribbon(aes(x = as.Date(yearmonth), ymin = difference_inci_averted_pred_exp_q025, 
+                    ymax = difference_inci_averted_pred_exp_q975),
+                fill = '#3E6990', alpha = 0.5) +
+    geom_hline(yintercept = 1, linetype = 2) +
+    scale_x_date(breaks = '3 months',
+                 labels = scales::label_date_short()) +
+    scale_color_manual(values = c('SMC delivery' = '#709176',
+                                  'RTS,S delivery' = '#470024')) +#'#449DD1'
+    # scale_fill_manual(values = c('Expected efficacy' = '#6457A6',
+    #                              'Model-predicted efficacy' = '#59C9A5')) +#'#449DD1'
+    labs(x = 'Date',
+         y = 'Difference in model-predicted cases averted per 1000\nversus expected cases averted per 1000',
+         color = NULL,
+         fill = NULL) + 
+    theme_bw(base_size = 14)
+  
+  combineddifference <- plot_grid(exppred_inci, diffplot + theme(legend.position = 'none'), nrow = 2,
+                             align = 'v')
+  ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_incidence.pdf'), plot = diffplot, width = 10, height = 4)
+  ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_incidence_and_difference.pdf'), plot = combineddifference, width = 12, height = 9)
+  
   
   # Find percentage of cases that fall in July to November each year 
   cases_in_season <- inci %>% 

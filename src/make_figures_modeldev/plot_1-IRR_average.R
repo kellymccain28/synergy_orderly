@@ -27,7 +27,8 @@ plot_irr_average <- function(outputsfolder,
   
   # get the values for the text
   inci_summary %>%
-    filter(time_value == 'Overall' & metric == 'efficacy')  %>%
+    filter(time_value == 'Overall' & (metric == 'efficacy' | 
+                                        metric == 'cases_averted_model'))  %>%
     saveRDS(paste0(path, outputsfolder, '/summary_efficacy.rds'))
   
   # Plotting
@@ -39,9 +40,6 @@ plot_irr_average <- function(outputsfolder,
       metric == 'efficacy' & grepl('Expected', comparison) ~ 'Expected',
       metric == 'efficacy' ~ 'Model-predicted',
       TRUE ~ NA)) %>%
-    # rbind(expected %>% 
-    #         mutate(comparison = 'Expected: both vs none',
-    #                shape_var = 'Expected')) %>%
     mutate(comparison = factor(comparison, levels = c("Expected both vs none", 'both vs none',
                                                       'both vs rtss','both vs smc',
                                                       'rtss vs none','smc vs none',
@@ -93,7 +91,7 @@ plot_irr_average <- function(outputsfolder,
     
     
     # Plot of the ratio of model-predicted to expected by aggregation unit 
-    ggplot(inci_summary %>% filter(metric == 'ratio pred to exp'), 
+    ggplot(inci_summary %>% filter(metric == 'difference_inci_averted_pred_exp'), 
            aes(x = time_value, y = median, 
                color = time_value, group = time_value)) +
       # model estimated
@@ -104,8 +102,7 @@ plot_irr_average <- function(outputsfolder,
       geom_hline(yintercept = 1, linetype = "dashed", color = "darkred") +
       labs(
         x = if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Half-year',
-        y = "Ratio of model-predicted to expected efficacy\n of combination vs no intervention",
-        # title = "Median IRR with 95% CI by Intervention Comparison",
+        y = "Difference in model-predicted versus expected cases averted per 1000 person months\n of combination vs no intervention",
         shape = NULL, linetype = NULL,
         color = NULL#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Study half-year'
       ) +
@@ -114,8 +111,8 @@ plot_irr_average <- function(outputsfolder,
       theme(axis.text.x = element_text(angle = 45, hjust = 1),
             legend.position = 'none')
     
-    ggsave(paste0(path, outputsfolder,'/ratio_average_by', agg_unit, '.pdf'), plot = last_plot(), width = 8, height = 6)
-    inci_summary %>% filter(metric == 'ratio pred to exp')
+    ggsave(paste0(path, outputsfolder,'/difference_inci_average_by', agg_unit, '.pdf'), plot = last_plot(), width = 8, height = 6)
+    inci_summary %>% filter(metric == 'difference_inci_averted_pred_exp')
 
    
     

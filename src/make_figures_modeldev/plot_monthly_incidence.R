@@ -24,51 +24,20 @@ plot_monthly_incidence <- function(outputsfolder, cohort_folder = 'sim_cohort_ge
   files_inci <- files_inci[grepl('batch', files_inci)]
   inci_all <- lapply(files_inci, readRDS)
   
+  inci <- bind_rows(inci_all)
+  saveRDS(inci, paste0(path, outputsfolder, '/incidence.rds'))
+  
   files_formatted <- files[grepl('formatted', files)]
   files_formatted <- files_formatted[grepl('batch', files_formatted)]
   formatted_all <- lapply(files_formatted, readRDS)
   
-  # infectionrecords <-  readRDS(paste0(path, outputsfolder, "/infection_records.rds")) %>%
-  #   # remove any infections that occurred within 7 days 
-  #   group_by(rid, sim_id) %>%
-  #   arrange(rid, sim_id, detection_day) %>%
-  #   mutate(previous_detday = lag(detection_day),
-  #          diff = detection_day - previous_detday) %>%
-  #   filter(diff > 7 | is.na(diff)) %>% select(-diff, -previous_detday)
+  all <- bind_rows(formatted_all)
+  rm(formatted_all)
+  saveRDS(all, paste0(path, outputsfolder, '/formatted_infrecords.rds'))
+  
   metadata_df <- readRDS(paste0(path, outputsfolder, "/metadata_df.rds"))
   base_inputs <- readRDS(paste0(path, outputsfolder, "/base_inputs.rds"))
   params <- readRDS(paste0(path, outputsfolder, "/parameter_grid.rds"))
-  
-  # infectionrecords <- purrr::map_df(sim_results, "infection_records")
-  # params <- purrr::map_df(sim_results, 'params')
-  
-  # Format for incidence calculation 
-  # formatted_all <- lapply(params$sim_id, function(x){
-  #   format_model_output(model_data = infectionrecords,
-  #                       cohort = 'generic',
-  #                       simulation = x)})
-  all <- bind_rows(formatted_all)
-  saveRDS(all, paste0(path, outputsfolder, '/formatted_infrecords.rds'))
-  
-  # formattedinfrecords_monthly <- lapply(params$sim_id, function(x){
-  #   format_model_output_monthly(model_data = infectionrecords, 
-  #                               cohort = 'generic',
-  #                               simulation = x, 
-  #                               n_months = 36)
-  # })
-  # allmonths <- bind_rows(formattedinfrecords_monthly)
-  
-  # Calculate incidence 
-  # inci_all <- lapply(params$sim_id, function(x){
-  #   aa <- all %>% filter(sim_id == x)
-  #   
-  #   get_incidence(df_children = metadata_df,
-  #                 casedata = aa) %>%
-  #     mutate(sim_id = x)
-  # })
-  inci <- bind_rows(inci_all)
-  saveRDS(inci, paste0(path, outputsfolder, '/incidence.rds'))
-  
   
   # Summarize over all simulations 
   inci_summ <- inci %>%
@@ -84,7 +53,17 @@ plot_monthly_incidence <- function(outputsfolder, cohort_folder = 'sim_cohort_ge
   # Plot incidence with p_bite overlaid 
   pbite <- params$p_bite[[1]]
   if(cohort_folder == 'sim_cohort_generic'){
-    smc_dates <- as.Date(unlist(formatted$smc_dose_days[11][1:4]), origin = '2017-04-01')
+    if(!is.null(unlist(all$smc_dose_days[1]))){
+      smc_dates <- as.Date(unlist(all$smc_dose_days[1]), origin = '2017-04-01')
+    } else if(!is.null(unlist(all$smc_dose_days[2]))){
+      smc_dates <- as.Date(unlist(all$smc_dose_days[2]), origin = '2017-04-01')
+    } else if(!is.null(unlist(all$smc_dose_days[3]))){
+      smc_dates <- as.Date(unlist(all$smc_dose_days[3]), origin = '2017-04-01')
+    } else if(!is.null(unlist(all$smc_dose_days[4]))){
+      smc_dates <- as.Date(unlist(all$smc_dose_days[4]), origin = '2017-04-01')
+    } else if(!is.null(unlist(all$smc_dose_days[5]))){
+      smc_dates <- as.Date(unlist(all$smc_dose_days[5]), origin = '2017-04-01')
+    }
   } else if(cohort_folder == 'sim_trial_cohort'){
     smc_dates <- readRDS('R:/Kelly/synergy_orderly/shared/median_smc_dates.rds') %>%
       filter(country == base_inputs$country) %>%
@@ -111,6 +90,8 @@ plot_monthly_incidence <- function(outputsfolder, cohort_folder = 'sim_cohort_ge
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = incidence_per_1000pm_lower, ymax = incidence_per_1000pm_upper, fill = arm),# color = arm),
                   linewidth = 1, width = 25, alpha = 0.3) +
     # geom_line(data = pbite, aes(x = date, y = prob_lagged*100), alpha = 0.2) +
+    scale_x_date(breaks = '3 months',
+                 labels = scales::label_date_short()) +
     scale_color_manual(values =  c('both' = '#E15554', 
                                    'none' = '#E1BC29',
                                    'rtss' = '#3BB273',
@@ -134,43 +115,4 @@ plot_monthly_incidence <- function(outputsfolder, cohort_folder = 'sim_cohort_ge
   ggsave(paste0(path, outputsfolder,'/model_monthly_incidence.pdf'), plot = last_plot(),
          height = 8, width = 14)
   
-  
-  
-  # Plot efficacy over time using incidence curves 
-  # none <- inci %>%
-  #   filter(arm == 'none') %>%
-  #   rename(incidence_per_1000pm_none = incidence_per_1000pm,
-  #          rate_none = rate, 
-  #          person_months_none = person_months) %>% 
-  #   select(sim_id, year, month, yearmonth, incidence_per_1000pm_none, rate_none, person_months_none)
-  # rtss <- inci %>%
-  #   filter(arm == 'rtss') %>%
-  #   rename(incidence_per_1000pm_rtss = incidence_per_1000pm,
-  #          rate_rtss = rate, 
-  #          person_months_rtss = person_months) %>% 
-  #   select(sim_id, year, month, yearmonth, incidence_per_1000pm_rtss, rate_rtss, person_months_rtss)
-  # smc <- inci %>%
-  #   filter(arm == 'smc') %>%
-  #   rename(incidence_per_1000pm_smc = incidence_per_1000pm,
-  #          rate_smc = rate, 
-  #          person_months_smc = person_months) %>% 
-  #   select(sim_id, year, month, yearmonth, incidence_per_1000pm_smc, rate_smc, person_months_smc)
-  # 
-  # df <- inci %>%
-  #   filter(arm == 'both') %>%
-  #   left_join(none) %>%
-  #   left_join(rtss) %>%
-  #   left_join(smc) %>%
-  #   # Calculate efficacy
-  #   mutate(rtss_none_eff = 1 - (incidence_per_1000pm_rtss / incidence_per_1000pm_none),
-  #          smc_none_eff = 1 - (incidence_per_1000pm_smc / incidence_per_1000pm_none),
-  #          both_none_eff = 1 - (incidence_per_1000pm / incidence_per_1000pm_none),
-  #          both_rtss_eff = 1 - (incidence_per_1000pm / incidence_per_1000pm_rtss),
-  #          both_smc_eff = 1 - (incidence_per_1000pm / incidence_per_1000pm_smc)) %>%
-  #   pivot_longer(cols = rtss_none_eff:both_smc_eff,
-  #                names_to = 'efficacy_type',
-  #                values_to = 'efficacy')
-  # 
-  # ggplot(df %>% filter(sim_id == 'parameter_set_6_generic_0.9')) + 
-  #   geom_line(aes(x = yearmonth, y = efficacy, color = efficacy_type)) + ylim(c(0,1))
 }

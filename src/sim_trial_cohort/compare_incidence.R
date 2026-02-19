@@ -1,12 +1,27 @@
 # Function to calculate the men least squared difference (2-norm) between model-predicted and observed incidence 
 # loss function to minimise when fitting lag and scaler 
 compare_incidence <- function(incidence_model, 
-                              incidence_trial){
+                              incidence_trial, 
+                              output_dir){
   
+  parameter_grid <- readRDS(paste0(output_dir, '/parameter_grid.rds'))
+  pars <- parameter_grid %>% filter(sim_id == incidence_model$sim_id[1])
+  # Model incidence should be from a single parameter set
   # incidence_model <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-01-27_8/incidence.rds")
   # incidence_trial <- readRDS("R:/Kelly/synergy_orderly/archive/trial_results/20260127-164922-12477275/monthly_incidence_trial.rds")
-  
-  incidence_model <- incidence_model %>%
+  library(zoo)
+  # incidence_model <- incidence_model 
+  incidence_model_summ <- incidence_model %>%
+    group_by(arm, year, month, yearmonth) %>%
+    summarize(across(c(incidence_per_1000pm, person_months, n_cases),
+                     list(#lower = ~quantile(.x, 0.025, na.rm = TRUE),
+                          median = ~quantile(.x, 0.5, na.rm = TRUE)#,
+                          #upper = ~quantile(.x, 0.975, na.rm = TRUE)
+                          )#,
+                     # .names = "{.col}_{.fn}"
+                     ) ) %>%
+    # rename those variables with _median to be just the variable name 
+    rename_with(.fn = \(x)sub("_median","", x)) %>%
     select(yearmonth, arm, 
            incidence_per_1000pm_model = incidence_per_1000pm,
            person_months_model = person_months, 
@@ -18,33 +33,53 @@ compare_incidence <- function(incidence_model,
            person_months_trial = person_months, 
            n_cases_trial = n_cases)
     
-  inci_joined <- left_join(incidence_model,
+  inci_joined <- left_join(incidence_model_summ,
                            incidence_trial) %>%
     filter(arm != 'none')
+  message('joined model and trial incidence')
   
-  # Calculate root mean squared error 
+  # Calculate root mean squared error -- minimise 
   rmse <- sqrt(mean((inci_joined$incidence_per_1000pm_trial - inci_joined$incidence_per_1000pm_model)^2))
-  
+  message('got rmse: ', rmse)
   # Calculate the negative binomial negative likelihood
   # Get model predicted rate (cases per person-month)
-  # model_rate <- inci_joined$n_cases_model / inci_joined$person_months_model
+  model_rate <- inci_joined$n_cases_model / inci_joined$person_months_model
   
   # Expected cases given trial exposure
-  # expected_cases <- model_rate * inci_joined$person_months_trial
+  expected_cases <- model_rate * inci_joined$person_months_trial
   epsilon <- 1e-6
-  # expected_cases <- pmax(expected_cases, epsilon)
-  inci_joined <- inci_joined %>%
-    mutate(n_cases_model = pmax(n_cases_model, epsilon))
+  expected_cases <- pmax(expected_cases, epsilon)
+  # inci_joined <- inci_joined %>%
+  #   mutate(n_cases_model = pmax(n_cases_model, epsilon))
   
   size = 0.5854176
   negll <- -sum(dnbinom(inci_joined$n_cases_trial, 
-                        mu = inci_joined$n_cases_model,#expected_cases, 
+                        mu = expected_cases, #inci_joined$n_cases_model,#
                         size = size, log = TRUE))
+  message('got negll: ', negll)
   
+  simid <- unique(incidence_model$sim_id)
+  if(length(simid) > 1){stop("There is more than one simulation in the model incidence data frame")}
+  
+  # Plot the comparison of the two incidences
+  incicomparison <- ggplot(inci_joined)+
+    geom_line(aes(x = yearmonth, y = incidence_per_1000pm_trial, color = 'Trial'), linewidth = 0.8) +
+    geom_line(aes(x = yearmonth, y = incidence_per_1000pm_model, color = 'Model'), linewidth = 0.8) +
+    scale_color_manual(values =  c('Trial' = '#E15554', 
+                                   'Model' = '#E1BC29'))+#c('#C44536','#772E25','#197278','#283D3B'))+
+    labs(color = 'Intervention arm',
+         x = 'Date',
+         y = 'Incidence per 1000 person-months',
+         caption = paste0('lag: ', pars$lag_p_bite, 'yr 1 scaler: ', pars$p_bite_scaler_1,'\nyr 2 scaler: ', pars$p_bite_scaler_2, 'yr3 scaler: ',pars$p_bite_scaler_3)) +
+    theme_bw(base_size = 14) + 
+    facet_wrap(~factor(arm, levels = c('none','rtss','smc','both')), 
+               nrow = 4)
+  ggsave(filename = paste0(output_dir, '/incidence_trial_vs_model_', simid, '.png'), incicomparison)
   
   return(list(
     rmse = rmse,
-    negll = negll
+    negll = negll,
+    simid = simid
   ))
 }
 

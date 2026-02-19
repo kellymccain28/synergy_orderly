@@ -4,17 +4,12 @@ plot_compare_ratios <- function(output_folders, cohort_folder = 'sim_cohort_gene
   
   path <- paste0('R:/Kelly/synergy_orderly/src/', cohort_folder, '/outputs/')
   
-  # output_folders <- c('outputs_2026-01-19_3', # 122, 68
-  #                     'outputs_2026-01-19_4', # 135, 80
-  #                     'outputs_2026-01-19_2') # 100, 60
-                      
-  
   incidence_df <- purrr::map_dfr(
     output_folders,
     ~ readRDS(paste0(path, .x, "/inci_summary_all_yearmonth.rds")) |>
       mutate(output_folder = .x) %>%
       rename(yearmonth = time_value) %>%
-      filter(metric == 'ratio pred to exp')
+      filter(metric == 'difference_inci_averted_pred_exp')
   )
   
   incidence_df <- incidence_df %>%
@@ -25,7 +20,7 @@ plot_compare_ratios <- function(output_folders, cohort_folder = 'sim_cohort_gene
       output_folder == 'outputs_2026-01-23_18' ~ 'Early vaccine, late SMC',
       output_folder == 'outputs_2026-01-23_20' ~ 'Late vaccine, early SMC',
       
-      output_folder == 'outputs_2026-02-10_2'  ~ 'Balanced',
+      output_folder == 'outputs_2026-02-10_2' ~ 'Balanced',
       output_folder == 'outputs_2026-02-10_5' ~ 'Early',
       output_folder == 'outputs_2026-02-10_6' ~ 'Late',
       output_folder == 'outputs_2026-02-10_8' ~ 'Early vaccine, late SMC',
@@ -33,41 +28,12 @@ plot_compare_ratios <- function(output_folders, cohort_folder = 'sim_cohort_gene
       TRUE ~ NA
     ))
   
-  # metadata_df <- readRDS(paste0(path, outputsfolder, "/metadata_df.rds"))
-  # base_inputs <- readRDS(paste0(path, outputsfolder, "/base_inputs.rds"))
-  # params <- readRDS(paste0(path, outputsfolder, "/parameter_grid.rds"))
-  # if(cohort_folder == 'sim_cohort_generic'){
-  #   smc_dates <- as.Date(unlist(formatted$smc_dose_days[11][1:4]), origin = '2017-04-01')
-  # } else if(cohort_folder == 'sim_trial_cohort'){
-  #   smc_dates <- readRDS('R:/Kelly/synergy_orderly/shared/median_smc_dates.rds') %>%
-  #     filter(country == base_inputs$country) %>%
-  #     pull(date)
-  # }
-  # smc_lines <- data.frame(
-  #   xintercept = rep(smc_dates,2),
-  #   arm = rep(c('smc', 'both'), each = length(smc_dates)),
-  #   color = '#709176'
-  # )
-  # # metadata_df$vaccination_day[1] = 90
-  # rtss_lines <- data.frame(
-  #   xintercept = as.Date(rep(c(mean(metadata_df$vaccination_day)-60, mean(metadata_df$vaccination_day)-30, mean(metadata_df$vaccination_day), 
-  #                              mean(metadata_df$vaccination_day)[1]+364, mean(metadata_df$vaccination_day)+730),2), origin = '2017-04-01'),
-  #   arm = rep(c('rtss','both'), length(6)),
-  #   color = '#59114D'
-  # )
-  
-  
   # Plot of ratios of expected vs predicted efficacy of both vs none 
   ratioplot <- ggplot(incidence_df) + 
-    # geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'),
-    #            linetype = 2, linewidth = 0.8, alpha = 0.7)+
-    # geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'),
-    #            linetype = 3, linewidth = 0.8, alpha = 0.7) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = lower_ci, ymax = upper_ci,
                 fill = scenario), alpha = 0.2) +
-    geom_line(aes(x = as.Date(yearmonth), y = median, group = scenario,#paste0('RTSS: ', rtsstiming, '; SMC: ', smctiming), 
-                  color = scenario),#paste0('RTSS: ', rtsstiming, '; SMC: ', smctiming)), 
-              # color = '#3E6990', 
+    geom_line(aes(x = as.Date(yearmonth), y = median, group = scenario,
+                  color = scenario),
               alpha = 0.8,
               linewidth = 0.8) +
     geom_hline(yintercept = 1, linetype = 2) +
@@ -76,8 +42,6 @@ plot_compare_ratios <- function(output_folders, cohort_folder = 'sim_cohort_gene
     scale_color_brewer(palette = 'Dark2') +
     scale_fill_brewer(palette = 'Dark2') +
     coord_cartesian(ylim = c(0.0,1.2))+
-    # scale_color_manual(values = c('SMC delivery' = '#709176',
-    #                               'RTS,S delivery' = '#470024')) +#'#449DD1'
     labs(x = 'Date',
          y = 'Ratio of modelled/expected',
          color = 'Scenario',

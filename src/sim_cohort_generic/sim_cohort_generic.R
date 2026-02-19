@@ -80,7 +80,7 @@ sim_cohort_generic <- function(trial_ts = 365*3,
   # probability of a bite is used in the cohort simulation and so is in 1-day timesteps
   # prob_bite_generic <- readRDS(paste0(path, 'archive/fit_rainfall/20251009-144330-1d355186/prob_bite_generic.rds'))
   if(season == 'seasonal'){
-    prob_bite_generic <- readRDS("R:/Kelly/synergy_orderly/archive/fit_rainfall/20251209-213103-7f252a05/prob_bite_generic.rds")#with EIR of 30 and seasonal instead of seasonal(03/12/25)
+    prob_bite_generic <- readRDS("R:/Kelly/synergy_orderly/archive/fit_rainfall/20251209-213103-7f252a05/prob_bite_generic.rds") #with EIR of 30 and seasonal instead of seasonal(03/12/25)
   } else if (season == 'perennial'){
     prob_bite_generic <- readRDS("R:/Kelly/synergy_orderly/archive/fit_rainfall/20251209-213103-7f252a05/prob_bite_generic_perennial.rds")
   } else if (season == 'constant') {
