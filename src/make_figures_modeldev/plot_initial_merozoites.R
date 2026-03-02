@@ -33,7 +33,7 @@ plot_initial_merozoites <- function(outputsfolder){
     scale_x_discrete(labels = c('0' = 'Cleared', '1' = 'Detectable Case')) +
     theme_bw(base_size = 12) + 
     scale_y_log10(labels = scales::label_log(),
-                  breaks = c(1e-9, 1e-7, 1e-5, 1e-3, 0.1, 10, 1000, 100000, 1e7),
+                  breaks = c(1e-15, 1e-13, 1e-11, 1e-9, 1e-7, 1e-5, 1e-3, 0.1, 10, 1000, 100000, 1e7),
                   guide = "axis_logticks"
                   ) +
     theme(legend.position = 'none')

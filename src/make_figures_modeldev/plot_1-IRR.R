@@ -45,6 +45,10 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
       smc_dates <- as.Date(unlist(formatted$smc_dose_days[3]), origin = '2017-04-01')
     } else if(!is.null(unlist(formatted$smc_dose_days[4]))){
       smc_dates <- as.Date(unlist(formatted$smc_dose_days[4]), origin = '2017-04-01')
+    } else if(!is.null(unlist(all$smc_dose_days[5]))){
+      smc_dates <- as.Date(unlist(all$smc_dose_days[5]), origin = '2017-04-01')
+    } else if(!is.null(unlist(all$smc_dose_days[20]))){
+      smc_dates <- as.Date(unlist(all$smc_dose_days[20]), origin = '2017-04-01')
     }
   } else if(cohort_folder == 'sim_trial_cohort'){
   smc_dates <- readRDS('R:/Kelly/synergy_orderly/shared/median_smc_dates.rds') %>%
@@ -132,8 +136,8 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
     
     # geom_line(aes(x = as.Date(yearmonth), y = expected_efficacy_median, color = 'Expected efficacy'), linewidth = 1) +
     
-    scale_y_continuous(breaks = c(-0.4,0, 0.25, 0.5, 0.75, 1),
-                       limits = c(-0.4, 1)) +
+    scale_y_continuous(breaks = c(0, 0.25, 0.5, 0.75, 1),
+                       limits = c(0, 1)) +
     geom_hline(yintercept = 0, linetype = 2) +
     scale_x_date(breaks = '3 months',
                  labels = scales::label_date_short()) +
@@ -200,8 +204,8 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
                                   'RTS,S delivery' = '#470024',
                                   'Expected efficacy' = '#6457A6')) +
     # ylim(c(-0.3, 1)) +
-    scale_y_continuous(breaks = c(-1, -1.25, -1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1),
-                       limits = c(-1, 1)) +
+    # scale_y_continuous(breaks = c(-1, -1.25, -1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1),
+    #                    limits = c(-1, 1)) +
     labs(x = 'Date',
          y = 'Relative efficacy (1-IRR)',
          color = 'Comparison') + 
@@ -317,7 +321,7 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
     scale_fill_manual(values = c('Expected cases averted\nper 1000 person months' = '#6457A6',
                                  'Model-predicted cases averted\nper 1000 person months' = '#59C9A5')) +#'#449DD1'
     labs(x = 'Date',
-         y = 'Cases averted per 1000 person months',
+         y = 'Cases averted per 1000 people',
          color = NULL,
          fill = NULL) + 
     theme_bw(base_size = 14)
@@ -342,7 +346,7 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
     # scale_fill_manual(values = c('Expected efficacy' = '#6457A6',
     #                              'Model-predicted efficacy' = '#59C9A5')) +#'#449DD1'
     labs(x = 'Date',
-         y = 'Difference in model-predicted cases averted per 1000\nversus expected cases averted per 1000',
+         y = 'Difference in model-predicted cases averted\nper 1000 people versus expected cases\naverted per 1000 people',
          color = NULL,
          fill = NULL) + 
     theme_bw(base_size = 14)
@@ -355,10 +359,14 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   
   # Find percentage of cases that fall in July to November each year 
   cases_in_season <- inci %>% 
+    filter(arm == 'none') %>%
     mutate(in_season = case_when(
-      (yearmonth >= '2017-06-01' & yearmonth <= '2017-11-30') ~ 1, 
-      (yearmonth >= '2018-06-01' & yearmonth <= '2018-11-30') ~ 1,
-      (yearmonth >= '2019-06-01' & yearmonth <= '2019-11-30') ~ 1,
+      (yearmonth >= '2017-08-01' & yearmonth <= '2017-12-01') ~ 1, 
+      (yearmonth >= '2018-08-01' & yearmonth <= '2018-12-01') ~ 1,
+      (yearmonth >= '2019-08-01' & yearmonth <= '2019-12-01') ~ 1,
+      # (yearmonth >= '2017-06-01' & yearmonth <= '2017-11-30') ~ 1, 
+      # (yearmonth >= '2018-06-01' & yearmonth <= '2018-11-30') ~ 1,
+      # (yearmonth >= '2019-06-01' & yearmonth <= '2019-11-30') ~ 1,
       TRUE ~ 0)) %>%
     group_by(in_season) %>%
     summarize(n_cases = sum(n_cases)) %>%

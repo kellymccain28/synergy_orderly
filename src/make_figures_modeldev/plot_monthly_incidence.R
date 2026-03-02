@@ -63,6 +63,8 @@ plot_monthly_incidence <- function(outputsfolder, cohort_folder = 'sim_cohort_ge
       smc_dates <- as.Date(unlist(all$smc_dose_days[4]), origin = '2017-04-01')
     } else if(!is.null(unlist(all$smc_dose_days[5]))){
       smc_dates <- as.Date(unlist(all$smc_dose_days[5]), origin = '2017-04-01')
+    } else if(!is.null(unlist(all$smc_dose_days[20]))){
+      smc_dates <- as.Date(unlist(all$smc_dose_days[20]), origin = '2017-04-01')
     }
   } else if(cohort_folder == 'sim_trial_cohort'){
     smc_dates <- readRDS('R:/Kelly/synergy_orderly/shared/median_smc_dates.rds') %>%

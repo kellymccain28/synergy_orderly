@@ -29,6 +29,10 @@ plot_irr_average <- function(outputsfolder,
   inci_summary %>%
     filter(time_value == 'Overall' & (metric == 'efficacy' | 
                                         metric == 'cases_averted_model'))  %>%
+    mutate(median = median * 100,
+           lower_ci = lower_ci * 100,
+           upper_ci = upper_ci * 100) %>%
+    select(comparison, median, lower_ci, upper_ci) %>%
     saveRDS(paste0(path, outputsfolder, '/summary_efficacy.rds'))
   
   # Plotting
@@ -69,6 +73,32 @@ plot_irr_average <- function(outputsfolder,
     
   ggsave(paste0(path, outputsfolder,'/irr_average_by', agg_unit, '.pdf'), plot = last_plot(), width = 12, height = 6)
     
+  
+  # irr overall 
+  # plot
+  ggplot(inci_summary %>% filter(metric == 'efficacy' & time_value == 'Overall'), 
+         aes(x = comparison, y = median, 
+             shape = shape_var, color = shape_var)) +
+    # model estimated
+    geom_point(position = position_dodge(width = 0.5), size = 1) +
+    geom_errorbar(aes(ymin = lower_ci, ymax = upper_ci),
+                  width = 0.2, position = position_dodge(width = 0.5)) +
+    scale_shape_manual(values = c('Expected' = 7, 'Model-predicted' = 16)) + 
+    scale_color_manual(values = c('Expected' = "#8C6BB1", 'Model-predicted' ="#810F7C")) + 
+    geom_hline(yintercept = 0, linetype = "dashed", color = "darkred") +
+    labs(
+      x = "Arm Comparison",
+      y = "Relative efficacy (1-IRR)",
+      shape = NULL, linetype = NULL,
+      color = NULL#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Study half-year'
+    ) +
+    scale_y_continuous(breaks = seq(-1,1,0.2)) + 
+    theme_minimal(base_size = 14) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  ggsave(paste0(path, outputsfolder,'/irr_average_overall.pdf'), plot = last_plot(), width = 12, height = 6)
+  
+  
     ggplot(inci_summary %>% filter(!is.na(shape_var) & grepl('oth vs none', comparison)), 
            aes(x = time_value, y = median, color = shape_var, group = shape_var)) +
       # model estimated
@@ -101,8 +131,8 @@ plot_irr_average <- function(outputsfolder,
       scale_color_manual(values = colors) +
       geom_hline(yintercept = 1, linetype = "dashed", color = "darkred") +
       labs(
-        x = if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Half-year',
-        y = "Difference in model-predicted versus expected cases averted per 1000 person months\n of combination vs no intervention",
+        x = NULL,#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Half-year',
+        y = "Difference in model-predicted versus expected\ncases averted per 1000 people of\ncombination vs no intervention",
         shape = NULL, linetype = NULL,
         color = NULL#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Study half-year'
       ) +
