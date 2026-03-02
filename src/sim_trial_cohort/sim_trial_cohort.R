@@ -15,6 +15,8 @@ sim_trial_cohort <- function(trial_ts = 365*3,
   # library(dust)
   library(tidyverse)
   library(lhs)
+  library(zoo)
+  
   setwd(path)
   output_dir = paste0(path, 'src/sim_trial_cohort/outputs/outputs_', Sys.Date())
   
@@ -38,6 +40,8 @@ sim_trial_cohort <- function(trial_ts = 365*3,
   source("R:/Kelly/synergy_orderly/shared/rtss.R")
   source("R:/Kelly/synergy_orderly/shared/likelihood.R")
   source("R:/Kelly/synergy_orderly/src/sim_trial_cohort/compare_incidence.R")
+  source("R:/Kelly/synergy_orderly/shared/format_model_output.R")
+  source("R:/Kelly/synergy_orderly/shared/get_incidence.R")
   
   # Load the within-host model 
   gen_bs <- odin2::odin("R:/Kelly/synergy_orderly/shared/smc_rtss.R")
@@ -78,21 +82,36 @@ sim_trial_cohort <- function(trial_ts = 365*3,
   )
   
   # Create parameter grid
-  set.seed(123)
-  A <- randomLHS(n = n_param_sets, k = 2) # n different sets of parameters, with k parameters to change
-  A[,1] <- round(qunif(A[,1], -50, 50), 0) # lag in days of p of an infectious bite 
-  A[,2] <- qunif(A[,2], 0.1, 1) # this is the scaling factor for the probability of infectious bite 
-  colnames(A) <- c('lag_p_bite', 'p_bite_scaler')
-  params_df <- as.data.frame(A)
+  # set.seed(123)
+  # A <- randomLHS(n = n_param_sets, k = 4) # n different sets of parameters, with k parameters to change
+  # A[,1] <- round(qunif(A[,1], 0, 40), 0) # lag in days of p of an infectious bite 
+  # A[,2] <- qunif(A[,2], 0.005, 0.07) # this is the scaling factor for the probability of infectious bite year 1 
+  # A[,3] <- qunif(A[,3], 0.02, 0.06) # this is the scaling factor for the probability of infectious bite year 2
+  # A[,4] <- qunif(A[,4], 0.02, 0.06) # this is the scaling factor for the probability of infectious bite year 3
+  # colnames(A) <- c('lag_p_bite', 'p_bite_scaler_1', 'p_bite_scaler_2', 'p_bite_scaler_3')
+  # params_df <- as.data.frame(A)
+#   
+  # params_df <- params_df %>%
+  #   mutate(
+  #     max_SMC_kill_rate = 2.37,
+  #     lambda = 18.5,
+  #     kappa = 0.337,
+  #     alpha_ab = 1.74,
+  #     beta_ab = 4.69, 
+  #     vmin = 0.00259)
   
-  params_df <- params_df %>%
-    mutate(
-      max_SMC_kill_rate = 2.37,
-      lambda = 18.5,
-      kappa = 0.337,
-      alpha_ab = 1.74,
-      beta_ab = 4.69, 
-      vmin = 0.00259)
+  params_df <- data.frame(#params_df %>%
+    # mutate(
+    max_SMC_kill_rate = rep(2.37, n_param_sets),
+    lambda = rep(18.5, n_param_sets),
+    kappa = rep(0.337, n_param_sets),
+    alpha_ab = rep(1.74, n_param_sets),
+    beta_ab = rep(4.69,  n_param_sets),
+    vmin = rep(0.00259, n_param_sets),
+    lag_p_bite = rep(2, n_param_sets),
+    p_bite_scaler_1 = rep(0.02315611, n_param_sets),
+    p_bite_scaler_2 = rep(0.02106561, n_param_sets),
+    p_bite_scaler_3 = rep(0.0341956, n_param_sets))
     
   params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run)
   
@@ -108,10 +127,21 @@ sim_trial_cohort <- function(trial_ts = 365*3,
   
   # Add to parameter dataframe by matching lag values 
   parameters_df <- params_df %>%
-    mutate(
-      p_bite = map2(lag_p_bite, p_bite_scaler, 
-                    ~ p_bitevector[[paste0("lag_", .x)]]$prob_lagged * .y)
-    )
+    # mutate(
+    #   p_bite = map2(lag_p_bite, p_bite_scaler, 
+    #                 ~ p_bitevector[[paste0("lag_", .x)]]$prob_lagged * .y)
+    # )
+    mutate(p_bite = pmap(list(lag_p_bite, p_bite_scaler_1, p_bite_scaler_2, p_bite_scaler_3),
+                  function(lag, s1, s2, s3) {
+                    prob <- p_bitevector[[paste0("lag_", lag)]]$prob_lagged
+                    n <- length(prob)
+                    scaler <- c(
+                      rep(s1, min(365 + base_inputs$burnin, n)),                        # burnin + year 1: s1
+                      rep(s2, min(365, max(0, n - (365 + base_inputs$burnin)))),        # year 2: s2
+                      rep(s3, max(0, n - (730 + base_inputs$burnin)))                   # year 3: s3
+                    )
+                    prob * scaler
+                  }))
   
   # Make list of parameters instead of df 
   params_list <- split(parameters_df, seq(nrow(parameters_df)))
@@ -182,7 +212,12 @@ sim_trial_cohort <- function(trial_ts = 365*3,
   writeLines(notes, paste0(output_dir, "/sim_notes.txt"))
   message('stopped here after saving')
   
-  incidence_trial <- readRDS("R:/Kelly/synergy_orderly/archive/trial_results/20260127-164922-12477275/monthly_incidence_trial.rds")
+  # Get incidence to compare to depending on the country run
+  if(country_to_run == 'BF'){
+    incidence_trial <- readRDS('R:/Kelly/synergy_orderly/archive/trial_results/20260219-104643-cb128f65/monthly_incidence_trial_BF.rds')#readRDS("R:/Kelly/synergy_orderly/archive/trial_results/20260127-164922-12477275/monthly_incidence_trial.rds")
+  } else if(country_to_run == 'Mali'){
+    incidence_trial <- readRDS('R:/Kelly/synergy_orderly/archive/trial_results/20260219-104643-cb128f65/monthly_incidence_trial_Mali.rds')
+  }
   
   # Run simulation
   cluster_cores <- Sys.getenv("CCP_NUMCPUS")
@@ -220,7 +255,8 @@ sim_trial_cohort <- function(trial_ts = 365*3,
                            mutate(sim_id = params_row$sim_id)
                          
                          metrics <- compare_incidence(incidence_model = inci, 
-                                                      incidence_trial = incidence_trial)
+                                                      incidence_trial = incidence_trial,
+                                                      output_dir = output_dir)
                          
                          return(list(infection_records_formatted = infs_formatted, 
                                      incidence_df = inci,
@@ -274,7 +310,7 @@ sim_trial_cohort <- function(trial_ts = 365*3,
                                          o <- run_cohort_simulation(params_row, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
                                                                     metadata_df,
                                                                     base_inputs,
-                                                                    output_dir = 'R:/Kelly/src/sim_trial_cohort/outputs',
+                                                                    output_dir = output_dir,
                                                                     return_parasitemia = get_parasit,
                                                                     save_outputs = FALSE)
                                          message('finished simulation')
@@ -287,18 +323,23 @@ sim_trial_cohort <- function(trial_ts = 365*3,
                                            mutate(previous_detday = lag(detection_day),
                                                   diff = detection_day - previous_detday) %>%
                                            filter(diff > 7 | is.na(diff)) %>% select(-diff, -previous_detday)
+                                         message('removed infections within 7 days')
                                          
                                          infs_formatted <- format_model_output(model_data = infs, 
                                                                                cohort = country_to_run, 
                                                                                start_cohort = as.Date('2017-04-01'),
                                                                                simulation = params_row$sim_id)
+                                         message('formatted infection df')
                                          
                                          inci <- get_incidence(df_children = metadata_df,
                                                                casedata = infs_formatted) %>%
                                            mutate(sim_id = params_row$sim_id)
+                                         message('got incidence')
                                          
                                          metrics <- compare_incidence(incidence_model = inci, 
-                                                                     incidence_trial = incidence_trial)
+                                                                      incidence_trial = incidence_trial,
+                                                                      output_dir = output_dir)
+                                         message('comparing incidence')
                                          
                                          return(list(infection_records_formatted = infs_formatted, 
                                                      incidence_df = inci,

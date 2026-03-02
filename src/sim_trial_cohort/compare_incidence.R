@@ -73,7 +73,8 @@ compare_incidence <- function(incidence_model,
          caption = paste0('lag: ', pars$lag_p_bite, 'yr 1 scaler: ', pars$p_bite_scaler_1,'\nyr 2 scaler: ', pars$p_bite_scaler_2, 'yr3 scaler: ',pars$p_bite_scaler_3)) +
     theme_bw(base_size = 14) + 
     facet_wrap(~factor(arm, levels = c('none','rtss','smc','both')), 
-               nrow = 4)
+               nrow = 4,
+               scales = 'free')
   ggsave(filename = paste0(output_dir, '/incidence_trial_vs_model_', simid, '.png'), incicomparison)
   
   return(list(
