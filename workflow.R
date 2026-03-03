@@ -122,22 +122,22 @@ task_log_show(rtss_grid_final_1000threshold_0liver_2000_vmin_lognormal)
 #                                         'src/sim_cohort_generic/sim_cohort_generic.R',
 #                                         'src/sim_trial_cohort/sim_trial_cohort.R'
 # ))
-# nparams = 32*3
-# ncores = if(nparams > (32-4)) 32 else nparams + 4
-# task_create_expr(sim_cohort_generic(trial_ts = 365*3, 
-#                                     treatment_prob = 0.9, # default is 0.9 (which gives children prophylaxis)
-#                                     season_start_day = 122, # 137 is to start on August 15 (days since April 1) -- this was good for highly seasonal; 
-#                                     # 115 days is July 25 which is close to trial dates; 122 is Aug 1
-#                                     vax_day = 68, #75;# for perennial, trying an earlier start day of vaccination so they overlap less 
-#                                     threshold = 5000, # default is 5000 parasites per microL
-#                                     country_to_run = 'generic',
-#                                     season = 'seasonal',         
-#                                     N = 3000,
-#                                     n_param_sets = nparams,
-#                                     get_parasit = FALSE,
-#                                     notes = 'season from 122 and vax from 68; 365*3; threshold at 5000, log normal weighting, seasonal generic, fitted rtss (1.77, 2.63, 0.000513) and smc pars (2.37, 18.5, 0.337)'),
-#                  environment = 'generic',
-#                  resources = hipercow_resources(cores = ncores)) 
+nparams = 32*3
+ncores = if(nparams > (32-4)) 32 else nparams + 4
+task_create_expr(sim_cohort_generic(trial_ts = 365*3,
+                                    treatment_prob = 0.9, # default is 0.9 (which gives children prophylaxis)
+                                    season_start_day = 140, # 137 is to start on August 15 (days since April 1) -- this was good for highly seasonal;
+                                    # 115 days is July 25 which is close to trial dates; 122 is Aug 1
+                                    vax_day = 68, #75;# for perennial, trying an earlier start day of vaccination so they overlap less
+                                    threshold = 5000, # default is 5000 parasites per microL
+                                    country_to_run = 'generic',
+                                    season = 'seasonal',
+                                    N = 3000,
+                                    n_param_sets = nparams,
+                                    get_parasit = FALSE,
+                                    notes = 'testing with no rtss decay; season from 140 and vax from 68; 365*3; threshold at 5000, log normal weighting, seasonal generic, fitted rtss (1.77, 2.63, 0.000513) and smc pars (2.37, 18.5, 0.337)'),
+                 environment = 'generic',
+                 resources = hipercow_resources(cores = ncores))
 source('R:/Kelly/synergy_orderly/src/sim_cohort_generic/extract_sim_notes.R')
 
 # send jobs to run generic simulation to cluster by parameter dataset: 
@@ -150,22 +150,24 @@ latest_vax_3rd <- as.Date('2017-07-01')
 earliest_smc_start <- as.Date('2017-07-01')
 latest_smc_start <- as.Date('2017-09-01')
 
-vax_day <- seq(earliest_vax_3rd, latest_vax_3rd, by = '2 weeks')
+vax_day <- seq(earliest_vax_3rd, latest_vax_3rd, by = '1 month')# '2 weeks')
 vax_day <- vax_day - as.Date('2017-04-01')
-season_start_day <- seq(earliest_smc_start, latest_smc_start, by = '2 weeks')
+season_start_day <- seq(earliest_smc_start, latest_smc_start, by = '1 month')#'2 weeks')
 season_start_day <- season_start_day - as.Date('2017-04-01')
 
 combos <- crossing(vax_day, season_start_day)
 combos$season = 'seasonal'
 combos$get_parasit = FALSE
 combos$notes = paste(combos$vax_day, combos$season_start_day, combos$season, sep = '_')
+combos <- combos %>%
+  mutate(notes = paste0('testing with higher clearance threshold; ', notes))#paste0('testing with no rtss decay; ', notes))
 
-nparams = 32*2
+nparams = 32
 ncores = if(nparams > (32-4)) 32 else nparams + 4
 
 task_ids <- pmap(combos, function(vax_day, season_start_day, get_parasit, season, notes) {
   if(get_parasit == TRUE){
-    trial_ts_ = 50
+    trial_ts_ = 365
   } else {trial_ts_ = 365 * 3}
   
   task_create_expr(
@@ -203,7 +205,7 @@ task_log_show(unlist(task_ids)[1])
 #                    environment = 'trial_simulations')
 nparams = 32*4
 ncores = if(nparams > 32) 32 else nparams
-country = 'BF'#'BF'#
+country = 'Mali'#'BF'#
 trial_sim2 <- task_create_expr(sim_trial_cohort(trial_ts = 365*3, 
                                                treatment_prob = 1, # default is 1 (which gives children prophylaxis)
                                                threshold = 5000, # default is 5000 parasites per microL
@@ -211,12 +213,40 @@ trial_sim2 <- task_create_expr(sim_trial_cohort(trial_ts = 365*3,
                                                n_param_sets = nparams,
                                                get_parasit = FALSE,
                                                path = "R:/Kelly/synergy_orderly/",
-                                               notes = paste0(country, ': grid of lag (0-40 range) and scalers for each year (0.005, 0.07 for first year, 0.02, 0.06 after), simulations with grid and likelihood/rsme calculations and plotting, without offset')),
+                                               notes = paste0(country, ' testing the best runs from 19 (set 112), simulations with grid and likelihood/rsme calculations and plotting, without offset')),
                               environment = 'trial_simulations',
                               resources = hipercow_resources(cores = ncores))
-task_log_show(trial_sim2) # updated with more 
-task_log_show('07a496830257e4304af3548ad7466743') # bf
-task_log_show('6df25d93aaa7dd5021f86cd096b07590') # mali
+task_log_show(trial_sim2) # Mali
+
+
+# Fitting the spline for chapter 6 
+# hipercow_environment_create(name = 'trial_fitting',
+#                             sources = c("shared/rtss.R",
+#                                         "shared/helper_functions.R",
+#                                         "shared/cohort_sim_utils.R",
+#                                         'src/sim_trial_cohort/sim_trial_cohort.R',
+#                                         'src/sim_trial_cohort/compare_incidence.R',
+#                                         'src/sim_trial_cohort/optimise_sim_trial_cohort.R',
+#                                         'src/sim_trial_cohort/optimisation_helpers.R'
+#                             ))
+# hipercow_provision(method = 'pkgdepends', refs = c('cyphr', 'mrc-ide/hipercow@mrc-6733'),
+#                    environment = 'trial_fitting')
+nparams = 1
+ncores = 1
+country = 'Mali'
+trial_fitmali <- task_create_expr(optimise_sim_trial_cohort(trial_ts = 365*3, 
+                                                        country_to_run = country, # should be BF or Mali
+                                                        n_param_sets = nparams,
+                                                        notes = 'test run'),
+                              environment = 'trial_simulations',
+                              resources = hipercow_resources(cores = ncores))
+task_log_show(trial_fitbf) 
+task_log_show(trial_fitmali) 
+
+# # compare model_trial 
+# compare_task <- task_create_expr(orderly::orderly_run(name = 'compare_model_trial'))
+# task_log_show(compare_task)
+
 
 # run trial cohort simulation -- old
 # nparams = 50
@@ -280,7 +310,3 @@ task_log_show('6df25d93aaa7dd5021f86cd096b07590') # mali
 # task_log_show(process_bfT)
 # task_log_show(process_maliT)
 
-
-# compare model_trial 
-compare_task <- task_create_expr(orderly::orderly_run(name = 'compare_model_trial'))
-task_log_show(compare_task)

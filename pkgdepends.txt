@@ -39,6 +39,7 @@ cyphr
 hipercow.dide
 colorspace
 zoo
+nloptr
 
 # Github
 github::mrc-ide/umbrella

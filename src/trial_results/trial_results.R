@@ -87,7 +87,7 @@ efficacies <- ggplot(tidy_results %>%
   theme(legend.position = c(0.85, 0.8),
         legend.background = element_rect(fill = "transparent", color = NA))
 efficacies
-ggsave(filename = 'efficacy_trial.png', efficacies, height = 8, width = 8)
+ggsave(filename = 'efficacy_trial.png', efficacies, height = 5, width = 8)
 
 
 # Get efficacy for 3 versus 2 doses 
@@ -208,7 +208,7 @@ km_plot <- ggsurvplot(kmsurvobj, #group.by = "country",
 ggsave(filename = 'km_trial.png', km_plot)
 
 
-# Get monthly incidence 
+# Get monthly incidence ----
 monthly_inci <- get_incidence(model = FALSE, 
                               df_children = children, 
                               casedata = mitt)
@@ -225,6 +225,37 @@ monthly_inci_Mali <- get_incidence(model = FALSE,
 saveRDS(monthly_inci_Mali, 'monthly_incidence_trial_Mali.rds')
 
 
+# Get median smc and rtss dates ----
+smc_dates <- readRDS('R:/Kelly/synergy_orderly/shared/median_smc_dates.rds') 
+smc_lines_BF <- data.frame(
+  xintercept = rep(smc_dates %>%
+                     filter(country == 'BF') %>%
+                     pull(date),2),
+  arm = rep(c('smc', 'both'), each = length(smc_dates)),
+  color = '#709176'
+)
+smc_lines_Mali <- data.frame(
+  xintercept = rep(smc_dates %>%
+                     filter(country == 'Mali') %>%
+                     pull(date),2),
+  arm = rep(c('smc', 'both'), each = length(smc_dates)),
+  color = '#709176'
+)
+vaxdates <- readRDS('R:/Kelly/synergy_orderly/shared/median_rtss_dates.rds')
+rtss_lines_BF <- data.frame(
+  xintercept = rep(vaxdates %>% 
+                     filter(country == 'BF') %>% pull(date), 2),
+  arm = rep(c('rtss','both'), length(6)),
+  color = '#59114D'
+)
+rtss_lines_Mali <- data.frame(
+  xintercept = rep(vaxdates %>% 
+                     filter(country == 'Mali') %>% pull(date), 2),
+  arm = rep(c('rtss','both'), length(6)),
+  color = '#59114D'
+)
+
+# make inci plots ----
 monthlyincidenceplot <- monthly_inci %>%
   ggplot(aes(x = date, y = incidence_per_1000pm)) +
   geom_point(aes(color = arm), size = 2) +
@@ -256,6 +287,74 @@ monthlyincidenceplot <- monthly_inci %>%
 monthlyincidenceplot
 ggsave("trial_monthlyincidence.png", plot = monthlyincidenceplot, bg = 'white', width = 12, height = 6)
 ggsave("trial_monthlyincidence.pdf", plot = monthlyincidenceplot, width = 12, height = 6)
+
+#Burkina only 
+monthlyincidenceplotbf <- monthly_inci_BF %>%
+  ggplot(aes(x = date, y = incidence_per_1000pm)) +
+  geom_vline(data = smc_lines_BF, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 2, linewidth = 0.7)+
+  geom_vline(data = rtss_lines_BF, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
+  geom_point(aes(color = arm), size = 2) +
+  geom_ribbon(aes(ymin = lower_per_1000, ymax = upper_per_1000, fill = arm),
+              alpha = 0.5) + #, width = 5, linewidth = 1
+  geom_line(aes(color = arm), linewidth = 1) +
+  # facet_wrap(~arm, nrow = 3) +
+  scale_color_manual(values =  c('both' = '#E15554', 
+                                 'none' = '#E1BC29',
+                                 'rtss' = '#3BB273',
+                                 'smc' = '#7768AE',
+                                 'SMC delivery' = '#4D9DE0',
+                                 'RTS,S delivery' = '#470024'))+#c('#C44536','#772E25','#197278','#283D3B'))+
+  scale_fill_manual(values =  c('both' = '#E15554', 
+                                'none' = '#E1BC29',
+                                'rtss' = '#3BB273',
+                                'smc' = '#7768AE'))+#c('#C44536','#772E25','#197278','#283D3B'))+
+  scale_y_continuous(breaks = seq(0,150,25)) +
+  scale_x_date(breaks = '2 months',
+               labels = scales::label_date_short()) + 
+  labs(
+    # title = "Monthly malaria incidence per 1000 person-months",
+    x = "Month",
+    y = "Incidence per 1000 person-months",
+    color = "Intervention Arm",
+    fill = "Intervention Arm"
+  ) +
+  theme_minimal(base_size = 14)
+ggsave("trial_monthlyincidence_BF.png", plot = monthlyincidenceplotbf, bg = 'white', width = 12, height = 6)
+ggsave("trial_monthlyincidence_BF.pdf", plot = monthlyincidenceplotbf, width = 12, height = 6)
+
+#Mali only 
+monthlyincidenceplotmali <- monthly_inci_Mali %>%
+  ggplot(aes(x = date, y = incidence_per_1000pm)) +
+  geom_vline(data = smc_lines_Mali, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 2, linewidth = 0.7)+
+  geom_vline(data = rtss_lines_Mali, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
+  geom_point(aes(color = arm), size = 2) +
+  geom_ribbon(aes(ymin = lower_per_1000, ymax = upper_per_1000, fill = arm),
+              alpha = 0.5) + #, width = 5, linewidth = 1
+  geom_line(aes(color = arm), linewidth = 1) +
+  # facet_wrap(~arm, nrow = 3) +
+  scale_color_manual(values =  c('both' = '#E15554', 
+                                 'none' = '#E1BC29',
+                                 'rtss' = '#3BB273',
+                                 'smc' = '#7768AE',
+                                 'SMC delivery' = '#4D9DE0',
+                                 'RTS,S delivery' = '#470024'))+#c('#C44536','#772E25','#197278','#283D3B'))+
+  scale_fill_manual(values =  c('both' = '#E15554', 
+                                'none' = '#E1BC29',
+                                'rtss' = '#3BB273',
+                                'smc' = '#7768AE'))+#c('#C44536','#772E25','#197278','#283D3B'))+
+  scale_y_continuous(breaks = seq(0,150,25)) +
+  scale_x_date(breaks = '2 months',
+               labels = scales::label_date_short()) + 
+  labs(
+    # title = "Monthly malaria incidence per 1000 person-months",
+    x = "Month",
+    y = "Incidence per 1000 person-months",
+    color = "Intervention Arm",
+    fill = "Intervention Arm"
+  ) +
+  theme_minimal(base_size = 14)
+ggsave("trial_monthlyincidence_Mali.png", plot = monthlyincidenceplotmali, bg = 'white', width = 12, height = 6)
+ggsave("trial_monthlyincidence_Mali.pdf", plot = monthlyincidenceplotmali, width = 12, height = 6)
 
 # Average delivery times for each intervention / country 
 ggplot(delivery %>% filter(arm !='rtss')) +

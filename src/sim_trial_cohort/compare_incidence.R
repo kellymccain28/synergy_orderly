@@ -10,15 +10,10 @@ compare_incidence <- function(incidence_model,
   # incidence_model <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-01-27_8/incidence.rds")
   # incidence_trial <- readRDS("R:/Kelly/synergy_orderly/archive/trial_results/20260127-164922-12477275/monthly_incidence_trial.rds")
   library(zoo)
-  # incidence_model <- incidence_model 
   incidence_model_summ <- incidence_model %>%
     group_by(arm, year, month, yearmonth) %>%
     summarize(across(c(incidence_per_1000pm, person_months, n_cases),
-                     list(#lower = ~quantile(.x, 0.025, na.rm = TRUE),
-                          median = ~quantile(.x, 0.5, na.rm = TRUE)#,
-                          #upper = ~quantile(.x, 0.975, na.rm = TRUE)
-                          )#,
-                     # .names = "{.col}_{.fn}"
+                     list(median = ~quantile(.x, 0.5, na.rm = TRUE))
                      ) ) %>%
     # rename those variables with _median to be just the variable name 
     rename_with(.fn = \(x)sub("_median","", x)) %>%
@@ -75,7 +70,26 @@ compare_incidence <- function(incidence_model,
     facet_wrap(~factor(arm, levels = c('none','rtss','smc','both')), 
                nrow = 4,
                scales = 'free')
-  ggsave(filename = paste0(output_dir, '/incidence_trial_vs_model_', simid, '.png'), incicomparison)
+  
+  # ggsave(filename = paste0(output_dir, '/incidence_trial_vs_model_', simid, '.png'), incicomparison)
+  # Add timestamp to filename - guarantees uniqueness
+  # Simple version - just check and add number
+  base_filename <- paste0(output_dir, '/incidence_trial_vs_model_', simid, '.png')
+  
+  if (!file.exists(base_filename)) {
+    ggsave(filename = base_filename, incicomparison)
+  } else {
+    # If exists, find next available number
+    counter <- 1
+    repeat {
+      new_filename <- paste0(output_dir, '/incidence_trial_vs_model_', simid, '_', counter, '.png')
+      if (!file.exists(new_filename)) {
+        ggsave(filename = new_filename, incicomparison)
+        break
+      }
+      counter <- counter + 1
+    }
+  }
   
   return(list(
     rmse = rmse,

@@ -5,16 +5,16 @@ library(dust2)
 library(cowplot)
 library(glue)
 library(orderly)
-
+setwd("R:/Kelly/synergy_orderly/src/run_smc_rtss")
 # orderly_strict_mode()
 runpars <- orderly_parameters(n_particles = NULL,
                    n_threads = NULL,
                    t_inf_vax = NULL,# 30 if before infection, then + number; time of infectious bite relative to vaccination, influences AB titre ####nopt anymore :and also influences the length of SMC kill vec -- t_inf/2:end
                    ts = NULL, # 200 number of 2 day timesteps
                    tstep = NULL, # 1
-                   max_SMC_kill_rate = 2.333333,
-                   lambda = 16.66667, 
-                   kappa = 0.2222222,
+                   max_SMC_kill_rate = 2.37,#2.333333,
+                   lambda = 18.5,#16.66667, 
+                   kappa = 0.337,#0.2222222,
                    num_bites = 1,
                    threshold = 5000,
                    season_start_day = NULL, # 0 influences when SMC is delivered relative to the start of the infection/sim 
@@ -209,7 +209,7 @@ smcplt <- plot_grid(smc[[1]]+labs(caption = NULL, x = 'Days since start of blood
                     nrow = 4) 
 dfsmc <- smc[[6]] %>%
   mutate(scen = 'smc')
-smc[['meroinit']] + labs(caption = NULL)
+# smc[['meroinit']] + labs(caption = NULL)
 
 dfsmc <- dfsmc %>% 
   group_by(run) %>%
@@ -242,7 +242,7 @@ smckillplot <- ggplot(dfsmc) +
   labs(x = 'Days since start of blood stage',
        y = 'SMC per-parasite\nclearance rate\nper 2-day timestep') + 
   # scale_color_manual(values = c('maroon') ) +
-  scale_y_continuous(breaks = c(0,1,2,3,4), limits = c(0,4)) +
+  scale_y_continuous(breaks = c(0,1,2,3,4), limits = c(0,4.1)) +
   theme_bw() + xlim(c(0,300)) + 
   theme(legend.position = 'none') 
 smcprobplot <- ggplot(dfsmc) + 
