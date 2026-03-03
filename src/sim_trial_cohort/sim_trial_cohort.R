@@ -109,7 +109,7 @@ sim_trial_cohort <- function(trial_ts = 365*3,
     beta_ab = rep(4.69,  n_param_sets),
     vmin = rep(0.00259, n_param_sets),
     lag_p_bite = rep(2, n_param_sets),
-    p_bite_scaler_1 = rep(0.02315611, n_param_sets),
+    p_bite_scaler_1 = rep(0.01315611, n_param_sets),
     p_bite_scaler_2 = rep(0.02106561, n_param_sets),
     p_bite_scaler_3 = rep(0.0341956, n_param_sets))
     
@@ -200,7 +200,7 @@ sim_trial_cohort <- function(trial_ts = 365*3,
     fu_end_day = 1095,
     nsmc_received = 0
   ) %>%
-    mutate(rid_original = paste0('B', rid))
+    mutate(rid_original = paste0(country_short, rid))
   
   # Join synthetic no intervention and real trial kids together
   metadata_df <- full_join(metadata_df, noint_arm)
