@@ -275,6 +275,11 @@ optimise_sim_trial_cohort <- function(trial_ts = 365*3,
       
       
     }
-  }
-  
-  
+}
+# rmsesmali <- optim_checkpoint$history
+# rmsesmali <- sapply(1:50, function(x) rmsesmali[[x]]$rmse)
+# plot(rmsesmali)
+
+# rmsesbf <- optim_checkpoint$history
+# rmsesbf <- sapply(1:50, function(x) rmsesbf[[x]]$rmse)
+# plot(rmsesbf[rmsesbf < 25])  

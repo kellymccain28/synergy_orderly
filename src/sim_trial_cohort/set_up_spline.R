@@ -6,7 +6,7 @@ prob_biteml <- unlist(readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/out
 # BF
 # pbite <- prob_bitebf %>% filter(date >= (as.Date('2017-04-01')-50) & date <= '2020-03-31') %>% pull(prob_infectious_bite)
 tt <- seq(0, 365*3 + 50, 1)  # your time vector
-selected_df <- 15
+selected_df <- 14
 
 # Create basis matrices ONCE and save them
 ns_basis <- ns(tt, df = selected_df)
@@ -54,14 +54,14 @@ saveRDS(list(
   starting_coefs = starting_coefs,
   fitted_prob = fitted_prob_bf,
   selected_df = selected_df
-), file = "R:/Kelly/synergy_orderly/src/sim_trial_cohort/spline_setupBF.rds")
+), file = paste0("R:/Kelly/synergy_orderly/src/sim_trial_cohort/spline_setupBF_", selected_df, ".rds"))
 
 
 # #####---------------------------------------------------------------------------------------------------
 # Mali ---------------------------------------------------------------------------------------------------
 # pbite <- prob_biteml %>% filter(date >= (as.Date('2017-04-01')-50) & date <= '2020-03-31')%>% pull(prob_infectious_bite)
 tt <- seq(0, 365*3 + 50, 1)  # your time vector
-selected_df <- 15
+selected_df <- 13
 
 # Create basis matrices ONCE and save them
 ns_basis <- ns(tt, df = selected_df)
@@ -109,7 +109,7 @@ saveRDS(list(
   starting_coefs = starting_coefs,
   fitted_prob = fitted_prob_ml,
   selected_df = selected_df
-), file = "R:/Kelly/synergy_orderly/src/sim_trial_cohort/spline_setupMali.rds")
+), file = paste0("R:/Kelly/synergy_orderly/src/sim_trial_cohort/spline_setupMali_", selected_df, ".rds"))
 
 
 # Load your saved setup
