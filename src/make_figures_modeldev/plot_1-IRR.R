@@ -27,7 +27,7 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   inci_long <- readRDS(paste0(path, outputsfolder, '/inci_summary_all_yearmonth.rds')) %>%
     filter(metric == 'incidence') %>%
     rename(yearmonth = time_value)
-
+  
   # Filter for specific date range
   iii_summary <- inci_summary %>% 
     filter(as.Date(yearmonth) > as.Date('2017-06-01') &
@@ -50,29 +50,37 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
     } else if(!is.null(unlist(all$smc_dose_days[20]))){
       smc_dates <- as.Date(unlist(all$smc_dose_days[20]), origin = '2017-04-01')
     }
+    
+    smc_lines <- data.frame(
+      date = rep(smc_dates,2),
+      arm = rep(c('smc', 'both'), each = length(smc_dates)),
+      color = '#709176'
+    )
+    
+    rtss_lines <- data.frame(
+      date = as.Date(rep(c(mean(metadata_df$vaccination_day)-60, mean(metadata_df$vaccination_day)-30, mean(metadata_df$vaccination_day),
+                           mean(metadata_df$vaccination_day)[1]+364, mean(metadata_df$vaccination_day)+730),2), origin = '2017-04-01'),
+      arm = rep(c('rtss','both'), length(6)),
+      color = '#59114D'
+    )
   } else if(cohort_folder == 'sim_trial_cohort'){
-  smc_dates <- readRDS('R:/Kelly/synergy_orderly/shared/median_smc_dates.rds') %>%
-    filter(country == base_inputs$country) %>%
-    pull(date)
+    smc_lines <- readRDS('R:/Kelly/synergy_orderly/shared/median_smc_dates.rds') %>%
+      ungroup() %>%
+      filter(country == base_inputs$country & arm != 'rtss') %>%
+      select(date, arm) %>%
+      mutate(color = '#709176')
+    
+    rtss_lines <-  readRDS('R:/Kelly/synergy_orderly/shared/median_rtss_dates.rds') %>% ungroup() %>%
+      filter(country == base_inputs$country & arm != 'smc') %>%
+      select(date, arm) %>% 
+      mutate(color = '#59114D') 
   }
-  smc_lines <- data.frame(
-    xintercept = rep(smc_dates,2),
-    arm = rep(c('smc', 'both'), each = length(smc_dates)),
-    color = '#709176'
-  )
-  # metadata_df$vaccination_day[1] = 90
-  rtss_lines <- data.frame(
-    xintercept = as.Date(rep(c(mean(metadata_df$vaccination_day)-60, mean(metadata_df$vaccination_day)-30, mean(metadata_df$vaccination_day), 
-                               mean(metadata_df$vaccination_day)[1]+364, mean(metadata_df$vaccination_day)+730),2), origin = '2017-04-01'),
-    arm = rep(c('rtss','both'), length(6)),
-    color = '#59114D'
-  )
   
   
   # First make incidence plot to combine 
   inciall <- ggplot(inci_long) + 
-    geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 3, linewidth = 0.8)+
-    geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 2, linewidth = 0.8) +
+    geom_vline(data = smc_lines, aes(xintercept = date, color = 'SMC delivery'), linetype = 3, linewidth = 0.8)+
+    geom_vline(data = rtss_lines, aes(xintercept = date, color = 'RTS,S delivery'), linetype = 2, linewidth = 0.8) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = lower_ci, ymax = upper_ci, fill = arm), 
                 alpha = 0.3) +
     geom_line(aes(x = as.Date(yearmonth), y = median, color = arm), 
@@ -125,8 +133,8 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   
   # Plot 2: Adding RTSS (non-filtered)
   addrtss <- ggplot(inci_summary) + 
-    geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 3, linewidth = 0.8)+
-    geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 2, linewidth = 0.8) +
+    geom_vline(data = smc_lines, aes(xintercept = date, color = 'SMC delivery'), linetype = 3, linewidth = 0.8)+
+    geom_vline(data = rtss_lines, aes(xintercept = date, color = 'RTS,S delivery'), linetype = 2, linewidth = 0.8) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = both_smc_q025, ymax = both_smc_q975), 
                 fill = '#FFCB77', alpha = 0.3) +
     geom_line(aes(x = as.Date(yearmonth), y = both_smc_median, color = 'RTS,S added to SMC'), linewidth = 1) +
@@ -185,8 +193,8 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   
   # Plot 4: Adding SMC (non-filtered)
   addsmc <- ggplot(inci_summary) + 
-    geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 2, linewidth = 0.8)+
-    geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
+    geom_vline(data = smc_lines, aes(xintercept = date, color = 'SMC delivery'), linetype = 2, linewidth = 0.8)+
+    geom_vline(data = rtss_lines, aes(xintercept = date, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = both_rtss_q025, ymax = both_rtss_q975), 
                 fill = '#2ACBCB', alpha = 0.3) +
     geom_line(aes(x = as.Date(yearmonth), y = both_rtss_median, color = 'SMC added to RTS,S'), linewidth = 1) +
@@ -214,7 +222,7 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   
   
   combinedsmc <- plot_grid(addsmc, inciall, nrow = 2,
-                          align = 'v')
+                           align = 'v')
   ggsave(paste0(path, outputsfolder,'/irr_addingsmc_nonfiltered_andincidence.pdf'), plot = combinedsmc, width = 15, height = 10)
   
   # Print summary statistics
@@ -231,8 +239,8 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   
   # Plot of expected vs predicted efficacy of both vs none 
   exppred <- ggplot(inci_summary %>% filter(yearmonth > '2017-05-01')) + 
-    geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 2, linewidth = 0.8)+
-    geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
+    geom_vline(data = smc_lines, aes(xintercept = date, color = 'SMC delivery'), linetype = 2, linewidth = 0.8)+
+    geom_vline(data = rtss_lines, aes(xintercept = date, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
     geom_line(aes(x = as.Date(yearmonth), y = expected_efficacy_median, color = 'Expected efficacy'), linewidth = 1) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = expected_efficacy_q025, ymax = expected_efficacy_q975,
                     fill = 'Expected efficacy'), alpha = 0.3) +
@@ -251,7 +259,7 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
                                   'RTS,S delivery' = '#470024',
                                   'Expected efficacy' = '#6457A6')) +#'#449DD1'
     scale_fill_manual(values = c('Expected efficacy' = '#6457A6',
-                                  'Model-predicted efficacy' = '#59C9A5')) +#'#449DD1'
+                                 'Model-predicted efficacy' = '#59C9A5')) +#'#449DD1'
     labs(x = 'Date',
          y = 'Efficacy (1-IRR)',
          color = NULL,
@@ -261,16 +269,16 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   
   # Plot of ratio of expected vs predicted efficacy of both vs none 
   ratioplot <-  ggplot(inci_summary %>% filter(yearmonth > '2017-05-01')) + 
-    geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), 
+    geom_vline(data = smc_lines, aes(xintercept = date, color = 'SMC delivery'), 
                linetype = 2, linewidth = 0.8, alpha = 0.7)+
-    geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), 
+    geom_vline(data = rtss_lines, aes(xintercept = date, color = 'RTS,S delivery'), 
                linetype = 3, linewidth = 0.8, alpha = 0.7) +
     geom_line(aes(x = as.Date(yearmonth), y = ratio_pred_exp_median), 
               color = '#3E6990', linewidth = 1) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = ratio_pred_exp_q025, ymax = ratio_pred_exp_q975),
-                    fill = '#3E6990', alpha = 0.5) +
+                fill = '#3E6990', alpha = 0.5) +
     # ylim(c(0.2, 1.2)) + #xlim(c(min(iii_summary$yearmonth), max(iii_summary$yearmonth))) +
-     # coord_cartesian(ylim = c(0.8,1.2)) + 
+    # coord_cartesian(ylim = c(0.8,1.2)) + 
     # scale_y_continuous(breaks = seq(-0.4,1.2,0.1),
     #                    labels = seq(-0.4,1.2,0.1))+
     geom_hline(yintercept = 1, linetype = 2) +
@@ -285,21 +293,21 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
          color = NULL,
          fill = NULL) + 
     theme_bw(base_size = 14)
-   
-   combinedratio <- plot_grid(exppred, ratioplot + theme(legend.position = 'none'), nrow = 2,
+  
+  combinedratio <- plot_grid(exppred, ratioplot + theme(legend.position = 'none'), nrow = 2,
                              align = 'v')
-   
-   # mean(inci_summary$ratio_pred_exp_median)
-   # mean(inci_summary$ratio_pred_exp_q025)
-   # mean(inci_summary$ratio_pred_exp_q975)
+  
+  # mean(inci_summary$ratio_pred_exp_median)
+  # mean(inci_summary$ratio_pred_exp_q025)
+  # mean(inci_summary$ratio_pred_exp_q975)
   ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_ratio.pdf'), plot = ratioplot, width = 10, height = 4)
   ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_and_ratio.pdf'), plot = combinedratio, width = 12, height = 9)
   
   
   # Plot of expected vs predicted cases averted per 1000 of both vs none 
   exppred_inci <- ggplot(inci_summary %>% filter(yearmonth > '2017-03-01')) + 
-    geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 2, linewidth = 0.8)+
-    geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
+    geom_vline(data = smc_lines, aes(xintercept = date, color = 'SMC delivery'), linetype = 2, linewidth = 0.8)+
+    geom_vline(data = rtss_lines, aes(xintercept = date, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
     geom_line(aes(x = as.Date(yearmonth), y = inci_averted_expected_median, color = 'Expected cases averted\nper 1000 person months'), linewidth = 1) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = inci_averted_expected_q025, ymax = inci_averted_expected_q975,
                     fill = 'Expected cases averted\nper 1000 person months'), alpha = 0.3) +
@@ -329,9 +337,9 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   
   # Plot of difference of expected vs predicted cases averted per 1000 of both vs none 
   diffplot <-  ggplot(inci_summary %>% filter(yearmonth > '2017-05-01')) + 
-    geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), 
+    geom_vline(data = smc_lines, aes(xintercept = date, color = 'SMC delivery'), 
                linetype = 2, linewidth = 0.8, alpha = 0.7)+
-    geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), 
+    geom_vline(data = rtss_lines, aes(xintercept = date, color = 'RTS,S delivery'), 
                linetype = 3, linewidth = 0.8, alpha = 0.7) +
     geom_line(aes(x = as.Date(yearmonth), y = difference_inci_averted_pred_exp_median), 
               color = '#3E6990', linewidth = 1) +
@@ -352,7 +360,7 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
     theme_bw(base_size = 14)
   
   combineddifference <- plot_grid(exppred_inci, diffplot + theme(legend.position = 'none'), nrow = 2,
-                             align = 'v')
+                                  align = 'v')
   ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_incidence.pdf'), plot = diffplot, width = 10, height = 4)
   ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_incidence_and_difference.pdf'), plot = combineddifference, width = 12, height = 9)
   
@@ -360,7 +368,7 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   # Find percentage of cases that fall in July to November each year 
   cases_in_season <- inci %>% 
     filter(arm == 'none') %>%
-    mutate(in_season = case_when(
+    mutate(in_season_augdec = case_when(
       (yearmonth >= '2017-08-01' & yearmonth <= '2017-12-01') ~ 1, 
       (yearmonth >= '2018-08-01' & yearmonth <= '2018-12-01') ~ 1,
       (yearmonth >= '2019-08-01' & yearmonth <= '2019-12-01') ~ 1,
@@ -368,7 +376,7 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
       # (yearmonth >= '2018-06-01' & yearmonth <= '2018-11-30') ~ 1,
       # (yearmonth >= '2019-06-01' & yearmonth <= '2019-11-30') ~ 1,
       TRUE ~ 0)) %>%
-    group_by(in_season) %>%
+    group_by(in_season_augdec) %>%
     summarize(n_cases = sum(n_cases)) %>%
     mutate(total = sum(n_cases),
            p_in_season = n_cases / total * 100)

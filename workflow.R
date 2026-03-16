@@ -233,11 +233,11 @@ task_log_show(trial_sim2) # Mali
 #                    environment = 'trial_fitting')
 nparams = 1
 ncores = 1
-country = 'Mali'
-trial_fitmali <- task_create_expr(optimise_sim_trial_cohort(trial_ts = 365*3, 
+country = 'BF'
+trial_fitbf <- task_create_expr(optimise_sim_trial_cohort(trial_ts = 365*3, 
                                                         country_to_run = country, # should be BF or Mali
                                                         n_param_sets = nparams,
-                                                        notes = 'test run'),
+                                                        notes = paste0(country, ', optimisation with 120 max iterations')),
                               environment = 'trial_simulations',
                               resources = hipercow_resources(cores = ncores))
 task_log_show(trial_fitbf) 

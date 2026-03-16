@@ -96,7 +96,7 @@ plot_irr_average <- function(outputsfolder,
     theme_minimal(base_size = 14) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
   
-  ggsave(paste0(path, outputsfolder,'/irr_average_overall.pdf'), plot = last_plot(), width = 12, height = 6)
+  ggsave(paste0(path, outputsfolder,'/irr_average_overall.pdf'), plot = last_plot(), width = 8, height = 6)
   
   
     ggplot(inci_summary %>% filter(!is.na(shape_var) & grepl('oth vs none', comparison)), 
@@ -115,9 +115,9 @@ plot_irr_average <- function(outputsfolder,
         color = NULL
       ) +
       # scale_y_continuous(breaks = seq(0,1,0.2)) +
-      theme_minimal(base_size = 12) +
+      theme_minimal(base_size = 14) +
       theme(axis.text.x = element_text(angle = 45, hjust = 1))
-    ggsave(paste0(path, outputsfolder,'/bothvsnone_irr_', agg_unit, '.pdf'), plot = last_plot(), width = 6, height = 4)
+    ggsave(paste0(path, outputsfolder,'/bothvsnone_irr_', agg_unit, '.pdf'), plot = last_plot(), width = 8, height = 6)
     
     
     # Plot of the ratio of model-predicted to expected by aggregation unit 

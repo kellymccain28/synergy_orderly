@@ -95,6 +95,8 @@ outputs_folder <- 'outputs_2026-01-26' # balanced with 32*3 runs -- use this as 
 cohort_folder = 'sim_trial_cohort'
 outputs_folder <- 'outputs_2026-01-27_8'
 outputs_folder <- 'outputs_2026-02-13_3'
+outputs_folder <- 'outputs_2026-02-25_3'
+outputs_folder <- 'outputs_2026-03-02' # redoing mali (no int arm had 0 inci before bc rid error)
 
 # With updated SMC parameters fitted to threshold of 3000 -- as of 10 feb
 cohort_folder <- 'sim_cohort_generic'
@@ -151,33 +153,19 @@ outputs_folders <- c('outputs_2026-02-18_9',
                      'outputs_2026-02-18_10',
                      'outputs_2026-02-18')
 
+
+# no rtss decay
+cohort_folder <- 'sim_cohort_generic'
+outputs_folders <- c('outputs_2026-02-27',
+                     paste0('outputs_2026-02-27_',seq(2, 9)))
+
+# higher clearance threshold
+cohort_folder <- 'sim_cohort_generic'
+outputs_folders <- paste0('outputs_2026-02-27_',seq(9, 18))
+
 task_create_expr({
   cohort_folder <- 'sim_cohort_generic'
-  outputs_folders <- c('outputs_2026-02-18_9',
-                       'outputs_2026-02-18_8',
-                       'outputs_2026-02-18_7',
-                       'outputs_2026-02-18_6',
-                       'outputs_2026-02-18_5',
-                       'outputs_2026-02-18_4',
-                       'outputs_2026-02-18_3',
-                       'outputs_2026-02-18_25',
-                       'outputs_2026-02-18_24',
-                       'outputs_2026-02-18_23',
-                       'outputs_2026-02-18_22',
-                       'outputs_2026-02-18_21',
-                       'outputs_2026-02-18_20',
-                       'outputs_2026-02-18_2',
-                       'outputs_2026-02-18_19',
-                       'outputs_2026-02-18_18',
-                       'outputs_2026-02-18_17',
-                       'outputs_2026-02-18_16',
-                       'outputs_2026-02-18_15',
-                       'outputs_2026-02-18_14',
-                       'outputs_2026-02-18_13',
-                       'outputs_2026-02-18_12',
-                       'outputs_2026-02-18_11',
-                       'outputs_2026-02-18_10',
-                       'outputs_2026-02-18')
+  outputs_folders <-  'outputs_2026-02-18_3'
   
   for(outputs_folder in outputs_folders){
     print(outputs_folder)
@@ -213,27 +201,55 @@ task_create_expr({
                      cohort_folder = cohort_folder)
     plot_irr_average(outputsfolder = outputs_folder, agg_unit = 'halfyear',
                      cohort_folder = cohort_folder)
+    
     message('plotted 1-IRR averaged')
   }
   },
   environment = 'makeplots'
 )
 
-task_log_show('1b7b0c4c3051267418cbdd83b261cf67')
-task_log_show('e4b82a3f840817fd3b8b4fd935a38e8d')
+task_log_show('629dba2d5d4a24a54093db2d22e3d206') 
 
 # compare ratios (only run after all folders in list have had monthly inci calculated, as this requires formatting )
-plot_compare_ratios(output_folders = c('outputs_2026-02-10_2', # balanced
-                                         'outputs_2026-02-10_5', #early
-                                         'outputs_2026-02-10_6', # late
-                                         'outputs_2026-02-10_7', # early smc, late vax
-                                         'outputs_2026-02-10_8')) # late smc, early vax
+plot_compare_ratios(output_folders = c('outputs_2026-02-18_9',
+                                         'outputs_2026-02-18_8',
+                                         'outputs_2026-02-18_7',
+                                         'outputs_2026-02-18_6',
+                                         'outputs_2026-02-18_5',
+                                         'outputs_2026-02-18_4',
+                                         'outputs_2026-02-18_3',
+                                         'outputs_2026-02-18_25',
+                                         'outputs_2026-02-18_24',
+                                         'outputs_2026-02-18_23',
+                                         'outputs_2026-02-18_22',
+                                         'outputs_2026-02-18_21',
+                                         'outputs_2026-02-18_20',
+                                         'outputs_2026-02-18_2',
+                                         'outputs_2026-02-18_19',
+                                         'outputs_2026-02-18_18',
+                                         'outputs_2026-02-18_17',
+                                         'outputs_2026-02-18_16',
+                                         'outputs_2026-02-18_15',
+                                         'outputs_2026-02-18_14',
+                                         'outputs_2026-02-18_13',
+                                         'outputs_2026-02-18_12',
+                                         'outputs_2026-02-18_11',
+                                         'outputs_2026-02-18_10',
+                                         'outputs_2026-02-18')) # late smc, early vax
 # plot_compare_ratios(output_folders = c(#'outputs_2026-01-23_15',
 #                                        'outputs_2026-01-23_18',
 #                                        'outputs_2026-01-23_19',
 #                                        'outputs_2026-01-23_20',
 #                                        'outputs_2026-01-23_21',
 #                                        'outputs_2026-01-26'))
+# output_folders = c('outputs_2026-02-10_2', # balanced
+#                    'outputs_2026-02-10_5', #early
+#                    'outputs_2026-02-10_6', # late
+#                    'outputs_2026-02-10_7', # early smc, late vax
+#                    'outputs_2026-02-10_8')
+
+heat_map_by_intervention_timing(folders = outputs_folders,
+                                extralabel = '_nortssdecay_')
 
 # initial merozoites (only if we export parasitemia)
-plot_initial_merozoites(outputsfolder =  'outputs_2026-02-12_2') #'outputs_2026-01-23_22' 'outputs_2026-01-16', 'outputs_2025-12-08_treat_0.9start_141threshold5000', 'outputs_2026-01-15_4'
+plot_initial_merozoites(outputsfolder =  'outputs_2026-02-20_2') #'outputs_2026-01-23_22' 'outputs_2026-01-16', 'outputs_2025-12-08_treat_0.9start_141threshold5000', 'outputs_2026-01-15_4'

@@ -3,6 +3,7 @@
 # This function will aggregate incidence as needed, calculate IRRs, then summarize by the time unit 
 # to get median and 95% CrIs of the IRRs, efficacy (1-IRR), 
 # and the ratio of efficacy and difference of inci/cases averted between expected and model-predicted using bootstrapping
+# summarizes over sim ids (I think)
 
 summarize_IRRs <- function(outputsfolder, 
                            agg_unit){

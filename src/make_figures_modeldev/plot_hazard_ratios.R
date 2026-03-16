@@ -1,5 +1,6 @@
 # Plot hazard ratios by year
-plot_hazard_ratios <- function(outputsfolder){
+plot_hazard_ratios <- function(cohort_folder,
+                               outputsfolder){
   # Load packages
   library(zoo)
   library(survival)
@@ -11,7 +12,7 @@ plot_hazard_ratios <- function(outputsfolder){
   source("R:/Kelly/synergy_orderly/shared/get_cox_efficacy.R")
   source("R:/Kelly/synergy_orderly/shared/likelihood.R")
   
-  path <- 'R:/Kelly/synergy_orderly/src/sim_cohort_generic/outputs/'
+  path <- paste0('R:/Kelly/synergy_orderly/src/', cohort_folder,'/outputs/')
   # outputsfolder <- 'outputs_2025-12-01_2'
   
   # Using the outputs from monthly_incidence_plot.R

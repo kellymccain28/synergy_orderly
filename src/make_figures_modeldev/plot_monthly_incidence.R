@@ -66,27 +66,36 @@ plot_monthly_incidence <- function(outputsfolder, cohort_folder = 'sim_cohort_ge
     } else if(!is.null(unlist(all$smc_dose_days[20]))){
       smc_dates <- as.Date(unlist(all$smc_dose_days[20]), origin = '2017-04-01')
     }
+    
+    smc_lines <- data.frame(
+      date = rep(smc_dates,2),
+      arm = rep(c('smc', 'both'), each = length(smc_dates)),
+      color = '#709176'
+    )
+    rtss_lines <- data.frame(
+      date = as.Date(rep(c(mean(metadata_df$vaccination_day)-60, mean(metadata_df$vaccination_day)-30, mean(metadata_df$vaccination_day),
+                                 mean(metadata_df$vaccination_day)[1]+364, mean(metadata_df$vaccination_day)+730),2), origin = '2017-04-01'),
+      arm = rep(c('rtss','both'), length(6)),
+      color = '#59114D'
+    )
   } else if(cohort_folder == 'sim_trial_cohort'){
-    smc_dates <- readRDS('R:/Kelly/synergy_orderly/shared/median_smc_dates.rds') %>%
-      filter(country == base_inputs$country) %>%
-      pull(date)
+    smc_lines <- readRDS('R:/Kelly/synergy_orderly/shared/median_smc_dates.rds') %>%
+      ungroup() %>%
+      filter(country == base_inputs$country & arm != 'rtss') %>%
+      select(date, arm) %>%
+      mutate(color = '#709176')
+    
+    rtss_lines <-  readRDS('R:/Kelly/synergy_orderly/shared/median_rtss_dates.rds') %>% ungroup() %>%
+      filter(country == base_inputs$country & arm != 'smc') %>%
+      select(date, arm) %>% 
+      mutate(color = '#59114D') 
   }
-  smc_lines <- data.frame(
-    xintercept = rep(smc_dates,2),
-    arm = rep(c('smc', 'both'), each = length(smc_dates)),
-    color = '#709176'
-  )
-  # metadata_df$vaccination_day[1] = 90
-  rtss_lines <- data.frame(
-    xintercept = as.Date(rep(c(mean(metadata_df$vaccination_day)-60, mean(metadata_df$vaccination_day)-30, mean(metadata_df$vaccination_day), 
-                               mean(metadata_df$vaccination_day)[1]+364, mean(metadata_df$vaccination_day)+730),2), origin = '2017-04-01'),
-    arm = rep(c('rtss','both'), length(6)),
-    color = '#59114D'
-  )
+
+  
   ggplot(inci_summ)+
     # geom_vline(xintercept = as.Date(unlist(all$smc_dose_days[1][1:4]), origin = '2017-04-01'), linetype = 2, color = '#4D9DE0') +
-    geom_vline(data = smc_lines, aes(xintercept = xintercept, color = 'SMC delivery'), linetype = 2, linewidth = 0.7)+
-    geom_vline(data = rtss_lines, aes(xintercept = xintercept, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
+    geom_vline(data = smc_lines, aes(xintercept = date, color = 'SMC delivery'), linetype = 2, linewidth = 0.7)+
+    geom_vline(data = rtss_lines, aes(xintercept = date, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
     geom_line(aes(x = as.Date(yearmonth), y = incidence_per_1000pm, color = arm), linewidth = 0.8) +
     # geom_point(aes(x = as.Date(yearmonth), y = incidence_per_1000pm/100, color = arm), size = 4) +
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = incidence_per_1000pm_lower, ymax = incidence_per_1000pm_upper, fill = arm),# color = arm),

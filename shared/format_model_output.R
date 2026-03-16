@@ -27,13 +27,17 @@ format_model_output <- function(model_data,
   # Function to format rows with detectable cases by specific years-- 
   format_cases_by_year <- function(model_data, yr){
     
+    # Define year boundaries (April 1 to March 31)
+    year_start <- as.Date(start_cohort + 365 * (yr - 1))
+    year_end <- as.Date(start_cohort + 365 * yr - 1)
+    
     df <- model_data %>%
-      mutate(censor_date = case_when(fu_end_date > as.Date(start_cohort + 365*yr) ~ as.Date(start_cohort + 365*yr - 1),
-                                     TRUE ~ fu_end_date)) %>%
+      mutate(censor_date = pmin(fu_end_date, year_end)) %>%#case_when(fu_end_date > as.Date(start_cohort + 365*yr) ~ as.Date(start_cohort + 365*yr - 1),
+                            #         TRUE ~ fu_end_date)) %>%
       # First, filter to only include rows with infections 
       filter(
          detection_day <= censor_date & 
-            detection_day > (censor_date - 365) 
+            detection_day > year_start 
       ) %>%
       
       # Group by child and arrange by infection time
@@ -52,9 +56,13 @@ format_model_output <- function(model_data,
         # Calculate start time for each interval
         start_date = case_when(
           row_number() == 1 & yr == 1 ~ as.Date(start_fu_date), # First infection starts at origin
-          row_number() == 1 & yr != 1 ~ as.Date(start_cohort + 365 * (yr - 1)), # start dates for following years are on these same days for everyone
-          TRUE ~ lag(detection_day)#time_length(interval(start_cohort, lag(detection_day)), unit = 'years') #(lag(detection_day) - start_cohort) / 365.25
+          row_number() == 1 & yr != 1 ~ year_start, # start dates for following years are on these same days for everyone
+          TRUE ~ as.Date(lag(detection_day))#time_length(interval(start_cohort, lag(detection_day)), unit = 'years') #(lag(detection_day) - start_cohort) / 365.25
         ),
+        
+        # enure that start_date is not before year_start and not after detection day 
+        start_date = pmax(start_date, year_start),
+        start_date = pmin(start_date, detection_day), #can't start after the infection 
         
         # End time is when this infection was detected or the end of the year/followup time, whichever is first 
         end_date = pmin(detection_day, censor_date),#if_else(detection_day < censor_date, detection_day, censor_date),#time_length(interval(start_cohort, detection_day), unit = 'years') ,#(detection_day - start_cohort) / 365.25,
@@ -96,7 +104,9 @@ format_model_output <- function(model_data,
         infection_year = NA,
         start_fu_date = v1_date,
         num_bites = 0
-      )
+      )%>%
+      # Only keep if there's positive time remaining
+      filter(start_date < end_date)
 
     # Combine infections + censoring
     bind_rows(df, censoring_rows) %>%
@@ -122,21 +132,37 @@ format_model_output <- function(model_data,
     rid = rep(all_children, each = 3),
     year = rep(1:3, times = length(all_children))
   ) %>%
-    mutate(year_start = start_cohort + 365 * (year - 1),
-           year_end = start_cohort + 365 * year) %>%
-    left_join(metadata_df) %>%
-    left_join(all_cases %>% distinct(rid, smckillvec, smc_dose_days, v1_date))
+    mutate(year_start = as.Date(start_cohort + 365 * (year - 1)),
+           year_end = as.Date(start_cohort + 365 * year)) %>%
+    left_join(metadata_df) 
   
-  # Join with existing combinations and find the missing ones 
-  missing_combinations <- year_framework %>%
-    anti_join(all_cases %>%
-                distinct(rid, year), by = c('rid','year'))
+  # %>%
+  #   left_join(all_cases %>% distinct(rid, smckillvec, smc_dose_days, v1_date))
+  # Find which child-year combinations are missing from all_cases
+  if(nrow(all_cases) > 0) {
+    missing_combinations <- year_framework %>%
+      anti_join(all_cases %>% distinct(rid, year), by = c('rid', 'year'))
+  } else {
+    missing_combinations <- year_framework
+  }
+  
+  # # Join with existing combinations and find the missing ones 
+  # missing_combinations <- year_framework %>%
+  #   anti_join(all_cases %>%
+  #               distinct(rid, year), by = c('rid','year'))
   
   # Create censoring intervals for missing combinations of rid and year so that they contribute person time 
   censoring_intervals <- missing_combinations %>%
     mutate(
-      start_date = year_start, 
-      end_date = year_end, 
+      # Adjust year boundaries to child's follow-up
+      year_start_adj = pmax(year_start, v1_date),
+      year_end_adj = pmin(year_end, fu_end_date),
+      valid_year = year_start_adj < year_end_adj
+    ) %>%
+    filter(valid_year) %>%
+    mutate(
+      start_date = year_start_adj, 
+      end_date = year_end_adj, 
       event = 0, 
       dcontact = year_start, 
       poutcome = NA, 
@@ -147,14 +173,12 @@ format_model_output <- function(model_data,
       detection_day = NA, 
       t_toreach_threshold = NA, 
       detectable = 0, 
-      vaccinate_date = as.Date(vaccination_day, origin = as.Date('2017-04-01')),
+      vaccinate_date = as.Date(vaccination_day, origin = start_cohort),
       infection_year = NA,
       prob_bite = NA, 
       recovery_day = NA, 
       cumul_inf = NA, 
-      start_fu_date = case_when(
-        cohort == 'generic' ~ start_cohort,
-        TRUE ~ v1_date),
+      start_fu_date = v1_date,
       t = NA,
       sim_id = simulation,
       treatment_day = NA,
@@ -162,16 +186,16 @@ format_model_output <- function(model_data,
       treatment_efficacy = NA, 
       treatment_successful = NA,
       num_bites = NA,
-      fu_end_date = year_end,
-      censor_date = year_end
+      fu_end_date = fu_end_date,
+      censor_date = year_end_adj
     ) %>% 
-    select(-year_start, -year_end) %>%
-    # add children_in_group var
+    # Remove the temporary columns before binding
+    select(-year_start, -year_end, -year_start_adj, -year_end_adj, -valid_year) %>%# add children_in_group var
     left_join(model_data %>% distinct(arm, children_in_group))
   
   # Bind all datasets together 
-  person_time <- rbind(all_cases, censoring_intervals) %>%
-    arrange(rid) %>%
+  person_time <- bind_rows(all_cases, censoring_intervals) %>%
+    arrange(rid, year, start_date) %>%
     # Get start and end times in years since origin
     mutate(#origin = start_cohort, 
            start_time = time_length(interval(start_cohort, start_date), unit = 'years'),

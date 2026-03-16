@@ -6,7 +6,11 @@ update(PB) <- if(PB_next < 1e-5) 0 else (PB_next)# - n_killSMC) * growth # first
 update(sc) <- 1 / (1 + (PB_next / pc)^kappac) # gets smaller as parasite density increases (could maybe set a minimum value?)
 update(sm) <- if(time > 3) (1 - beta) / (1 + (PBsum / pm)^kappam) + beta else 1
 update(sv) <- if(time > 3) 1 / (1 + (PBvsum / pv) ^ kappav) else 1
-update(growth) <- m * sc * sm * sv## growth rate is modified by natural and general-adaptive immunity and var-specific immunity
+# update(st) <- if(time < t_onset) 1 else imm_min + (1 - imm_min) * exp(-(time - t_onset)/imm_tau) ## No immunity initially
+update(growth) <- m * sc * sv * sm## growth rate is modified by natural and general-adaptive immunity and var-specific immunity
+# imm_min <- parameter(0.7) # minimum immunity value
+# t_onset <- parameter(7) # days until time-based immunity starts
+# imm_tau <- parameter(150) # decay time constant 
 
 ## Initial states:
 initial(PB) <- (mero_init / VB)
@@ -14,6 +18,7 @@ initial(sc) <- 1 # this means that multiplying by the growth rate keeps the grow
 initial(growth) <- m_init
 initial(sm) <- 1
 initial(sv) <- 1
+# initial(st) <- 1
 
 # make variable to use what the value of PB will be at current timestep
 PB_next <- (PB - n_killSMC) * growth #PB + n_grow - n_killSMC ##
@@ -197,11 +202,7 @@ kspz3 <- if(num_bites > 2) NegativeBinomial(size = r, mu = n*DR) else 0 # if 3 b
 kspz <- kspz1 + kspz2 + kspz3 # add up the number of spz for each bite
 initial(kspz_out) <- kspz
 update(kspz_out) <- if(time == 0) kspz else 0
-# num_bites <- parameter(1) # default is a single bite 
-# kspz1 <- NegativeBinomial(size = r / 5, prob =p) #/ 5 bites
-# kspz2 <- if(num_bites > 1) NegativeBinomial(r / 5, 1-p) else 0 # if there is a second bite on the same day, use this 
-# kspz3 <- if(num_bites > 2) NegativeBinomial(r / 5, 1-p) else 0 # if 3 bites on teh same day 
-# kspz <- kspz1 + kspz2 + kspz3 # add up the number of spz for each bite
+
 
 # Parameters for Gamma distribution
 theta <- sigma_mu^2 / mu  # Scale parameter (theta)

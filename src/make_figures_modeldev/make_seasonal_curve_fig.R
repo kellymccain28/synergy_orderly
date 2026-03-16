@@ -15,20 +15,20 @@ generic_seas <- generic_seas %>%
          date_clin = date + 45) # to approximate the lag between rainfall and probability of a bite 
 
 smc_lines <- data.frame(
-  xint = c(as.Date('2017-04-01') + 122 + c(0,30,60,90)),
+  xint = c(as.Date('2017-04-01') + 150 + c(0,30,60,90)),
   color = '#709176'
 )
 smc_shaded <- data.frame(
-  xint = c(as.Date('2017-04-01') + 122 + c(0,30,60,90, 120)),
+  xint = c(as.Date('2017-04-01') + 150 + c(0,30,60,90, 120)),
   color = '#709176'
 )
 # metadata_df$vaccination_day[1] = 90
 rtss_lines <- data.frame(
-  xint = c(as.Date('2017-04-01') + c(68,68-30, 68-60)),
+  xint = c(as.Date('2017-04-01') + c(30,30-30, 30-60)),
   color = '#59114D'
 )
 
-ggplot(generic_seas) + 
+ggplot(generic_seas %>% filter(date < '2018-03-31')) + 
   # geom_line(data = prob_bite_generic %>% filter(year == 2017), aes(x = date, y = prob_infectious_bite*5, color = '#AE0939'), linewidth = 2)+
   geom_line(aes(x = date_clin, y = profile, color = "Probability of\ninfectious bite"), linewidth = 2) +
   geom_vline(data = rtss_lines, aes(xintercept = xint, color = 'Vaccine doses'), linetype = 3) +
