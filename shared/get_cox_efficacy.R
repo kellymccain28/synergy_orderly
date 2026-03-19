@@ -1,6 +1,7 @@
 # Function to get Cox PH efficacy as in Chandramohan et al. 2021
 # by year and overall 
 
+# df -- formatted dataset of person time
 get_cox_efficacy <- function(df, 
                              ref,
                              model = FALSE){

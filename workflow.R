@@ -122,7 +122,7 @@ task_log_show(rtss_grid_final_1000threshold_0liver_2000_vmin_lognormal)
 #                                         'src/sim_cohort_generic/sim_cohort_generic.R',
 #                                         'src/sim_trial_cohort/sim_trial_cohort.R'
 # ))
-nparams = 32*3
+nparams = 32*2
 ncores = if(nparams > (32-4)) 32 else nparams + 4
 task_create_expr(sim_cohort_generic(trial_ts = 365*3,
                                     treatment_prob = 0.9, # default is 0.9 (which gives children prophylaxis)
@@ -132,9 +132,9 @@ task_create_expr(sim_cohort_generic(trial_ts = 365*3,
                                     threshold = 5000, # default is 5000 parasites per microL
                                     country_to_run = 'generic',
                                     season = 'seasonal',
-                                    N = 3000,
+                                    N = 600,
                                     n_param_sets = nparams,
-                                    get_parasit = FALSE,
+                                    get_parasit = TRUE,
                                     notes = 'testing with no rtss decay; season from 140 and vax from 68; 365*3; threshold at 5000, log normal weighting, seasonal generic, fitted rtss (1.77, 2.63, 0.000513) and smc pars (2.37, 18.5, 0.337)'),
                  environment = 'generic',
                  resources = hipercow_resources(cores = ncores))
@@ -203,21 +203,21 @@ task_log_show(unlist(task_ids)[1])
 #                             ))
 # hipercow_provision(method = 'pkgdepends', refs = c('cyphr', 'mrc-ide/hipercow@mrc-6733'),
 #                    environment = 'trial_simulations')
-nparams = 32*4
+nparams = 32
 ncores = if(nparams > 32) 32 else nparams
-country = 'Mali'#'BF'#
-trial_sim2 <- task_create_expr(sim_trial_cohort(trial_ts = 365*3, 
+country = 'BF'#'BF'#
+task_create_expr(sim_trial_cohort(trial_ts = 365*3, 
                                                treatment_prob = 1, # default is 1 (which gives children prophylaxis)
                                                threshold = 5000, # default is 5000 parasites per microL
                                                country_to_run = country, # should be BF or Mali
                                                n_param_sets = nparams,
                                                get_parasit = FALSE,
                                                path = "R:/Kelly/synergy_orderly/",
-                                               notes = paste0(country, ' testing the best runs from 19 (set 112), simulations with grid and likelihood/rsme calculations and plotting, without offset')),
+                                               notes = paste0(country, ' testing best spline fitting from 03-06_2 (Mali) or 03-06_3 (BF)')),
                               environment = 'trial_simulations',
                               resources = hipercow_resources(cores = ncores))
-task_log_show(trial_sim2) # Mali
-
+task_log_show('8adb05f750f0f09cb274c539f108001c') # Mali
+task_log_show('80c50eb185097ba4ec54eee2eca42380') # BF
 
 # Fitting the spline for chapter 6 
 # hipercow_environment_create(name = 'trial_fitting',
@@ -234,14 +234,16 @@ task_log_show(trial_sim2) # Mali
 nparams = 1
 ncores = 1
 country = 'BF'
-trial_fitbf <- task_create_expr(optimise_sim_trial_cohort(trial_ts = 365*3, 
+trial_fitbf_lowthreshold <- task_create_expr(optimise_sim_trial_cohort(trial_ts = 365*3, 
                                                         country_to_run = country, # should be BF or Mali
+                                                        threshold = 2500,
                                                         n_param_sets = nparams,
-                                                        notes = paste0(country, ', optimisation with 120 max iterations')),
+                                                        notes = paste0(country, ', optimisation with 20 max iterations and threshold of 2500 for case')),
                               environment = 'trial_simulations',
                               resources = hipercow_resources(cores = ncores))
 task_log_show(trial_fitbf) 
 task_log_show(trial_fitmali) 
+task_log_show(trial_fitbf_lowthreshold)
 
 # # compare model_trial 
 # compare_task <- task_create_expr(orderly::orderly_run(name = 'compare_model_trial'))

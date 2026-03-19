@@ -27,7 +27,8 @@ orderly_dependency(name = 'clean_trial_data',
                              'data/children.rds',
                              'data/mitt.rds',
                              'data/delivery_detail.rds',
-                             'data/weekly.rds'))
+                             'data/weekly.rds',
+                             'data/serology.rds'))
 
 orderly_artefact(files = 'surv_analysis_trial.rds')
 
@@ -51,11 +52,12 @@ mitt <- cyphr::decrypt(readRDS('data/mitt.rds'), key) %>%
   labelled:::remove_labels(mitt)
 delivery <- cyphr::decrypt(readRDS('data/delivery_detail.rds'), key)
 weekly <- cyphr::decrypt(readRDS('data/weekly.rds'), key)
+sero <- cyphr::decrypt(readRDS('data/serology.rds'), key)
 
 primary <- primary_pt %>%
   left_join(delivery)
 
-# Survival analysis to reproduce results from trial
+# Survival analysis to reproduce results from trial ----
 ## SMC comparator by year and overall ---- 
 smcrefresults <- get_cox_efficacy(df = primary_pt, 
                                   ref = 'arm_smcref',
@@ -66,7 +68,7 @@ rtssrefresults <- get_cox_efficacy(df = primary_pt,
                                    ref = 'arm_rtssref',
                                    model = FALSE)
 
-# Plot the vaccine efficacies 
+# Plot the vaccine efficacies ----
 tidy_results <- rbind(smcrefresults, rtssrefresults) %>%
   mutate(year = factor(year, 
                        levels = c(1, 2, 3, 'overall'),
@@ -93,10 +95,10 @@ efficacies <- ggplot(tidy_results %>%
        y = 'Efficacy',
        color = 'Trial year') +
   theme_bw(base_size = 14) + 
-  theme(legend.position = c(0.85, 0.8),
+  theme(legend.position = c(0.85, 0.75),
         legend.background = element_rect(fill = "transparent", color = NA))
 efficacies
-ggsave(filename = 'efficacy_trial.pdf', efficacies, height = 5, width = 8)
+ggsave(filename = 'efficacy_trial.pdf', efficacies, height = 4, width = 6)
 
 
 # Get efficacy for 3 versus 2 doses 
@@ -211,7 +213,7 @@ km_plot <- ggsurvplot(kmsurvobj, #group.by = "country",
                       risk.table = TRUE,
                       cumevents = TRUE,
                       ggtheme = theme_bw(),
-                      palette = 'Dark2')
+                      palette = 'Dark2') 
 
 
 ggsave(filename = 'km_trial.png', km_plot)
@@ -254,6 +256,7 @@ rtss_lines_Mali <-  vaxdates %>% ungroup() %>%
   filter(country == 'Mali' & arm != 'smc') %>%
   select(date, arm) %>% 
   mutate(color = '#59114D') 
+
 
 # make inci plots ----
 monthlyincidenceplot <- monthly_inci %>%
@@ -365,9 +368,11 @@ monthlyincidenceplotmali <- monthly_inci_Mali %>%
 ggsave("trial_monthlyincidence_Mali.png", plot = monthlyincidenceplotmali, bg = 'white', width = 12, height = 8)
 ggsave("trial_monthlyincidence_Mali.pdf", plot = monthlyincidenceplotmali, width = 12, height = 8)
 
-# Average delivery times for each intervention / country 
+
+# Delivery proportion ----
+#smc 
 ggplot(delivery %>% filter(arm !='rtss')) +
-  geom_histogram(aes(x = nsmc_received, group = arm, fill = arm),
+  geom_bar(aes(x = nsmc_received, group = arm, fill = arm),
                  position = 'dodge') + 
   facet_wrap(~ country) +
   scale_x_continuous(breaks =seq(0,12)) + 
@@ -453,6 +458,28 @@ ggplot(glm_stratified,
   theme_bw(base_size = 14) +
   theme(legend.position = "none")
 
+
+#rtss  
+delivery <- delivery %>%
+  rowwise() %>%
+  mutate(n_rtss =  sum(as.numeric(nprimary), as.numeric(boost1_done), as.numeric(boost2_done), na.rm = TRUE))
+ggplot(delivery %>% filter(arm !='smc')) +
+  geom_bar(aes(x = n_rtss, group = arm, fill = arm),
+           position = 'dodge') + 
+  facet_wrap(~ country, scales = 'free_y') +
+  scale_x_continuous(breaks =seq(0,12)) + 
+  scale_fill_manual(values = mycols) +
+  labs(x = 'Number of doses of RTS,S received (maximum of 5)',
+       y = 'Number of people',
+       fill = 'Intervention arm') + 
+  theme_bw(base_size =  14)
+ggsave('nrtss_received_bycountryandarm.pdf', plot = last_plot(), height = 5, width = 10)
+
+
+
+
+# Delivery times for each intervention / country ----
+
 delivery_avg <- delivery %>%
   group_by(country, arm) %>%
   summarize(across(contains('date'),
@@ -467,28 +494,77 @@ vax_dates_avg <- delivery_avg %>%
   mutate(dose = factor(str_replace(dose, "_date_median", ""), levels = c("v1",'v2','v3','boost1', 'boost2')))
 saveRDS(vax_dates_avg, 'R:/Kelly/synergy_orderly/shared/median_rtss_dates.rds')
 
-
 vaxdates <- delivery %>%
   pivot_longer(cols = c(v1_date, v2_date, v3_date, boost1_date, boost2_date),
                names_to = 'dose',
                values_to = 'date') %>%
-  mutate(dose = factor(str_replace(dose, "_date", ""), levels = c("v1",'v2','v3','boost1', 'boost2')),
-         date = ifelse(country == 'BF' & dose == 'boost2', 1400, date))
+  mutate(dose = factor(str_replace(dose, "_date", ""), levels = c("v1",'v2','v3','boost1', 'boost2')))
 
-ggplot(delivery_avg) +
-  geom_histogram(data = vaxdates, aes(x = date, fill = dose)) +
+smcdates <- delivery %>%
+  select(rid, arm, country, contains('date_received')) %>%
+  pivot_longer(cols = c(y1p1d1_date_received:y3p4d3_date_received),
+               names_to = 'smcdose',
+               values_to = 'date') %>%
+  mutate(# Extract components BEFORE reformatting (easier with original format)
+    year = as.numeric(str_extract(smcdose, "(?<=y)\\d+")),
+    round = as.numeric(str_extract(smcdose, "(?<=p)\\d+")),
+    round = paste0('Year ',year, ', Round ', round),
+    smcdose = str_replace(smcdose, "_date_received", ""),
+         smcdose = str_replace_all(smcdose, 
+                                   "y(\\d+)p(\\d+)d(\\d+)", 
+                                   "Year \\1, Round \\2, Dose \\3"))
+
+
+dosecolors <- c('v1'='#99B3FF',
+                'v2'='#7A82AB',
+                'v3'='#3C908E',
+                'boost1' = '#2DC2BD',
+                'boost2' = '#0F5744')
+armlabs = c('Both','RTS,S only','SMC only')
+names(armlabs) = c('both','rtss','smc')
+
+rtssdelivery_dates <- ggplot(vaxdates) +
+  geom_histogram(aes(x = as.Date(date), fill = dose), binwidth = 1) +
   scale_x_date(date_breaks = '1 months', labels = scales::label_date_short()) +
-  geom_vline(data = delivery_avg, aes(xintercept = v1_date_median, color = 'v1'))+
-  geom_vline(data = delivery_avg, aes(xintercept = v2_date_median, color = 'v2'))+
-  geom_vline(data = delivery_avg, aes(xintercept = v3_date_median, color = 'v3')) +
-  geom_vline(data = delivery_avg, aes(xintercept = boost1_date_median, color = 'boost1')) +
-  geom_vline(data = delivery_avg, aes(xintercept = boost2_date_median, color = 'boost2')) +
+  scale_fill_manual(values = dosecolors,
+                    labels = c('v1' = 'Dose 1',
+                               'v2' = 'Dose 2',
+                               'v3' = 'Dose 3',
+                               'boost1' = 'Booster 1',
+                               'boost2' = 'Booster 2'))+
   # theme(axis.text.x = element_text(angle = 45)) +
-  facet_wrap(~country + arm, scales = 'free')
+  facet_grid(vars(country, arm), scales = 'free', labeller = labeller(arm= armlabs)) +
+  labs(x = 'Date',
+       y = 'Number of trial participants',
+       fill = NULL) +
+  theme_bw(base_size = 14)
+ggsave('rtss_delivery_dates.pdf', plot = rtssdelivery_dates, height = 7, width = 12)
 
-median(delivery$y1p1d1_date_received, na.rm = TRUE) # 7-27
-median(delivery$y1p2d1_date_received, na.rm = TRUE) # 8-24 
-median(delivery$y1p3d1_date_received, na.rm = TRUE) # 9-23
+vaxdates2 <- vaxdates %>%
+  select(rid, arm, dose, date) %>%
+  group_by(date, dose, arm) %>%
+  count()
+ggplot(vaxdates2 %>% filter(date < '2017-12-01')) + 
+  geom_tile(aes(x = as.Date(date), y = dose, fill = n)) + 
+  theme_classic()
+
+smcdelivery_dates <- ggplot(smcdates) +
+  geom_histogram(aes(x = as.Date(date), fill = round), binwidth = 1) +
+  scale_x_date(date_breaks = '1 months', labels = scales::label_date_short()) +
+  facet_grid(vars(country, arm), scales = 'free', labeller = labeller(arm= armlabs)) +
+  labs(x = 'Date',
+       y = 'Number of trial participants',
+       fill = NULL) +
+  theme_bw(base_size = 14)
+ggsave('smcdelivery_dates.pdf', plot = smcdelivery_dates, height = 7, width = 12)
+
+
+delivery %>% group_by(country) %>% summarise(median(y1p1d1_date_received, na.rm = TRUE)) # 7-27
+delivery %>% group_by(country) %>% summarise(median(delivery$y1p2d1_date_received, na.rm = TRUE)) # 8-24 
+delivery %>% group_by(country) %>% summarise(median(delivery$y1p3d1_date_received, na.rm = TRUE)) # 9-23
+delivery %>% group_by(country) %>% summarise(median(delivery$v1_date, na.rm = TRUE)) 
+delivery %>% group_by(country) %>% summarise(median(delivery$v2_date, na.rm = TRUE)) 
+delivery %>% group_by(country) %>% summarise(median(delivery$v3_date, na.rm = TRUE)) 
 
 smcdates <- delivery_avg %>%
   dplyr::select(country, arm, contains('d3')) %>%
@@ -501,28 +577,107 @@ ggplot(smcdates) +
 saveRDS(smcdates, 'R:/Kelly/synergy_orderly/shared/median_smc_dates.rds')
 
 
-# Parasitaemia 
+# Parasitaemia  ----
 weekly <- weekly %>%
   mutate(poutcome= ifelse(pf_asex_fdensity >= 5000, '1', '0'))
 
-ggplot(weekly) +
-  geom_jitter(aes(x = arm, y = pf_asex_fdensity, color = poutcome, shape = country)) + 
-  geom_violin(aes(x = arm, y= pf_asex_fdensity), alpha = 0.4) +
+ggplot(weekly %>% filter(!is.na(poutcome))) +
+  geom_jitter(aes(x = arm, y = pf_asex_fdensity, color = poutcome)) + 
+  geom_violin(aes(x = arm, y= pf_asex_fdensity), alpha = 0.0) +
+  geom_hline(yintercept = 5000, linetype = 2) +
+  facet_wrap(~country) +
   scale_y_log10() +
-  theme_classic()
+  scale_color_manual(values = c('1' = '#F08700',
+                                '0' = '#00A6A6'),
+                     labels = c('1' = 'Above threshold',
+                                '0' = 'Below threshold')) +
+  labs(x = NULL,
+       y = 'Parasitaemia (PRBCs per \u03bcL)',
+       color = NULL) +
+  theme_minimal(base_size = 14)
+ggsave(filename = 'parasitaemia_bycountry.pdf', plot = last_plot(), height = 4, width = 7)
 
-ggplot(weekly) +
-  geom_point(aes(x = dateweekly, y = pf_asex_fdensity, color = arm)) + 
+ggplot(weekly %>% filter(!is.na(pf_asex_fdensity))) +
+  geom_point(aes(x = dateweekly, y = pf_asex_fdensity, color = country)) + 
+  # geom_smooth(aes(x = dateweekly, y = pf_asex_fdensity, color = country, fill = country), alpha = 0.1) +
+  geom_hline(yintercept = 5000, linetype = 2) +
   scale_y_log10() +
-  theme_classic()
+  scale_x_date(breaks = '3 months',
+               labels = scales::label_date_short()) +
+  scale_color_manual(values = c('BF' = '#136F63',
+                                'Mali' = '#E0CA3C')) + 
+  scale_fill_manual(values = c('BF' = '#136F63',
+                                'Mali' = '#E0CA3C')) + 
+  facet_wrap(~arm, nrow = 3) + 
+  labs(x = 'Date of weekly survey',
+       y = 'Parasitaemia (PRBCs per \u03bcL)',
+       color = 'Country', fill = 'Country')+
+  theme_minimal(base_size = 14)
+# year 2, a lot more positive samples it seems
+ggsave(filename = 'parasitaemia_overtime.pdf', plot = last_plot(), height = 6, width = 8)
 
 weekly %>% 
   group_by(arm) %>%
   summarise(meanpb= mean(pf_asex_fdensity, na.rm = TRUE),
-            medianpb = median(pf_asex_fdensity, na.rm = TRUE))
+            medianpb = median(pf_asex_fdensity, na.rm = TRUE),
+            minpb = min(pf_asex_fdensity, na.rm = TRUE))
+
+# repeated ids
+weekly %>% count(rid) 
+repeats <- weekly %>%
+  filter(rid %in% (weekly %>% count(rid) %>% filter(n > 1) %>% pull(rid))) %>%
+  filter(poutcome == 1)
+table(repeats$country)
+# no ids with repeated parasitaemia results 
 
 
-# Calculate IRRs as in model outputs 
+# Serology ---- 
+ncasesperperson <- mitt %>%
+  group_by(rid, country, arm, dcontact) %>%
+  count()
+
+sero_withcases <- sero %>%
+  left_join(ncasesperperson)
+
+nperyear <- sero %>%
+  mutate(year = lubridate::year(sdate)) %>% 
+  group_by(arm, country, year) %>% 
+  count()
+
+nperpersonperyear <- sero %>%
+  mutate(year = lubridate::year(sdate)) %>% 
+  group_by(arm, country, rid) %>% 
+  count()
+
+summarisedsero <- sero %>% filter(postonly =='post' & arm != 'smc') %>%
+  group_by(arm, country, timing) %>%
+  summarise(mean = mean(lnnew, na.rm = TRUE),
+            median = median(lnnew, na.rm = TRUE))
+
+ggplot(sero %>% filter(postonly =='post')) + 
+  geom_violin(aes(x = country, y = lnnew, fill = arm))
+
+ggplot(sero %>% filter(postonly =='post' & arm != 'smc' )) + 
+  geom_point(aes(x = sdate, y = lnnew, color = arm)) + 
+  # geom_line(aes(x = dcontact, y = lnnew, group = rid)) +
+  geom_vline(data = vaxdates, aes(xintercept = date)) + 
+  facet_wrap(~country)
+
+ggplot(sero %>% filter(arm !='smc' & postonly == 'post')) + 
+  geom_density(aes(x = lnnew, fill = arm), alpha =0.7) + 
+  geom_vline(data = summarisedsero,
+             aes(xintercept = median, color = arm), linewidth = 1, linetype = 2, alpha = 0.5) +
+  scale_fill_manual(values = mycols) + 
+  scale_color_manual(values = colorspace::darken(mycols, 0.2)) + 
+  facet_wrap(~country + timing) + 
+  labs(y = 'Density',
+       x = expression(paste(italic('ln'), '(anti-CSP antibody titre in EU/mL)')),
+       color = NULL, fill = NULL) +
+  theme_minimal(base_size = 14)
+ggsave(filename = 'sero_byarmandcountry.pdf', plot = last_plot(), height = 4, width = 7)
+
+
+# Calculate IRRs as in model outputs ----
 source("R:/Kelly/synergy_orderly/src/make_figures_modeldev/bootstrap_metric.R")
 library(purrr)
 model_inci_summary_all_halfyear <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-02/inci_summary_all_halfyear.rds") %>%
@@ -531,6 +686,7 @@ model_inci_summary_all_halfyear <- readRDS("R:/Kelly/synergy_orderly/src/sim_tri
     metric == 'efficacy' ~ 'Model-predicted',
     TRUE ~ NA)) 
 model_inci_summary_wide_halfyear <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-02/inci_summary_wide_halfyear.rds")
+formatted_infrecords <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-02/formatted_infrecords.rds")
 
 inci <- monthly_inci# trial
 agg_unit = 'halfyear'
@@ -686,25 +842,25 @@ inci_summary <- inci_summary_all %>%
                                                     'rtss vs none','smc vs none',
                                                     'rtss vs smc','smc vs rtss')))
 
-ggplot(inci_summary %>% filter(metric == 'efficacy'), aes(x = comparison, y = irr, 
-                                                          color = time_value, group = time_value, shape = shape_var)) +
-  # model estimated
-  geom_point(position = position_dodge(width = 0.5), size = 1) +
-  scale_shape_manual(values = c('Expected' = 7, 'Model-predicted' = 16)) + 
-  # scale_linetype_manual(values = c('Expected: both vs none' = 2)) +
-  # scale_color_brewer(palette = 'BuPu') +
-  # scale_color_manual(values = colors) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "darkred") +
-  labs(
-    x = "Arm Comparison",
-    y = "Relative efficacy (1-IRR)",
-    # title = "Median IRR with 95% CI by Intervention Comparison",
-    shape = NULL, linetype = NULL,
-    color = if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Study half-year'
-  ) +
-  scale_y_continuous(breaks = seq(-1,1,0.2)) + 
-  theme_minimal(base_size = 14) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# ggplot(inci_summary %>% filter(metric == 'efficacy'), aes(x = comparison, y = irr, 
+#                                                           color = time_value, group = time_value, shape = shape_var)) +
+#   # model estimated
+#   geom_point(position = position_dodge(width = 0.5), size = 1) +
+#   scale_shape_manual(values = c('Expected' = 7, 'Model-predicted' = 16)) + 
+#   # scale_linetype_manual(values = c('Expected: both vs none' = 2)) +
+#   # scale_color_brewer(palette = 'BuPu') +
+#   # scale_color_manual(values = colors) +
+#   geom_hline(yintercept = 0, linetype = "dashed", color = "darkred") +
+#   labs(
+#     x = "Arm Comparison",
+#     y = "Relative efficacy (1-IRR)",
+#     # title = "Median IRR with 95% CI by Intervention Comparison",
+#     shape = NULL, linetype = NULL,
+#     color = if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Study half-year'
+#   ) +
+#   scale_y_continuous(breaks = seq(-1,1,0.2)) + 
+#   theme_minimal(base_size = 14) +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ggplot(inci_summary %>% filter(metric == 'efficacy' & time_value == 'Overall'), 
        aes(x = comparison, y = irr, 
@@ -733,7 +889,7 @@ ggplot(inci_summary %>% filter(metric == 'difference_inci_averted_pred_exp'),
        aes(x = time_value, y = value, 
            color = time_value, group = time_value)) +
   # model estimated
-  geom_point(size = 1) +
+  geom_point() +
   geom_hline(yintercept = 1, linetype = "dashed", color = "darkred") +
   labs(
     x = NULL,#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Half-year',
@@ -744,3 +900,48 @@ ggplot(inci_summary %>% filter(metric == 'difference_inci_averted_pred_exp'),
   theme_classic(base_size = 14) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = 'none')
+
+# test with hazard ratios to compare more precisely -----
+eff_model_smc <- get_cox_efficacy(df = formatted_infrecords %>% filter(sim_id == 'parameter_set_55_Mali'), 
+                 ref = 'arm_smcref',
+                 model = TRUE)
+eff_model_rtss <- get_cox_efficacy(df = formatted_infrecords %>% filter(sim_id == 'parameter_set_55_Mali'), 
+                                  ref = 'arm_rtssref',
+                                  model = TRUE)
+model_results <- rbind(eff_model, eff_model_rtss) %>%
+  mutate(year = factor(year, 
+                       levels = c(1, 2, 3, 'overall'),
+                       labels = c("Year 1", "Year 2", "Year 3", "Overall")))
+
+# Plot efficacy
+efficacies <- ggplot(tidy_results %>% 
+                       filter(term %in% c("Both vs. RTSS",'RTSS vs. SMC','Both vs. SMC')))+
+  geom_point(aes(x = term, y = VE, group = year, color = year, shape = 'Trial'),
+             position = position_dodge(width=0.3), size = 2) + 
+  geom_errorbar(aes(x = term, ymin = VE_lower, ymax = VE_upper, group = year, color = year, linetype = 'Trial'), 
+                position = position_dodge(width=0.3), width = 0.2) +
+  
+  geom_point(data = model_results %>% 
+               filter(term %in% c("Both vs. RTSS",'RTSS vs. SMC','Both vs. SMC')),
+             aes(x = term, y = VE, group = year, color = year, shape = 'Model'),
+             position = position_dodge(width=0.3), size = 2) + 
+  geom_errorbar(data = model_results %>% 
+                  filter(term %in% c("Both vs. RTSS",'RTSS vs. SMC','Both vs. SMC')),
+                aes(x = term, ymin = VE_lower, ymax = VE_upper, group = year, color = year, linetype = 'Model'), 
+                position = position_dodge(width=0.3), width = 0.2) +
+  geom_hline(aes(yintercept = 0), linetype = 2) +
+  scale_y_continuous(breaks = seq(-0.4, 1, 0.2),
+                     limits = c(-0.3, 1),
+                     labels = scales::percent) +
+  scale_color_manual(values = c('Year 1' = '#7FB800',
+                                'Year 2' = '#573280',
+                                'Year 3' = '#CE6479',
+                                'Overall' = '#197BBD')) +
+  labs(x = '',
+       y = 'Efficacy',
+       color = 'Trial year',
+       shape = NULL, linetype = NULL) +
+  theme_bw(base_size = 14) + 
+  theme(#legend.position = c(0.7, 0.8),
+        legend.background = element_rect(fill = "transparent", color = NA))
+efficacies

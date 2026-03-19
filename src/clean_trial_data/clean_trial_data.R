@@ -82,7 +82,7 @@ weekly2_raw <- as.data.frame(data[9])
 weekly3_raw <- as.data.frame(data[10]) 
 
 children <- children_raw %>% 
-  left_join(delivery_raw %>% 
+  left_join(delivery_detail_raw %>% 
               select(rid, arm, sex, 
                      v1_date, v2_date, v3_date, last_primary_vac, boost1_date, boost2_date, 
                      ends_with('date_received'), -contains('d2'), -contains('d3'), # d2 and d3 are the 2nd and third doses per month
@@ -126,18 +126,30 @@ primary <- primary_raw %>%
   mutate(cases_per_month = sum(poutcome))
 
 
-delivery <- delivery_raw %>% # has dob
-  left_join(children)
+# delivery <- delivery_raw %>% # has dob
+#   left_join(children)
 
 # has age_months which is age in months at v1_date
 delivery_detail <- delivery_detail_raw %>%
-  left_join(children) 
+  left_join(children) %>%
+  mutate(y2p3d2_date_received = case_when(y2p3d2_date_received < as.Date('2017-01-01') ~ as.Date('2018-09-14'), 
+         TRUE ~ y2p3d2_date_received))
 
 serology <- serology_raw %>%
   left_join(children) %>%
-  mutate(prepost_v3 = ifelse(sdate <= v3_date, 'pre', 
-                             ifelse(sdate > v3_date, 'post', NA)),
-         time_since_vac = sdate - last_primary_vac)
+  mutate(timing = case_when(
+    sdate <= v3_date ~ 'pre dose 3',
+    sdate > v3_date & sdate < '2018-01-01' ~ 'post dose 3',
+    sdate > '2018-05-01' & sdate < '2018-06-14' ~ 'pre boost 1',
+    sdate > '2018-06-14' & sdate < '2019-01-01' ~ 'post boost 1',
+    sdate > '2019-01-01' & sdate < '2019-06-16' ~ 'pre boost 2',
+    sdate > '2019-06-16' ~ 'post boost 2',
+    TRUE ~ NA
+  ),
+  timing = factor(timing, levels= c('pre dose 3','post dose 3','pre boost 1','post boost 1','pre boost 2', 'post boost 2')),
+  postonly = case_when(timing %in% c('post dose 3','post boost 1','post boost 2') ~ 'post',
+                       TRUE ~ 'pre'),
+  time_since_vac = sdate - last_primary_vac)
 
 weekly_raw <- rbind(weekly1_raw, weekly2_raw, weekly3_raw) 
 weekly <- weekly_raw %>%
