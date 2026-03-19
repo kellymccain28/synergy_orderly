@@ -23,6 +23,7 @@ sim_trial_cohort <- function(trial_ts = 365*3,
   # If base directory doesn't exist, create it
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
+    dir.create(paste0(output_dir, '/plots'), recursive = TRUE)
   } else {
     # If it exists, find an available numbered version
     counter <- 2
@@ -33,6 +34,7 @@ sim_trial_cohort <- function(trial_ts = 365*3,
     }
     output_dir <- new_dir
     dir.create(output_dir, recursive = TRUE)
+    dir.create(paste0(output_dir, '/plots'), recursive = TRUE)
   }
   
   source('R:/Kelly/synergy_orderly/shared/cohort_sim_utils.R')
@@ -42,6 +44,8 @@ sim_trial_cohort <- function(trial_ts = 365*3,
   source("R:/Kelly/synergy_orderly/src/sim_trial_cohort/compare_incidence.R")
   source("R:/Kelly/synergy_orderly/shared/format_model_output.R")
   source("R:/Kelly/synergy_orderly/shared/get_incidence.R")
+  source("R:/Kelly/synergy_orderly/shared/get_cox_efficacy.R")
+  
   
   # Load the within-host model 
   gen_bs <- odin2::odin("R:/Kelly/synergy_orderly/shared/smc_rtss.R")
@@ -107,41 +111,52 @@ sim_trial_cohort <- function(trial_ts = 365*3,
     kappa = rep(0.337, n_param_sets),
     alpha_ab = rep(1.74, n_param_sets),
     beta_ab = rep(4.69,  n_param_sets),
-    vmin = rep(0.00259, n_param_sets),
-    lag_p_bite = rep(2, n_param_sets),
-    p_bite_scaler_1 = rep(0.01315611, n_param_sets),
-    p_bite_scaler_2 = rep(0.02106561, n_param_sets),
-    p_bite_scaler_3 = rep(0.0341956, n_param_sets))
+    vmin = rep(0.00259, n_param_sets))#,
+    # lag_p_bite = rep(2, n_param_sets),
+    # p_bite_scaler_1 = rep(0.01315611, n_param_sets),
+    # p_bite_scaler_2 = rep(0.02106561, n_param_sets),
+    # p_bite_scaler_3 = rep(0.0341956, n_param_sets))
     
   params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run)
   
-  # probability of a bite is used in the cohort simulation and so is in 1-day timesteps
-  if(country_to_run == 'BF') {
-    prob_bite <- readRDS('R:/Kelly/synergy_orderly/archive/fit_rainfall/20251209-213103-7f252a05/prob_bite_BFA.rds') 
-    prob_bite$prob_infectious_bite <- prob_bite$prob_infectious_bite 
-  } else if(country_to_run == 'Mali') {
-    prob_bite <- readRDS('R:/Kelly/synergy_orderly/archive/fit_rainfall/20251209-213103-7f252a05/prob_bite_MLI.rds') 
-    prob_bite$prob_infectious_bite <- prob_bite$prob_infectious_bite
+  # to run with spline fitting 
+  # Load saved spline best values 
+  if(country_to_run =='BF'){
+    fittedspline <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-06_3/best_so_far.rds"))$params_row$p_bite
+  } else if(country_to_run == 'Mali'){
+    fittedspline <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-06_2/best_so_far.rds"))$params_row$p_bite
   }
-  p_bitevector <- calc_lagged_vectors(prob_bite, unique(params_df$lag_p_bite), burnints = burnints) # no lagged values 
   
-  # Add to parameter dataframe by matching lag values 
-  parameters_df <- params_df %>%
-    # mutate(
-    #   p_bite = map2(lag_p_bite, p_bite_scaler, 
-    #                 ~ p_bitevector[[paste0("lag_", .x)]]$prob_lagged * .y)
-    # )
-    mutate(p_bite = pmap(list(lag_p_bite, p_bite_scaler_1, p_bite_scaler_2, p_bite_scaler_3),
-                  function(lag, s1, s2, s3) {
-                    prob <- p_bitevector[[paste0("lag_", lag)]]$prob_lagged
-                    n <- length(prob)
-                    scaler <- c(
-                      rep(s1, min(365 + base_inputs$burnin, n)),                        # burnin + year 1: s1
-                      rep(s2, min(365, max(0, n - (365 + base_inputs$burnin)))),        # year 2: s2
-                      rep(s3, max(0, n - (730 + base_inputs$burnin)))                   # year 3: s3
-                    )
-                    prob * scaler
-                  }))
+  params_df$p_bite = fittedspline
+  parameters_df = params_df
+  # to run with lag and scaler: 
+  # probability of a bite is used in the cohort simulation and so is in 1-day timesteps
+  # if(country_to_run == 'BF') {
+  #   prob_bite <- readRDS('R:/Kelly/synergy_orderly/archive/fit_rainfall/20251209-213103-7f252a05/prob_bite_BFA.rds') 
+  #   prob_bite$prob_infectious_bite <- prob_bite$prob_infectious_bite 
+  # } else if(country_to_run == 'Mali') {
+  #   prob_bite <- readRDS('R:/Kelly/synergy_orderly/archive/fit_rainfall/20251209-213103-7f252a05/prob_bite_MLI.rds') 
+  #   prob_bite$prob_infectious_bite <- prob_bite$prob_infectious_bite
+  # }
+  # p_bitevector <- calc_lagged_vectors(prob_bite, unique(params_df$lag_p_bite), burnints = burnints) # no lagged values 
+  # 
+  # # Add to parameter dataframe by matching lag values 
+  # parameters_df <- params_df %>%
+  #   # mutate(
+  #   #   p_bite = map2(lag_p_bite, p_bite_scaler, 
+  #   #                 ~ p_bitevector[[paste0("lag_", .x)]]$prob_lagged * .y)
+  #   # )
+  #   mutate(p_bite = pmap(list(lag_p_bite, p_bite_scaler_1, p_bite_scaler_2, p_bite_scaler_3),
+  #                 function(lag, s1, s2, s3) {
+  #                   prob <- p_bitevector[[paste0("lag_", lag)]]$prob_lagged
+  #                   n <- length(prob)
+  #                   scaler <- c(
+  #                     rep(s1, min(365 + base_inputs$burnin, n)),                        # burnin + year 1: s1
+  #                     rep(s2, min(365, max(0, n - (365 + base_inputs$burnin)))),        # year 2: s2
+  #                     rep(s3, max(0, n - (730 + base_inputs$burnin)))                   # year 3: s3
+  #                   )
+  #                   prob * scaler
+  #                 }))
   
   # Make list of parameters instead of df 
   params_list <- split(parameters_df, seq(nrow(parameters_df)))
@@ -161,7 +176,10 @@ sim_trial_cohort <- function(trial_ts = 365*3,
            PEV = ifelse(arm == 'smc', 0, 1),
            SMC = ifelse(arm == 'rtss', 0, 1),
            t_to_boost1 = as.numeric(boost1_date - v3_date),
-           t_to_boost2 = as.numeric(boost2_date - v3_date)) %>%
+           t_to_boost2 = as.numeric(boost2_date - v3_date),
+           # Deal with situations where first booster is missing 
+           t_to_boost1 = ifelse(is.na(t_to_boost1) & !is.na(t_to_boost2), t_to_boost2, t_to_boost1),
+           t_to_boost2 = ifelse(t_to_boost1 == t_to_boost2, NA, t_to_boost2)) %>%
     # Calculate timings of smc for each year - first, need to calculate days since april 1, 2017 (analogous to vaccination_day above)
     rowwise() %>%
     mutate(smc_dates = list(na.omit(c_across(ends_with('date_received')))),
@@ -258,6 +276,10 @@ sim_trial_cohort <- function(trial_ts = 365*3,
                                                       incidence_trial = incidence_trial,
                                                       output_dir = output_dir)
                          
+                         # Make plots comparing hazard ratios 
+                         compare_hr(infs_formatted_model = infs_formatted, 
+                                    output_dir)
+                         
                          return(list(infection_records_formatted = infs_formatted, 
                                      incidence_df = inci,
                                      params = params_row,
@@ -294,7 +316,7 @@ sim_trial_cohort <- function(trial_ts = 365*3,
       source("R:/Kelly/synergy_orderly/shared/format_model_output.R")
       source("R:/Kelly/synergy_orderly/shared/get_incidence.R")
       source("R:/Kelly/synergy_orderly/src/sim_trial_cohort/compare_incidence.R")
-      
+      source("R:/Kelly/synergy_orderly/shared/get_cox_efficacy.R")
       TRUE
     })
     
@@ -339,7 +361,11 @@ sim_trial_cohort <- function(trial_ts = 365*3,
                                          metrics <- compare_incidence(incidence_model = inci, 
                                                                       incidence_trial = incidence_trial,
                                                                       output_dir = output_dir)
-                                         message('comparing incidence')
+                                         message('compared incidence')
+                                         
+                                         # Make plots comparing hazard ratios 
+                                         compare_hr(infs_formatted_model = infs_formatted, 
+                                                    output_dir)
                                          
                                          return(list(infection_records_formatted = infs_formatted, 
                                                      incidence_df = inci,

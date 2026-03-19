@@ -22,6 +22,7 @@ optimise_sim_trial_cohort <- function(trial_ts = 365*3,
     # If base directory doesn't exist, create it
     if (!dir.exists(output_dir)) {
       dir.create(output_dir, recursive = TRUE)
+      dir.create(paste0(output_dir, '/plots'), recursive = TRUE)
     } else {
       # If it exists, find an available numbered version
       counter <- 2
@@ -32,6 +33,7 @@ optimise_sim_trial_cohort <- function(trial_ts = 365*3,
       }
       output_dir <- new_dir
       dir.create(output_dir, recursive = TRUE)
+      dir.create(paste0(output_dir, '/plots'), recursive = TRUE)
     }
     
     source('R:/Kelly/synergy_orderly/shared/cohort_sim_utils.R')
@@ -42,6 +44,7 @@ optimise_sim_trial_cohort <- function(trial_ts = 365*3,
     source("R:/Kelly/synergy_orderly/shared/format_model_output.R")
     source("R:/Kelly/synergy_orderly/shared/get_incidence.R")
     source("R:/Kelly/synergy_orderly/src/sim_trial_cohort/optimisation_helpers.R")
+    source("R:/Kelly/synergy_orderly/shared/get_cox_efficacy.R")
     
     # Load the within-host model 
     gen_bs <- odin2::odin("R:/Kelly/synergy_orderly/shared/smc_rtss.R")
@@ -111,9 +114,9 @@ optimise_sim_trial_cohort <- function(trial_ts = 365*3,
     
     # Load saved spline setup
     if(country_to_run =='BF'){
-      setup <- readRDS(paste0(path, "src/sim_trial_cohort/spline_setupBF.rds"))
+      setup <- readRDS(paste0(path, "src/sim_trial_cohort/spline_setupBF_14.rds"))
     } else if(country_to_run == 'Mali'){
-      setup <- readRDS(paste0(path, "src/sim_trial_cohort/spline_setupMali.rds"))
+      setup <- readRDS(paste0(path, "src/sim_trial_cohort/spline_setupMali_13.rds"))
     }
     
     
@@ -132,7 +135,10 @@ optimise_sim_trial_cohort <- function(trial_ts = 365*3,
              PEV = ifelse(arm == 'smc', 0, 1),
              SMC = ifelse(arm == 'rtss', 0, 1),
              t_to_boost1 = as.numeric(boost1_date - v3_date),
-             t_to_boost2 = as.numeric(boost2_date - v3_date)) %>%
+             t_to_boost2 = as.numeric(boost2_date - v3_date),
+             # Deal with situations where first booster is missing 
+             t_to_boost1 = ifelse(is.na(t_to_boost1) & !is.na(t_to_boost2), t_to_boost2, t_to_boost1),
+             t_to_boost2 = ifelse(t_to_boost1 == t_to_boost2, NA, t_to_boost2)) %>%
       # Calculate timings of smc for each year - first, need to calculate days since april 1, 2017 (analogous to vaccination_day above)
       rowwise() %>%
       mutate(smc_dates = list(na.omit(c_across(ends_with('date_received')))),
@@ -247,6 +253,7 @@ optimise_sim_trial_cohort <- function(trial_ts = 365*3,
         source("R:/Kelly/synergy_orderly/shared/get_incidence.R")
         source("R:/Kelly/synergy_orderly/src/sim_trial_cohort/compare_incidence.R")
         source("R:/Kelly/synergy_orderly/src/sim_trial_cohort/optimisation_helpers.R")
+        source("R:/Kelly/synergy_orderly/shared/get_cox_efficacy.R")
         
         TRUE
       })

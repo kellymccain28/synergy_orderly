@@ -64,6 +64,7 @@ fit_prob_bite_spline <- function(params_row,  # Add params_row as argument
     
     params_row_wprob <- params_row
     params_row_wprob$p_bite <- list(bite_prob)
+    params_row_wprob$iter <- iter
     
     #Run model and transform data to get output of rmse
     o <- run_cohort_simulation(params_row_wprob, # this should have max smc kill rate, lambda, kappa, lag, simid, and pbite
@@ -79,10 +80,11 @@ fit_prob_bite_spline <- function(params_row,  # Add params_row as argument
       return(1e10)
     }
     
-    cat(sprintf("  ✅ %d infections detected\n", nrow(o$infection_records)))
+    cat(sprintf(" ✅ %d infections detected\n", nrow(o$infection_records)))
     
     tryCatch({
-      o$infection_records$sim_id <- params_row$sim_id
+      o$infection_records$sim_id <- params_row_wprob$sim_id
+      o$infection_records$iter <- params_row_wprob$iter
       
       # remove any infections that occurred within 7 days 
       infs <- o$infection_records %>% 
@@ -97,17 +99,25 @@ fit_prob_bite_spline <- function(params_row,  # Add params_row as argument
       infs_formatted <- format_model_output(model_data = infs, 
                                             cohort = country_to_run, 
                                             start_cohort = as.Date('2017-04-01'),
-                                            simulation = params_row_wprob$sim_id)
+                                            simulation = params_row_wprob$sim_id) %>%
+        mutate(iter = params_row_wprob$iter)
       message('formatted infection df')
       
       inci <- get_incidence(df_children = metadata_df,
                             casedata = infs_formatted) %>%
-        mutate(sim_id = params_row_wprob$sim_id)
+        mutate(sim_id = params_row_wprob$sim_id,
+               iter = params_row_wprob$iter)
       message('got incidence')
       
+      # Get rmse and make plots comparing incidence
       metrics <- compare_incidence(incidence_model = inci, 
                                    incidence_trial = incidence_trial,
                                    output_dir = output_dir)
+      
+      # Make plots comparing hazard ratios 
+      compare_hr(infs_formatted_model = infs_formatted, 
+                 output_dir)
+      
       rmse <- metrics$rmse
       # Ensure rmse is finite
       if(!is.finite(rmse)) {
@@ -134,7 +144,9 @@ fit_prob_bite_spline <- function(params_row,  # Add params_row as argument
         rmse = rmse,
         iter = iter,
         inci = inci,
-        params_row = params_row_wprob
+        params_row = params_row_wprob,
+        inci = inci, 
+        infs_formatted = infs_formatted
       ), file = file.path(output_dir, "best_so_far.rds"))
 
       
@@ -168,7 +180,7 @@ fit_prob_bite_spline <- function(params_row,  # Add params_row as argument
   optimresults <- nloptr::nloptr(x0 = starting_coefs_scaled,
                                  eval_f = objectivefunc,
                                  opts = list(algorithm = "NLOPT_LN_SBPLX", 
-                                             maxeval = 180,
+                                             maxeval = 20,
                                              ftol_rel = 1e-3,
                                              print_level = 2))
   message('got optim results')

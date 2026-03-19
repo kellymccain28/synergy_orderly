@@ -53,6 +53,7 @@ compare_incidence <- function(incidence_model,
                         size = size, log = TRUE))
   message('got negll: ', negll)
   
+  iter <- unique(incidence_model$iter)
   simid <- unique(incidence_model$sim_id)
   if(length(simid) > 1){stop("There is more than one simulation in the model incidence data frame")}
   
@@ -74,7 +75,8 @@ compare_incidence <- function(incidence_model,
   # ggsave(filename = paste0(output_dir, '/incidence_trial_vs_model_', simid, '.png'), incicomparison)
   # Add timestamp to filename - guarantees uniqueness
   # Simple version - just check and add number
-  base_filename <- paste0(output_dir, '/incidence_trial_vs_model_', simid, '.png')
+  output_dir <- paste0(output_dir, '/plots')
+  base_filename <- paste0(output_dir, '/incidence_trial_vs_model_', iter, '.png')
   
   if (!file.exists(base_filename)) {
     ggsave(filename = base_filename, incicomparison)
@@ -82,7 +84,7 @@ compare_incidence <- function(incidence_model,
     # If exists, find next available number
     counter <- 1
     repeat {
-      new_filename <- paste0(output_dir, '/incidence_trial_vs_model_', simid, '_', counter, '.png')
+      new_filename <- paste0(output_dir, '/incidence_trial_vs_model_', iter, '_', counter, '.png')
       if (!file.exists(new_filename)) {
         ggsave(filename = new_filename, incicomparison)
         break
@@ -96,6 +98,79 @@ compare_incidence <- function(incidence_model,
     negll = negll,
     simid = simid
   ))
+}
+
+# Function to compare the hazard ratios from model and trial 
+compare_hr <- function(infs_formatted_model, 
+                       output_dir){
+  output_dir <- paste0(output_dir, '/plots')
+  
+  tidy_results_trial <- readRDS('R:/Kelly/synergy_orderly/archive/trial_results/20260219-104643-cb128f65/surv_analysis_trial.rds')
+  
+  iter <- unique(infs_formatted_model$iter)
+  simid <- unique(infs_formatted_model$sim_id)
+  if(length(simid) > 1){stop("There is more than one simulation in the formatted data frame")}
+  
+  eff_model_smc <- get_cox_efficacy(df = infs_formatted_model, 
+                                    ref = 'arm_smcref',
+                                    model = TRUE)
+  eff_model_rtss <- get_cox_efficacy(df = infs_formatted_model, 
+                                     ref = 'arm_rtssref',
+                                     model = TRUE)
+  model_results <- rbind(eff_model_smc, eff_model_rtss) %>%
+    mutate(year = factor(year, 
+                         levels = c(1, 2, 3, 'overall'),
+                         labels = c("Year 1", "Year 2", "Year 3", "Overall")))
+  
+  # Plot efficacy
+  efficacies <- ggplot(tidy_results_trial %>% 
+                         filter(term %in% c("Both vs. RTSS",'RTSS vs. SMC','Both vs. SMC')))+
+    geom_point(aes(x = term, y = VE, group = year, color = year, shape = 'Trial'),
+               position = position_dodge(width=0.3), size = 2) + 
+    geom_errorbar(aes(x = term, ymin = VE_lower, ymax = VE_upper, group = year, color = year, linetype = 'Trial'), 
+                  position = position_dodge(width=0.3), width = 0.2) +
+    
+    geom_point(data = model_results %>% 
+                 filter(term %in% c("Both vs. RTSS",'RTSS vs. SMC','Both vs. SMC')),
+               aes(x = term, y = VE, group = year, color = year, shape = 'Model'),
+               position = position_dodge(width=0.3), size = 2) + 
+    geom_errorbar(data = model_results %>% 
+                    filter(term %in% c("Both vs. RTSS",'RTSS vs. SMC','Both vs. SMC')),
+                  aes(x = term, ymin = VE_lower, ymax = VE_upper, group = year, color = year, linetype = 'Model'), 
+                  position = position_dodge(width=0.3), width = 0.2) +
+    geom_hline(aes(yintercept = 0), linetype = 2) +
+    scale_y_continuous(breaks = seq(-1, 1, 0.2),
+                       # limits = c(-01, 1),
+                       labels = scales::percent) +
+    scale_color_manual(values = c('Year 1' = '#7FB800',
+                                  'Year 2' = '#573280',
+                                  'Year 3' = '#CE6479',
+                                  'Overall' = '#197BBD')) +
+    labs(x = '',
+         y = 'Efficacy',
+         color = 'Trial year',
+         shape = NULL, linetype = NULL) +
+    theme_bw(base_size = 14) + 
+    theme(#legend.position = c(0.7, 0.8),
+      legend.background = element_rect(fill = "transparent", color = NA)) 
+  
+  base_filename <- paste0(output_dir, '/hr_trial_vs_model_', iter, '.png')
+  
+  if (!file.exists(base_filename)) {
+    ggsave(filename = base_filename, efficacies)
+  } else {
+    # If exists, find next available number
+    counter <- 1
+    repeat {
+      new_filename <- paste0(output_dir, '/hr_trial_vs_model_', iter, '_', counter, '.png')
+      if (!file.exists(new_filename)) {
+        ggsave(filename = new_filename, efficacies)
+        break
+      }
+      counter <- counter + 1
+    }
+  }
+  
 }
 
 # Method of moments estimator -- as an estimation of the size parameter -- may need to estimate it explicitly later 
