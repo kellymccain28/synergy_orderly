@@ -4,10 +4,10 @@
 ## Core equations for transitions between compartments:
 update(PB) <- if(PB_next < 1e-5) 0 else (PB_next)# - n_killSMC) * growth # first see how many die then multiply by growth
 update(sc) <- 1 / (1 + (PB_next / pc)^kappac) # gets smaller as parasite density increases (could maybe set a minimum value?)
-update(sm) <- 1#if(time > 3) (1 - beta) / (1 + (PBsum / pm)^kappam) + beta else 1
+update(sm) <- if(time > 3) (1 - beta) / (1 + (PBsum / pm)^kappam) + beta else 1
 update(sv) <- if(time > 3) 1 / (1 + (PBvsum / pv) ^ kappav) else 1
 update(st) <- if(time < t_onset) 1 else imm_min + (1 - imm_min) * exp(-(time - t_onset)/imm_tau) ## No immunity initially
-update(growth) <- m * sc * sv * st#* sm## growth rate is modified by natural and general-adaptive immunity and var-specific immunity
+update(growth) <- m * sc * sv * st* sm## growth rate is modified by natural and general-adaptive immunity and var-specific immunity
 imm_min <- parameter(0.7) # minimum immunity value
 t_onset <- parameter(3) # days until time-based immunity starts
 imm_tau <- parameter(100) # decay time constant 
@@ -150,16 +150,16 @@ rand_pc <- exp(TruncatedNormal(mean = mu_pc,
 pc <- kc * rand_pc
 
 # Draw from Gompertz distribution for general adaptive response 
-# kappam <- 1                 #
+kappam <- 1                 #
 C <- 1                      # regulates growth rate of general adaptive immunity
-# beta <- 0.01                # controls max efficacy of the general adaptive immunity
-# km <- 0.021                 #
-# alpha_pm <- 0.0311 #1       # first par for Gompertz distribution to control gen adaptive response
-# theta_pm <- 0.0004 #2       # second " "
-# 
-# unif <- Uniform(0,1)
-# pm_rand <- log(1 - (1 / theta_pm) * log(1 - unif)) * (1 / alpha_pm)
-# pm <- km * pm_rand
+beta <- 0.01                # controls max efficacy of the general adaptive immunity
+km <- 0.021                 #
+alpha_pm <- 0.0311 #1       # first par for Gompertz distribution to control gen adaptive response
+theta_pm <- 0.0004 #2       # second " "
+
+unif <- Uniform(0,1)
+pm_rand <- log(1 - (1 / theta_pm) * log(1 - unif)) * (1 / alpha_pm)
+pm <- km * pm_rand
 
 # EVSR immune response 
 kappav <- 1
