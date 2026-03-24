@@ -122,9 +122,9 @@ sim_trial_cohort <- function(trial_ts = 365*3,
   # to run with spline fitting 
   # Load saved spline best values 
   if(country_to_run =='BF'){
-    fittedspline <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-06_3/best_so_far.rds"))$params_row$p_bite
+    fittedspline <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-23_BF/best_so_far.rds"))$params_row$p_bite
   } else if(country_to_run == 'Mali'){
-    fittedspline <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-06_2/best_so_far.rds"))$params_row$p_bite
+    fittedspline <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-23_Mali/best_so_far.rds"))$params_row$p_bite
   }
   
   params_df$p_bite = fittedspline
@@ -278,7 +278,8 @@ sim_trial_cohort <- function(trial_ts = 365*3,
                          
                          # Make plots comparing hazard ratios 
                          compare_hr(infs_formatted_model = infs_formatted, 
-                                    output_dir)
+                                    output_dir,
+                                    country_to_use = country_to_run)
                          
                          return(list(infection_records_formatted = infs_formatted, 
                                      incidence_df = inci,

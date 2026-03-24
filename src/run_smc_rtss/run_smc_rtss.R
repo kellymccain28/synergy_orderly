@@ -83,7 +83,7 @@ growthr <- nothing[[5]]
 mplot <- nothing[[7]]
 # nothing[[11]] 
 
-
+# immunity plot ====
 plot_grid(
   prbc + labs(caption = NULL, x = 'Days', 
               y = expression(atop("Parasitised red blood", 
@@ -211,6 +211,7 @@ dfsmc <- smc[[6]] %>%
   mutate(scen = 'smc')
 # smc[['meroinit']] + labs(caption = NULL)
 
+# smc dynamics plot ----
 dfsmc <- dfsmc %>% 
   group_by(run) %>%
   arrange(run, time_withinhost) %>%
@@ -337,7 +338,7 @@ ggsave(filename = "vaxsmc_stoch.png", plot = vaxSMCplt, width = 11, height = 16)
 # saveRDS(dfsmc, file = str_glue("df_smc_", runpars$n_particles,".rds"))
 # saveRDS(dfvaxsmc, file = str_glue("df_vaxsmc_", runpars$n_particles,".rds"))
 
-# poster
+# trajectories plot ----
 n <- nothing[[1]] + 
   scale_color_manual(values = c("#F8766D","#F8766D")) +
   xlim(c(-35,400)) + 

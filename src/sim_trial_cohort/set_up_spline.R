@@ -6,7 +6,7 @@ prob_biteml <- unlist(readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/out
 # BF
 # pbite <- prob_bitebf %>% filter(date >= (as.Date('2017-04-01')-50) & date <= '2020-03-31') %>% pull(prob_infectious_bite)
 tt <- seq(0, 365*3 + 50, 1)  # time vector
-selected_df <- 14
+selected_df <- 30
 
 # Create basis matrix
 ns_basis <- ns(tt, df = selected_df)
@@ -66,7 +66,7 @@ saveRDS(list(
 # Mali ---------------------------------------------------------------------------------------------------
 # pbite <- prob_biteml %>% filter(date >= (as.Date('2017-04-01')-50) & date <= '2020-03-31')%>% pull(prob_infectious_bite)
 tt <- seq(0, 365*3 + 50, 1)  # your time vector
-selected_df <- 13
+selected_df <- 30
 
 # Create basis matrices ONCE and save them
 ns_basis <- ns(tt, df = selected_df)

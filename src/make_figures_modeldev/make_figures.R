@@ -97,6 +97,8 @@ outputs_folder <- 'outputs_2026-01-27_8'
 outputs_folder <- 'outputs_2026-02-13_3'
 outputs_folder <- 'outputs_2026-02-25_3'
 outputs_folder <- 'outputs_2026-03-02' # redoing mali (no int arm had 0 inci before bc rid error)
+outputs_folder <- 'outputs_2026-03-17_12'
+outputs_folder <- 'outputs_2026-03-17_11'
 
 # With updated SMC parameters fitted to threshold of 3000 -- as of 10 feb
 cohort_folder <- 'sim_cohort_generic'
@@ -163,9 +165,49 @@ outputs_folders <- c('outputs_2026-02-27',
 cohort_folder <- 'sim_cohort_generic'
 outputs_folders <- paste0('outputs_2026-02-27_',seq(9, 18))
 
+# st immmunity, no gen adaptive immunity; 64 reps
+cohort_folder <- 'sim_cohort_generic'
+outputs_folders <- c('outputs_2026-03-20', #150,30
+                     'outputs_2026-03-20_2'# 110,75
+                     )
+
+# generic cohrots to get parasitaemia over tiem; 64 reps
+cohort_folder <- 'sim_cohort_generic'
+outputs_folders <- c('outputs_2026-03-17', #110,75
+                     'outputs_2026-03-17_2'# 150,30
+)
+
+outputs_folders <- c('outputs_2026-03-24_2','outputs_2026-03-24')
+outputs_folders <- c('outputs_2026-03-23_5',
+                    'outputs_2026-03-23_6',
+                    'outputs_2026-03-23_7',
+                    'outputs_2026-03-23_8',
+                    'outputs_2026-03-23_9',
+                    'outputs_2026-03-23_10',
+                    'outputs_2026-03-23_11',
+                    'outputs_2026-03-23_12',
+                    'outputs_2026-03-23_13')
+
 task_create_expr({
   cohort_folder <- 'sim_cohort_generic'
-  outputs_folders <-  'outputs_2026-02-18_3'
+  outputs_folders <-  c(#'outputs_2026-03-24_4',
+                        #'outputs_2026-03-24_5',
+                        'outputs_2026-03-24_6',
+                        'outputs_2026-03-24_7',
+                        'outputs_2026-03-24_8',
+                        'outputs_2026-03-24_9',
+                        'outputs_2026-03-24',
+                        'outputs_2026-03-24_2',
+                        'outputs_2026-03-24_3',
+                        'outputs_2026-03-24_10',
+                        'outputs_2026-03-24_11',
+                        'outputs_2026-03-24_12',
+                        'outputs_2026-03-24_13',
+                        'outputs_2026-03-24_14',
+                        'outputs_2026-03-24_15',
+                        'outputs_2026-03-24_16',
+                        'outputs_2026-03-24_17',
+                        'outputs_2026-03-24_18')
   
   for(outputs_folder in outputs_folders){
     print(outputs_folder)

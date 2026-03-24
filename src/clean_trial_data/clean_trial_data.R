@@ -149,7 +149,8 @@ serology <- serology_raw %>%
   timing = factor(timing, levels= c('pre dose 3','post dose 3','pre boost 1','post boost 1','pre boost 2', 'post boost 2')),
   postonly = case_when(timing %in% c('post dose 3','post boost 1','post boost 2') ~ 'post',
                        TRUE ~ 'pre'),
-  time_since_vac = sdate - last_primary_vac)
+  time_since_vac = sdate - last_primary_vac,
+  age_at_vac = interval(dob, sdate) %/% months(1))
 
 weekly_raw <- rbind(weekly1_raw, weekly2_raw, weekly3_raw) 
 weekly <- weekly_raw %>%
@@ -232,8 +233,8 @@ pp <- primary_persontime %>%
   mutate(rid = factor(rid, levels = rid)) 
 mean(pp$n) # 1.8
 median(pp$n) # 1
-ggplot(pp) + 
-  geom_bar(aes(x = as.factor(rid), y = n), stat = 'identity', width = 1)  
+# ggplot(pp) + 
+#   geom_bar(aes(x = as.factor(rid), y = n), stat = 'identity', width = 1)  
   
 
 dir.create('data/')

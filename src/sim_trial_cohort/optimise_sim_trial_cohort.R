@@ -17,7 +17,7 @@ optimise_sim_trial_cohort <- function(trial_ts = 365*3,
     library(zoo)
     
     setwd(path)
-    output_dir = paste0(path, 'src/sim_trial_cohort/outputs_fitting/outputs_', Sys.Date())
+    output_dir = paste0(path, 'src/sim_trial_cohort/outputs_fitting/outputs_',  Sys.Date(), '_', country_to_run)
     
     # If base directory doesn't exist, create it
     if (!dir.exists(output_dir)) {

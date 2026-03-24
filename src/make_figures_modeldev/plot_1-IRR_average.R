@@ -129,7 +129,7 @@ plot_irr_average <- function(outputsfolder,
       geom_errorbar(aes(ymin = lower_ci, ymax = upper_ci),
                     width = 0.2, position = position_dodge(width = 0.5)) +
       scale_color_manual(values = colors) +
-      geom_hline(yintercept = 1, linetype = "dashed", color = "darkred") +
+      geom_hline(yintercept = 0, linetype = "dashed", color = "darkred") +
       labs(
         x = NULL,#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Half-year',
         y = "Difference in model-predicted versus expected\ncases averted per 1000 people of\ncombination vs no intervention",

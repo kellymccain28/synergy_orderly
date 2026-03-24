@@ -1,5 +1,6 @@
 # Function to calculate the men least squared difference (2-norm) between model-predicted and observed incidence 
 # loss function to minimise when fitting lag and scaler 
+
 compare_incidence <- function(incidence_model, 
                               incidence_trial, 
                               output_dir){
@@ -65,8 +66,9 @@ compare_incidence <- function(incidence_model,
                                    'Model' = '#E1BC29'))+#c('#C44536','#772E25','#197278','#283D3B'))+
     labs(color = 'Intervention arm',
          x = 'Date',
-         y = 'Incidence per 1000 person-months',
-         caption = paste0('lag: ', pars$lag_p_bite, 'yr 1 scaler: ', pars$p_bite_scaler_1,'\nyr 2 scaler: ', pars$p_bite_scaler_2, 'yr3 scaler: ',pars$p_bite_scaler_3)) +
+         y = 'Incidence per 1000 person-months'#,
+         # caption = paste0('lag: ', pars$lag_p_bite, 'yr 1 scaler: ', pars$p_bite_scaler_1,'\nyr 2 scaler: ', pars$p_bite_scaler_2, 'yr3 scaler: ',pars$p_bite_scaler_3)
+         ) +
     theme_bw(base_size = 14) + 
     facet_wrap(~factor(arm, levels = c('none','rtss','smc','both')), 
                nrow = 4,
@@ -102,10 +104,12 @@ compare_incidence <- function(incidence_model,
 
 # Function to compare the hazard ratios from model and trial 
 compare_hr <- function(infs_formatted_model, 
-                       output_dir){
+                       output_dir,
+                       country_to_use){
   output_dir <- paste0(output_dir, '/plots')
   
-  tidy_results_trial <- readRDS('R:/Kelly/synergy_orderly/archive/trial_results/20260219-104643-cb128f65/surv_analysis_trial.rds')
+  tidy_results_trial <- readRDS('R:/Kelly/synergy_orderly/archive/trial_results/20260324-110905-235eebeb/surv_analysis_trial_stratified.rds') %>%
+    filter(country == country_to_use)
   
   iter <- unique(infs_formatted_model$iter)
   simid <- unique(infs_formatted_model$sim_id)

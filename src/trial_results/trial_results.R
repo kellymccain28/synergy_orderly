@@ -76,6 +76,39 @@ tidy_results <- rbind(smcrefresults, rtssrefresults) %>%
 
 saveRDS(tidy_results, 'surv_analysis_trial.rds')
 
+# Survival analysis to reproduce results from trial by country----
+## SMC comparator by year and overall ---- 
+BFsmcrefresults <- get_cox_efficacy(df = primary_pt %>% filter(country == 'BF'), 
+                                  ref = 'arm_smcref',
+                                  model = FALSE)
+
+## RTSS comparator by year and overall ---- 
+BFrtssrefresults <- get_cox_efficacy(df = primary_pt %>% filter(country == 'BF'), 
+                                   ref = 'arm_rtssref',
+                                   model = FALSE)
+
+## SMC comparator by year and overall ---- 
+Malismcrefresults <- get_cox_efficacy(df = primary_pt %>% filter(country == 'Mali'), 
+                                    ref = 'arm_smcref',
+                                    model = FALSE)
+
+## RTSS comparator by year and overall ---- 
+Malirtssrefresults <- get_cox_efficacy(df = primary_pt %>% filter(country == 'Mali'), 
+                                     ref = 'arm_rtssref',
+                                     model = FALSE)
+
+mali_tidy <- rbind(Malirtssrefresults, Malismcrefresults) %>%
+  mutate(country= 'Mali')
+bf_tidy <- rbind(BFrtssrefresults, BFsmcrefresults)%>%
+  mutate(country= 'BF')
+
+tidy_results_stratified <- rbind(mali_tidy, bf_tidy) %>%
+  mutate(year = factor(year, 
+                       levels = c(1, 2, 3, 'overall'),
+                       labels = c("Year 1", "Year 2", "Year 3", "Overall")))
+
+saveRDS(tidy_results_stratified, 'surv_analysis_trial_stratified.rds')
+
 # Plot efficacy
 efficacies <- ggplot(tidy_results %>% 
                        filter(term %in% c("Both vs. RTSS",'RTSS vs. SMC','Both vs. SMC')))+
@@ -97,8 +130,33 @@ efficacies <- ggplot(tidy_results %>%
   theme_bw(base_size = 14) + 
   theme(legend.position = c(0.85, 0.75),
         legend.background = element_rect(fill = "transparent", color = NA))
-efficacies
-ggsave(filename = 'efficacy_trial.pdf', efficacies, height = 4, width = 6)
+# efficacies
+ggsave(filename = 'efficacy_trial.pdf', efficacies, height = 5, width = 5)
+
+
+efficacies_strat <- ggplot(tidy_results_stratified %>% 
+                       filter(term %in% c("Both vs. RTSS",'RTSS vs. SMC','Both vs. SMC')))+
+  geom_point(aes(x = term, y = VE, group = year, color = year),
+             position = position_dodge(width=0.3), size = 2) + 
+  geom_errorbar(aes(x = term, ymin = VE_lower, ymax = VE_upper, group = year, color = year), 
+                position = position_dodge(width=0.3), width = 0.2) +
+  geom_hline(aes(yintercept = 0), linetype = 2) +
+  scale_y_continuous(breaks = seq(-0.4, 1, 0.2),
+                     limits = c(-0.4, 1),
+                     labels = scales::percent) +
+  scale_color_manual(values = c('Year 1' = '#7FB800',
+                                'Year 2' = '#573280',
+                                'Year 3' = '#CE6479',
+                                'Overall' = '#197BBD')) +
+  facet_wrap(~country) +
+  labs(x = '',
+       y = 'Efficacy',
+       color = 'Trial year') +
+  theme_bw(base_size = 14) + 
+  theme(legend.position = c(0.9, 0.8),
+        legend.background = element_rect(fill = "transparent", color = NA))
+# efficacies_strat
+ggsave(filename = 'efficacy_trial_stratified.pdf', efficacies_strat, height = 5, width = 10)
 
 
 # Get efficacy for 3 versus 2 doses 
@@ -131,12 +189,12 @@ results <- tidy(coxdoses_interactsmc,
   mutate(n_events = coxdoses_interactsmc$nevent,
          n_obs = coxdoses_interactsmc$n)
 
-ggplot(results )+#%>% filter(term != 'factor(arm)rtss'))+
-  geom_point(aes(x = term, y = VE)) + 
-  geom_errorbar(aes(x = term, ymin = VE_lower, ymax = VE_upper), width = 0.2) +
-  geom_hline(aes(yintercept = 0), linetype = 2) +
-  labs(x = '') +
-  theme_bw(base_size = 16) 
+# ggplot(results )+#%>% filter(term != 'factor(arm)rtss'))+
+#   geom_point(aes(x = term, y = VE)) + 
+#   geom_errorbar(aes(x = term, ymin = VE_lower, ymax = VE_upper), width = 0.2) +
+#   geom_hline(aes(yintercept = 0), linetype = 2) +
+#   labs(x = '') +
+#   theme_bw(base_size = 16) 
 
 # Stratified analysis
 results_stratified <- df %>%
@@ -168,7 +226,7 @@ results_stratified <- df %>%
   )
 
 # Stratified plot
-ggplot(results_stratified, aes(x = doses, y = VE, color = arm_label)) +
+ve_strat <- ggplot(results_stratified, aes(x = doses, y = VE, color = arm_label)) +
   geom_point(size = 3, position = position_dodge(width = 0.3)) + 
   geom_errorbar(aes(ymin = VE_lower, ymax = VE_upper), 
                 width = 0.2, position = position_dodge(width = 0.3)) +
@@ -287,7 +345,7 @@ monthlyincidenceplot <- monthly_inci %>%
     fill = "Intervention Arm"
   ) +
   theme_minimal(base_size = 14)
-monthlyincidenceplot
+# monthlyincidenceplot
 ggsave("trial_monthlyincidence.png", plot = monthlyincidenceplot, bg = 'white', width = 12, height = 6)
 ggsave("trial_monthlyincidence.pdf", plot = monthlyincidenceplot, width = 12, height = 6)
 
@@ -371,7 +429,7 @@ ggsave("trial_monthlyincidence_Mali.pdf", plot = monthlyincidenceplotmali, width
 
 # Delivery proportion ----
 #smc 
-ggplot(delivery %>% filter(arm !='rtss')) +
+nsmcplot <- ggplot(delivery %>% filter(arm !='rtss')) +
   geom_bar(aes(x = nsmc_received, group = arm, fill = arm),
                  position = 'dodge') + 
   facet_wrap(~ country) +
@@ -381,7 +439,7 @@ ggplot(delivery %>% filter(arm !='rtss')) +
        y = 'Number of people',
        fill = 'Intervention arm') + 
   theme_bw(base_size =  14)
-ggsave('nsmc_received_bycountryandarm.pdf', plot = last_plot(), height = 5, width = 10)
+ggsave('nsmc_received_bycountryandarm.pdf', plot = nsmcplot, height = 5, width = 10)
 
 # percent of people in each arm who missed at least 1 round of smc 
 delivery %>% 
@@ -442,7 +500,7 @@ glm_stratified <- delivery %>%
 glm_stratified
 
 # Visualization
-ggplot(glm_stratified, 
+rr_doses <- ggplot(glm_stratified, 
        aes(x = country, y = estimate, color = country)) +
   geom_point(size = 4) +
   geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
@@ -463,7 +521,7 @@ ggplot(glm_stratified,
 delivery <- delivery %>%
   rowwise() %>%
   mutate(n_rtss =  sum(as.numeric(nprimary), as.numeric(boost1_done), as.numeric(boost2_done), na.rm = TRUE))
-ggplot(delivery %>% filter(arm !='smc')) +
+nrtss <- ggplot(delivery %>% filter(arm !='smc')) +
   geom_bar(aes(x = n_rtss, group = arm, fill = arm),
            position = 'dodge') + 
   facet_wrap(~ country, scales = 'free_y') +
@@ -473,7 +531,7 @@ ggplot(delivery %>% filter(arm !='smc')) +
        y = 'Number of people',
        fill = 'Intervention arm') + 
   theme_bw(base_size =  14)
-ggsave('nrtss_received_bycountryandarm.pdf', plot = last_plot(), height = 5, width = 10)
+ggsave('nrtss_received_bycountryandarm.pdf', plot = nrtss, height = 5, width = 10)
 
 
 
@@ -544,9 +602,9 @@ vaxdates2 <- vaxdates %>%
   select(rid, arm, dose, date) %>%
   group_by(date, dose, arm) %>%
   count()
-ggplot(vaxdates2 %>% filter(date < '2017-12-01')) + 
-  geom_tile(aes(x = as.Date(date), y = dose, fill = n)) + 
-  theme_classic()
+# ggplot(vaxdates2 %>% filter(date < '2017-12-01')) + 
+#   geom_tile(aes(x = as.Date(date), y = dose, fill = n)) + 
+#   theme_classic()
 
 smcdelivery_dates <- ggplot(smcdates) +
   geom_histogram(aes(x = as.Date(date), fill = round), binwidth = 1) +
@@ -571,8 +629,8 @@ smcdates <- delivery_avg %>%
   pivot_longer(cols = contains('date_received'),
                names_to = 'smcdose',
                values_to = 'date') 
-ggplot(smcdates) +
-  geom_vline(aes(xintercept = date, color = smcdose, linetype = arm)) + facet_wrap(~country)
+# ggplot(smcdates) +
+#   geom_vline(aes(xintercept = date, color = smcdose, linetype = arm)) + facet_wrap(~country)
 
 saveRDS(smcdates, 'R:/Kelly/synergy_orderly/shared/median_smc_dates.rds')
 
@@ -581,7 +639,7 @@ saveRDS(smcdates, 'R:/Kelly/synergy_orderly/shared/median_smc_dates.rds')
 weekly <- weekly %>%
   mutate(poutcome= ifelse(pf_asex_fdensity >= 5000, '1', '0'))
 
-ggplot(weekly %>% filter(!is.na(poutcome))) +
+parasit_country <- ggplot(weekly %>% filter(!is.na(poutcome))) +
   geom_jitter(aes(x = arm, y = pf_asex_fdensity, color = poutcome)) + 
   geom_violin(aes(x = arm, y= pf_asex_fdensity), alpha = 0.0) +
   geom_hline(yintercept = 5000, linetype = 2) +
@@ -595,9 +653,9 @@ ggplot(weekly %>% filter(!is.na(poutcome))) +
        y = 'Parasitaemia (PRBCs per \u03bcL)',
        color = NULL) +
   theme_minimal(base_size = 14)
-ggsave(filename = 'parasitaemia_bycountry.pdf', plot = last_plot(), height = 4, width = 7)
+ggsave(filename = 'parasitaemia_bycountry.pdf', plot = parasit_country, height = 4, width = 7)
 
-ggplot(weekly %>% filter(!is.na(pf_asex_fdensity))) +
+parasit_overtime <- ggplot(weekly %>% filter(!is.na(pf_asex_fdensity))) +
   geom_point(aes(x = dateweekly, y = pf_asex_fdensity, color = country)) + 
   # geom_smooth(aes(x = dateweekly, y = pf_asex_fdensity, color = country, fill = country), alpha = 0.1) +
   geom_hline(yintercept = 5000, linetype = 2) +
@@ -614,7 +672,7 @@ ggplot(weekly %>% filter(!is.na(pf_asex_fdensity))) +
        color = 'Country', fill = 'Country')+
   theme_minimal(base_size = 14)
 # year 2, a lot more positive samples it seems
-ggsave(filename = 'parasitaemia_overtime.pdf', plot = last_plot(), height = 6, width = 8)
+ggsave(filename = 'parasitaemia_overtime.pdf', plot = parasit_overtime, height = 6, width = 8)
 
 weekly %>% 
   group_by(arm) %>%
@@ -654,16 +712,16 @@ summarisedsero <- sero %>% filter(postonly =='post' & arm != 'smc') %>%
   summarise(mean = mean(lnnew, na.rm = TRUE),
             median = median(lnnew, na.rm = TRUE))
 
-ggplot(sero %>% filter(postonly =='post')) + 
-  geom_violin(aes(x = country, y = lnnew, fill = arm))
+# ggplot(sero %>% filter(postonly =='post')) + 
+#   geom_violin(aes(x = country, y = lnnew, fill = arm))
+# 
+# ggplot(sero %>% filter(postonly =='post' & arm != 'smc' )) + 
+#   geom_point(aes(x = sdate, y = lnnew, color = arm)) + 
+#   # geom_line(aes(x = dcontact, y = lnnew, group = rid)) +
+#   geom_vline(data = vaxdates, aes(xintercept = date)) + 
+#   facet_wrap(~country)
 
-ggplot(sero %>% filter(postonly =='post' & arm != 'smc' )) + 
-  geom_point(aes(x = sdate, y = lnnew, color = arm)) + 
-  # geom_line(aes(x = dcontact, y = lnnew, group = rid)) +
-  geom_vline(data = vaxdates, aes(xintercept = date)) + 
-  facet_wrap(~country)
-
-ggplot(sero %>% filter(arm !='smc' & postonly == 'post')) + 
+sero_armcountry <- ggplot(sero %>% filter(arm !='smc' & postonly == 'post')) + 
   geom_density(aes(x = lnnew, fill = arm), alpha =0.7) + 
   geom_vline(data = summarisedsero,
              aes(xintercept = median, color = arm), linewidth = 1, linetype = 2, alpha = 0.5) +
@@ -674,223 +732,263 @@ ggplot(sero %>% filter(arm !='smc' & postonly == 'post')) +
        x = expression(paste(italic('ln'), '(anti-CSP antibody titre in EU/mL)')),
        color = NULL, fill = NULL) +
   theme_minimal(base_size = 14)
-ggsave(filename = 'sero_byarmandcountry.pdf', plot = last_plot(), height = 4, width = 7)
+ggsave(filename = 'sero_byarmandcountry.pdf', plot = sero_armcountry, height = 4, width = 7)
+
+# linear regression of the measured titre 
+
+sero_wide_v3 <- sero %>% filter(str_detect(timing, 'dose 3')) %>%
+  select(arm, country, rid, timing, lnnew, age_at_vac) %>%
+  pivot_wider(
+    names_from = timing,    
+    values_from = lnnew     
+  ) 
+model <- lm(`post dose 3` ~ arm + strata(country) + age_at_vac, data = sero_wide_v3 %>% filter(arm != 'smc'))
+summary(model)
+
+
+
 
 
 # Calculate IRRs as in model outputs ----
 source("R:/Kelly/synergy_orderly/src/make_figures_modeldev/bootstrap_metric.R")
 library(purrr)
-model_inci_summary_all_halfyear <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-02/inci_summary_all_halfyear.rds") %>%
-  mutate(shape_var = case_when(
-    metric == 'efficacy' & grepl('Expected', comparison) ~ 'Expected',
-    metric == 'efficacy' ~ 'Model-predicted',
-    TRUE ~ NA)) 
-model_inci_summary_wide_halfyear <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-02/inci_summary_wide_halfyear.rds")
-formatted_infrecords <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-02/formatted_infrecords.rds")
 
-inci <- monthly_inci# trial
+# country = 'Mali'
+# 
+# if(country == 'Mali'){
+#   # when i get the final version of the best fitting curev, can use this isntead 
+#   model_inci_summary_all_halfyear <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24_2/inci_summary_all_halfyear.rds") %>%
+#     mutate(shape_var = case_when(
+#       metric == 'efficacy' & grepl('Expected', comparison) ~ 'Expected',
+#       metric == 'efficacy' ~ 'Model-predicted',
+#       TRUE ~ NA)) 
+#   model_inci_summary_wide_halfyear <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24_2/inci_summary_wide_halfyear.rds")
+#   formatted_infrecords <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24_2/formatted_infrecords.rds")
+#   
+#   monthly_incidence_trial <- readRDS("R:/Kelly/synergy_orderly/archive/trial_results/20260324-150302-df3f8aff/monthly_incidence_trial_Mali.rds")
+# } else if (country == 'BF'){
+#   model_inci_summary_all_halfyear <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24/inci_summary_all_halfyear.rds") %>%
+#     mutate(shape_var = case_when(
+#       metric == 'efficacy' & grepl('Expected', comparison) ~ 'Expected',
+#       metric == 'efficacy' ~ 'Model-predicted',
+#       TRUE ~ NA)) 
+#   model_inci_summary_wide_halfyear <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24/inci_summary_wide_halfyear.rds")
+#   formatted_infrecords <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24/formatted_infrecords.rds")
+#   
+#   monthly_incidence_trial <- readRDS("R:/Kelly/synergy_orderly/archive/trial_results/20260324-150302-df3f8aff/monthly_incidence_trial_BF.rds")
+# }
+
 agg_unit = 'halfyear'
-inci_annual <- inci %>%
-  filter(!is.na(date)) %>%
-  filter(date > '2017-05-01') %>%
-  mutate(time_value = case_when(date < '2017-10-01' & date > '2017-05-01' ~ 'June 2017-Sep 2017',
-                                date < '2018-04-01' ~ 'Oct 2017-March 2018',
-                                date < '2018-10-01' ~ 'April 2018-Sep 2018',
-                                date < '2019-04-01' ~ 'Oct 2018-March 2019',
-                                date < '2019-10-01' ~ 'April 2019-Sep 2019',
-                                date < '2020-04-01' ~ 'Oct 2019-March 2020'),
-         time_value_num = case_when(date < '2017-10-01' & date > '2017-05-01' ~ '1',
-                                    date < '2018-04-01' ~ '2',
-                                    date < '2018-10-01' ~ '3',
-                                    date < '2019-04-01' ~ '4',
-                                    date < '2019-10-01' ~ '5',
-                                    date < '2020-04-01' ~ '6')) %>%
-  group_by(time_value, time_value_num, arm) %>%
-  summarize(person_months = sum(person_months),
-            n_cases = sum(n_cases)) %>%
-  mutate(incidence_per_1000pm = n_cases / person_months * 1000,
-         time_value = as.character(time_value),
-         time_unit = agg_unit)
 
-inci_overall <- inci %>%
-  group_by(arm) %>%
-  summarize(person_months = sum(person_months),
-            n_cases = sum(n_cases)) %>%
-  mutate(incidence_per_1000pm = n_cases / person_months * 1000,
-         time_value = 'Overall',
-         time_value_num = 'Overall',
-         time_unit = agg_unit)
+calc_irr_trial <- function(agg_unit,
+                           country){
+  
+  if(country == 'Mali'){
+    # when i get the final version of the best fitting curev, update folder 
+    model_inci_summary_all_halfyear <- readRDS(paste0("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24_2/inci_summary_all_",agg_unit, ".rds")) %>%
+      mutate(shape_var = case_when(
+        metric == 'efficacy' & grepl('Expected', comparison) ~ 'Expected',
+        metric == 'efficacy' ~ 'Model-predicted',
+        TRUE ~ NA)) 
+    model_inci_summary_wide_halfyear <- readRDS(paste0("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24_2/inci_summary_wide_",agg_unit, ".rds"))
+    formatted_infrecords <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24_2/formatted_infrecords.rds")
+    
+    monthly_incidence_trial <- readRDS("R:/Kelly/synergy_orderly/archive/trial_results/20260324-150302-df3f8aff/monthly_incidence_trial_Mali.rds")
+  } else if (country == 'BF'){
+    model_inci_summary_all_halfyear <- readRDS(paste0("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24/inci_summary_all_",agg_unit, ".rds")) %>%
+      mutate(shape_var = case_when(
+        metric == 'efficacy' & grepl('Expected', comparison) ~ 'Expected',
+        metric == 'efficacy' ~ 'Model-predicted',
+        TRUE ~ NA)) 
+    model_inci_summary_wide_halfyear <- readRDS(paste0("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24/inci_summary_wide_",agg_unit, ".rds"))
+    formatted_infrecords <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24/formatted_infrecords.rds")
+    
+    monthly_incidence_trial <- readRDS("R:/Kelly/synergy_orderly/archive/trial_results/20260324-150302-df3f8aff/monthly_incidence_trial_BF.rds")
+  }
+  
+  monthly_incidence_trial <- monthly_incidence_trial %>%
+    filter(!is.na(date)) %>%
+    filter(date > '2017-05-01') 
+  
+  if(agg_unit == 'halfyear'){
+    inci_annual <- monthly_incidence_trial %>%
+      mutate(time_value = case_when(date < '2017-10-01' & date > '2017-05-01' ~ 'June 2017-Sep 2017',
+                                    date < '2018-04-01' ~ 'Oct 2017-March 2018',
+                                    date < '2018-10-01' ~ 'April 2018-Sep 2018',
+                                    date < '2019-04-01' ~ 'Oct 2018-March 2019',
+                                    date < '2019-10-01' ~ 'April 2019-Sep 2019',
+                                    date < '2020-04-01' ~ 'Oct 2019-March 2020'),
+             time_value_num = case_when(date < '2017-10-01' & date > '2017-05-01' ~ '1',
+                                        date < '2018-04-01' ~ '2',
+                                        date < '2018-10-01' ~ '3',
+                                        date < '2019-04-01' ~ '4',
+                                        date < '2019-10-01' ~ '5',
+                                        date < '2020-04-01' ~ '6')) %>%
+      group_by(time_value, time_value_num, arm) %>%
+      summarize(person_months = sum(person_months),
+                n_cases = sum(n_cases)) %>%
+      mutate(incidence_per_1000pm = n_cases / person_months * 1000,
+             time_value = as.character(time_value),
+             time_unit = agg_unit)
+    
+    inci_overall <- monthly_incidence_trial %>%
+      group_by(arm) %>%
+      summarize(person_months = sum(person_months),
+                n_cases = sum(n_cases)) %>%
+      mutate(incidence_per_1000pm = n_cases / person_months * 1000,
+             time_value = 'Overall',
+             time_value_num = 'Overall',
+             time_unit = agg_unit)
+    
+    inci <- rbind(inci_annual, inci_overall) %>%
+      mutate(time_value = factor(time_value, levels = c('June 2017-Sep 2017',
+                                                        'Oct 2017-March 2018',
+                                                        'April 2018-Sep 2018',
+                                                        'Oct 2018-March 2019',
+                                                        'April 2019-Sep 2019',
+                                                        'Oct 2019-March 2020',
+                                                        'Overall')))
+  } else if (agg_unit == 'yearmonth'){
+    inci <- monthly_incidence_trial %>%
+      filter(date > '2017-05-01') %>%
+      mutate(time_value = yearmonth, 
+             time_value_num = yearmonth,
+             time_unit = agg_unit)
+  }
+  
+  # Pivot wider 
+  inci_wide <- inci %>%
+    dplyr::select(arm, time_value, time_value_num, time_unit, 
+                  person_months, incidence_per_1000pm) %>%
+    pivot_wider(
+      names_from = arm,
+      values_from = c(person_months, incidence_per_1000pm),
+      id_cols = c(time_value, time_value_num, time_unit)
+    )
+  
+  # Get IRRs
+  inci_wide <- inci_wide %>%
+    # mutate(incidence_per_1000pm_none = 40) %>%
+    # Join the model predicted incidence for the no-intervention group to the trial data 
+    left_join(model_inci_summary_wide_halfyear %>% select(time_value, time_value_num, time_unit, incidence_none_median) %>%
+                rename(incidence_per_1000pm_none = incidence_none_median)) %>%
+    mutate(rtss_none_irr = (incidence_per_1000pm_rtss / incidence_per_1000pm_none),
+           smc_none_irr = (incidence_per_1000pm_smc / incidence_per_1000pm_none),
+           both_none_irr = (incidence_per_1000pm_both / incidence_per_1000pm_none),
+           rtss_smc_irr = (incidence_per_1000pm_rtss / incidence_per_1000pm_smc),
+           both_smc_irr = (incidence_per_1000pm_both / incidence_per_1000pm_smc),
+           both_rtss_irr = (incidence_per_1000pm_both / incidence_per_1000pm_rtss),
+           smc_rtss_irr = (incidence_per_1000pm_smc / incidence_per_1000pm_rtss)  )%>%
+    mutate(expected_efficacy = 1 - (rtss_none_irr * smc_none_irr),
+           ratio_pred_exp = (1-both_none_irr) / expected_efficacy,
+           ratio_inci_rate_only = both_none_irr / (rtss_none_irr * smc_none_irr),
+           
+           inci_averted_model = incidence_per_1000pm_none - incidence_per_1000pm_both,
+           cases_averted_model = inci_averted_model * 1000, # if pop is 1000
+           
+           inci_averted_expected = incidence_per_1000pm_none - 
+             (incidence_per_1000pm_rtss * incidence_per_1000pm_smc)/incidence_per_1000pm_none,
+           cases_averted_expected = inci_averted_expected * 1000, # if pop is 1000
+           
+           difference_inci_averted_pred_exp = inci_averted_model - inci_averted_expected,
+           difference_cases_averted_pred_exp = cases_averted_model - cases_averted_expected)
+  
+  # Calculate efficacy
+  inci_summary <- inci_wide %>%
+    mutate(
+      both_smc = 1- both_smc_irr,
+      rtss_none =1-rtss_none_irr ,
+      both_rtss = 1-both_rtss_irr,
+      smc_none = 1-smc_none_irr  ,
+      both_none = 1-both_none_irr,
+      rtss_smc = 1-rtss_smc_irr  ,
+      smc_rtss =1-smc_rtss_irr   )
+  
+  
+  # Make long 
+  inci_long <- inci_summary %>%
+    dplyr::select(time_value, time_value_num, time_unit, starts_with('incidence')) %>%
+    pivot_longer(cols = starts_with('incidence'),
+                 names_to = c("arm", "stat"),
+                 names_pattern = "incidence_(.*)_(.*)",
+                 values_to = "value")%>%
+    pivot_wider(
+      names_from = stat,
+      values_from = value
+    )%>% 
+    mutate(metric = 'incidence', comparison = NA)
+  
+  irrs_long <- inci_summary %>%
+    dplyr::select(time_value, time_value_num, time_unit, both_smc:smc_rtss, expected_efficacy) %>%
+    pivot_longer(cols =  c(both_smc:smc_rtss,expected_efficacy:expected_efficacy),
+                 names_to = 'comparison',
+                 values_to = "irr")%>%
+    mutate(
+      # Clean up the comparison names for better labels
+      comparison = gsub("_", " vs ", comparison),
+      comparison = ifelse(comparison == 'expected vs efficacy', 'Expected both vs none', comparison)
+    ) %>%
+    mutate(metric = 'efficacy',
+           arm = NA)
+  
+  exp_ratio_long <- inci_summary %>%
+    dplyr::select(time_value,time_value_num,  time_unit, contains('ratio'), 
+                  -contains('averted'), -contains('ratio_inci_rate_only')) %>%
+    pivot_longer(cols =  contains('ratio'),
+                 names_to = 'statistic',
+                 values_to = "ratio_pred_exp",
+                 names_prefix = "ratio_pred_exp_") %>%
+    pivot_wider(
+      names_from = statistic,
+      values_from = ratio_pred_exp
+    ) %>% 
+    mutate(metric = 'ratio pred to exp', arm = NA, comparison = NA)
+  
+  
+  inci_averted_long <- inci_summary %>%
+    dplyr::select(time_value,time_value_num,  time_unit, contains('averted'), contains('ratio_inci_rate_only')) %>%
+    pivot_longer(cols =  c(contains('ratio_inci_rate_only'), contains('averted')),
+                 names_to = c("metric"),
+                 names_pattern = "^(.+)") %>%
+    mutate(arm = NA, comparison = NA)
+  
+  inci_summary_all <- rbind(inci_long, 
+                            irrs_long,
+                            exp_ratio_long,
+                            inci_averted_long)
+  
+  
+  inci_summary <- inci_summary_all %>%
+    mutate(shape_var = case_when(
+      metric == 'efficacy' & grepl('Expected', comparison) ~ 'Expected',
+      metric == 'efficacy' ~ 'Model-predicted',
+      TRUE ~ NA)) %>%
+    mutate(comparison = factor(comparison, levels = c("Expected both vs none", 'both vs none',
+                                                      'both vs rtss','both vs smc',
+                                                      'rtss vs none','smc vs none',
+                                                      'rtss vs smc','smc vs rtss')))
+  
+  return(inci_summary)
+}
 
-inci <- rbind(inci_annual, inci_overall) %>%
-  mutate(time_value = factor(time_value, levels = c('June 2017-Sep 2017',
-                                                    'Oct 2017-March 2018',
-                                                    'April 2018-Sep 2018',
-                                                    'Oct 2018-March 2019',
-                                                    'April 2019-Sep 2019',
-                                                    'Oct 2019-March 2020',
-                                                    'Overall')))
+trial_halfyear <- calc_irr_trial(agg_unit = 'halfyear',
+                                 country = 'Mali')
+trial_halfyear <- calc_irr_trial(agg_unit = 'halfyear',
+                                 country = 'BF')
+# trial_yearmonth <- calc_irr_trial(agg_unit = 'yearmonth',
+#                                   country = 'Mali')
 
-
-# Pivot wider 
-inci_wide <- inci %>%
-  dplyr::select(arm, time_value, time_value_num, time_unit, 
-                person_months, incidence_per_1000pm) %>%
-  pivot_wider(
-    names_from = arm,
-    values_from = c(person_months, incidence_per_1000pm),
-    id_cols = c(time_value, time_value_num, time_unit)
-  )
-
-# Get IRRs
-inci_wide <- inci_wide %>%
-  # mutate(incidence_per_1000pm_none = 40) %>%
-  left_join(model_inci_summary_wide_halfyear %>% select(time_value, time_value_num, time_unit, incidence_none_median) %>%
-              rename(incidence_per_1000pm_none = incidence_none_median)) %>%
-  mutate(rtss_none_irr = (incidence_per_1000pm_rtss / incidence_per_1000pm_none),
-         smc_none_irr = (incidence_per_1000pm_smc / incidence_per_1000pm_none),
-         both_none_irr = (incidence_per_1000pm_both / incidence_per_1000pm_none),
-         rtss_smc_irr = (incidence_per_1000pm_rtss / incidence_per_1000pm_smc),
-         both_smc_irr = (incidence_per_1000pm_both / incidence_per_1000pm_smc),
-         both_rtss_irr = (incidence_per_1000pm_both / incidence_per_1000pm_rtss),
-         smc_rtss_irr = (incidence_per_1000pm_smc / incidence_per_1000pm_rtss)  )%>%
-  mutate(expected_efficacy = 1 - (rtss_none_irr * smc_none_irr),
-         ratio_pred_exp = (1-both_none_irr) / expected_efficacy,
-         ratio_inci_rate_only = both_none_irr / (rtss_none_irr * smc_none_irr),
-         
-         inci_averted_model = incidence_per_1000pm_none - incidence_per_1000pm_both,
-         cases_averted_model = inci_averted_model * 1000, # if pop is 1000
-         
-         inci_averted_expected = incidence_per_1000pm_none - 
-           (incidence_per_1000pm_rtss * incidence_per_1000pm_smc)/incidence_per_1000pm_none,
-         cases_averted_expected = inci_averted_expected * 1000, # if pop is 1000
-         
-         difference_inci_averted_pred_exp = inci_averted_model - inci_averted_expected,
-         difference_cases_averted_pred_exp = cases_averted_model - cases_averted_expected)
-
-# Calculate median and IQR for each metric by time aggregation unit 
-inci_summary <- inci_wide %>%
-  mutate(
-    both_smc = 1- both_smc_irr,
-    rtss_none =1-rtss_none_irr ,
-    both_rtss = 1-both_rtss_irr,
-    smc_none = 1-smc_none_irr  ,
-    both_none = 1-both_none_irr,
-    rtss_smc = 1-rtss_smc_irr  ,
-    smc_rtss =1-smc_rtss_irr   )
-
-
-# Make long 
-inci_long <- inci_summary %>%
-  dplyr::select(time_value, time_value_num, time_unit, starts_with('incidence')) %>%
-  pivot_longer(cols = starts_with('incidence'),
-               names_to = c("arm", "stat"),
-               names_pattern = "incidence_(.*)_(.*)",
-               values_to = "value")%>%
-  pivot_wider(
-    names_from = stat,
-    values_from = value
-  )%>% 
-  mutate(metric = 'incidence', comparison = NA)
-
-irrs_long <- inci_summary %>%
-  dplyr::select(time_value, time_value_num, time_unit, both_smc:smc_rtss, expected_efficacy) %>%
-  pivot_longer(cols =  c(both_smc:smc_rtss,expected_efficacy:expected_efficacy),
-               names_to = 'comparison',
-               values_to = "irr")%>%
-  mutate(
-    # Clean up the comparison names for better labels
-    comparison = gsub("_", " vs ", comparison),
-    comparison = ifelse(comparison == 'expected vs efficacy', 'Expected both vs none', comparison)
-  ) %>%
-  mutate(metric = 'efficacy',
-         arm = NA)
-
-exp_ratio_long <- inci_summary %>%
-  dplyr::select(time_value,time_value_num,  time_unit, contains('ratio'), 
-                -contains('averted'), -contains('ratio_inci_rate_only')) %>%
-  pivot_longer(cols =  contains('ratio'),
-               names_to = 'statistic',
-               values_to = "ratio_pred_exp",
-               names_prefix = "ratio_pred_exp_") %>%
-  pivot_wider(
-    names_from = statistic,
-    values_from = ratio_pred_exp
-  ) %>% 
-  mutate(metric = 'ratio pred to exp', arm = NA, comparison = NA)
-
-
-inci_averted_long <- inci_summary %>%
-  dplyr::select(time_value,time_value_num,  time_unit, contains('averted'), contains('ratio_inci_rate_only')) %>%
-  pivot_longer(cols =  c(contains('ratio_inci_rate_only'), contains('averted')),
-               names_to = c("metric"),
-               names_pattern = "^(.+)") %>%
-  mutate(arm = NA, comparison = NA)
-
-inci_summary_all <- rbind(inci_long, 
-                          irrs_long,
-                          exp_ratio_long,
-                          inci_averted_long)
-
-
-inci_summary <- inci_summary_all %>%
-  mutate(shape_var = case_when(
-    metric == 'efficacy' & grepl('Expected', comparison) ~ 'Expected',
-    metric == 'efficacy' ~ 'Model-predicted',
-    TRUE ~ NA)) %>%
-  mutate(comparison = factor(comparison, levels = c("Expected both vs none", 'both vs none',
-                                                    'both vs rtss','both vs smc',
-                                                    'rtss vs none','smc vs none',
-                                                    'rtss vs smc','smc vs rtss')))
-
-# ggplot(inci_summary %>% filter(metric == 'efficacy'), aes(x = comparison, y = irr, 
-#                                                           color = time_value, group = time_value, shape = shape_var)) +
-#   # model estimated
-#   geom_point(position = position_dodge(width = 0.5), size = 1) +
-#   scale_shape_manual(values = c('Expected' = 7, 'Model-predicted' = 16)) + 
-#   # scale_linetype_manual(values = c('Expected: both vs none' = 2)) +
-#   # scale_color_brewer(palette = 'BuPu') +
-#   # scale_color_manual(values = colors) +
-#   geom_hline(yintercept = 0, linetype = "dashed", color = "darkred") +
-#   labs(
-#     x = "Arm Comparison",
-#     y = "Relative efficacy (1-IRR)",
-#     # title = "Median IRR with 95% CI by Intervention Comparison",
-#     shape = NULL, linetype = NULL,
-#     color = if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Study half-year'
-#   ) +
-#   scale_y_continuous(breaks = seq(-1,1,0.2)) + 
-#   theme_minimal(base_size = 14) +
-#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-ggplot(inci_summary %>% filter(metric == 'efficacy' & time_value == 'Overall'), 
-       aes(x = comparison, y = irr, 
-           shape = shape_var, fill = shape_var)) +
-  # model estimated
-  geom_col(position = position_dodge(width = 0.5), size = 1) +
-  scale_shape_manual(values = c('Expected' = 7, 'Model-predicted' = 16)) + 
-  scale_color_manual(values = c('Expected' = "#8C6BB1", 'Model-predicted' ="#810F7C")) + 
-  geom_point(data = model_inci_summary_all_halfyear %>% filter(metric == 'efficacy' & time_value == 'Overall'), 
-             aes(x = comparison, y = median, fill = shape_var)) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "darkred") +
-  labs(
-    x = "Arm Comparison",
-    y = "Relative efficacy (1-IRR)",
-    shape = NULL, linetype = NULL, fill = NULL,
-    color = NULL,#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Study half-year'
-    caption = 'Model-predicted no int incidence\nBlack dots are from model output with fits from 2 Mar'#inci_wide$incidence_per_1000pm_none[1]
-  ) +
-  scale_y_continuous(breaks = seq(-1,1,0.2)) + 
-  theme_minimal(base_size = 14) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-# when 'none' incidence is 60, then expected and model predicted are the same
+inci_summary <- trial_halfyear
+# inci_summary <- trial_yearmonth
 
 # Plot of the ratio of model-predicted to expected by aggregation unit 
-ggplot(inci_summary %>% filter(metric == 'difference_inci_averted_pred_exp'), 
+diff <- ggplot(inci_summary %>% filter(metric == 'difference_inci_averted_pred_exp'), 
        aes(x = time_value, y = value, 
-           color = time_value, group = time_value)) +
+           # fill = time_value, 
+           group = time_value)) +
   # model estimated
-  geom_point() +
-  geom_hline(yintercept = 1, linetype = "dashed", color = "darkred") +
+  geom_col(fill = '#6F9B8A' ) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "darkred") +
   labs(
     x = NULL,#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Half-year',
     y = "Difference in model-predicted versus expected\ncases averted per 1000 people of\ncombination vs no intervention",
@@ -900,48 +998,29 @@ ggplot(inci_summary %>% filter(metric == 'difference_inci_averted_pred_exp'),
   theme_classic(base_size = 14) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = 'none')
+# diff
 
-# test with hazard ratios to compare more precisely -----
-eff_model_smc <- get_cox_efficacy(df = formatted_infrecords %>% filter(sim_id == 'parameter_set_55_Mali'), 
-                 ref = 'arm_smcref',
-                 model = TRUE)
-eff_model_rtss <- get_cox_efficacy(df = formatted_infrecords %>% filter(sim_id == 'parameter_set_55_Mali'), 
-                                  ref = 'arm_rtssref',
-                                  model = TRUE)
-model_results <- rbind(eff_model, eff_model_rtss) %>%
-  mutate(year = factor(year, 
-                       levels = c(1, 2, 3, 'overall'),
-                       labels = c("Year 1", "Year 2", "Year 3", "Overall")))
 
-# Plot efficacy
-efficacies <- ggplot(tidy_results %>% 
-                       filter(term %in% c("Both vs. RTSS",'RTSS vs. SMC','Both vs. SMC')))+
-  geom_point(aes(x = term, y = VE, group = year, color = year, shape = 'Trial'),
-             position = position_dodge(width=0.3), size = 2) + 
-  geom_errorbar(aes(x = term, ymin = VE_lower, ymax = VE_upper, group = year, color = year, linetype = 'Trial'), 
-                position = position_dodge(width=0.3), width = 0.2) +
-  
-  geom_point(data = model_results %>% 
-               filter(term %in% c("Both vs. RTSS",'RTSS vs. SMC','Both vs. SMC')),
-             aes(x = term, y = VE, group = year, color = year, shape = 'Model'),
-             position = position_dodge(width=0.3), size = 2) + 
-  geom_errorbar(data = model_results %>% 
-                  filter(term %in% c("Both vs. RTSS",'RTSS vs. SMC','Both vs. SMC')),
-                aes(x = term, ymin = VE_lower, ymax = VE_upper, group = year, color = year, linetype = 'Model'), 
-                position = position_dodge(width=0.3), width = 0.2) +
-  geom_hline(aes(yintercept = 0), linetype = 2) +
-  scale_y_continuous(breaks = seq(-0.4, 1, 0.2),
-                     limits = c(-0.3, 1),
-                     labels = scales::percent) +
-  scale_color_manual(values = c('Year 1' = '#7FB800',
-                                'Year 2' = '#573280',
-                                'Year 3' = '#CE6479',
-                                'Overall' = '#197BBD')) +
-  labs(x = '',
-       y = 'Efficacy',
-       color = 'Trial year',
-       shape = NULL, linetype = NULL) +
-  theme_bw(base_size = 14) + 
-  theme(#legend.position = c(0.7, 0.8),
-        legend.background = element_rect(fill = "transparent", color = NA))
-efficacies
+
+
+# plotcompare <- ggplot(inci_summary %>% filter(metric == 'efficacy' & time_value == 'Overall'),
+#        aes(x = comparison, y = irr,
+#            shape = shape_var, fill = shape_var)) +
+#   # model estimated
+#   geom_col(position = position_dodge(width = 0.5), size = 1) +
+#   scale_shape_manual(values = c('Expected' = 7, 'Model-predicted' = 16)) +
+#   scale_color_manual(values = c('Expected' = "#8C6BB1", 'Model-predicted' ="#810F7C")) +
+#   geom_point(data = model_inci_summary_all_halfyear %>% filter(metric == 'efficacy' & time_value == 'Overall'),
+#              aes(x = comparison, y = median, fill = shape_var)) +
+#   geom_hline(yintercept = 0, linetype = "dashed", color = "darkred") +
+#   labs(
+#     x = "Arm Comparison",
+#     y = "Relative efficacy (1-IRR)",
+#     shape = NULL, linetype = NULL, fill = NULL,
+#     color = NULL,#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Study half-year'
+#     caption = 'Using model-predicted no-int incidence as comparison.\nBlack dots are from model output with fits from 23 Mar.\nBars are trial values.'#inci_wide$incidence_per_1000pm_none[1]
+#   ) +
+#   scale_y_continuous(breaks = seq(-1,1,0.2)) +
+#   theme_minimal(base_size = 14) +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# when 'none' incidence is 60, then expected and model predicted are the same

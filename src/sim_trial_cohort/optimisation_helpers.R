@@ -116,6 +116,7 @@ fit_prob_bite_spline <- function(params_row,  # Add params_row as argument
       
       # Make plots comparing hazard ratios 
       compare_hr(infs_formatted_model = infs_formatted, 
+                 country_to_use = country_to_run,
                  output_dir)
       
       rmse <- metrics$rmse
@@ -180,7 +181,7 @@ fit_prob_bite_spline <- function(params_row,  # Add params_row as argument
   optimresults <- nloptr::nloptr(x0 = starting_coefs_scaled,
                                  eval_f = objectivefunc,
                                  opts = list(algorithm = "NLOPT_LN_SBPLX", 
-                                             maxeval = 20,
+                                             maxeval = 200,
                                              ftol_rel = 1e-3,
                                              print_level = 2))
   message('got optim results')
