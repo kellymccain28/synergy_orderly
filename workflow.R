@@ -160,12 +160,12 @@ combos$season = 'seasonal'
 combos$get_parasit = FALSE
 combos$notes = paste(combos$vax_day, combos$season_start_day, combos$season, sep = '_')
 combos <- combos %>%
-  mutate(notes = paste0('testing with higher clearance threshold; ', notes))#paste0('testing with no rtss decay; ', notes))
+  mutate(notes = paste0('testing with time-based immunity (tau = 100) AND gen adaptive; ', notes))#paste0('testing with no rtss decay; ', notes))
 
 nparams = 32
 ncores = if(nparams > (32-4)) 32 else nparams + 4
 
-task_ids <- pmap(combos, function(vax_day, season_start_day, get_parasit, season, notes) {
+task_ids2 <- pmap(combos, function(vax_day, season_start_day, get_parasit, season, notes) {
   if(get_parasit == TRUE){
     trial_ts_ = 365
   } else {trial_ts_ = 365 * 3}
@@ -192,6 +192,8 @@ task_ids <- pmap(combos, function(vax_day, season_start_day, get_parasit, season
 # Monitor progress
 task_status(unlist(task_ids))
 task_log_show(unlist(task_ids)[1])
+task_status(unlist(task_ids2))
+task_log_show(unlist(task_ids2)[1])
 
 # run trial cohort simulation 
 # hipercow_environment_create(name = 'trial_simulations',
@@ -205,7 +207,7 @@ task_log_show(unlist(task_ids)[1])
 #                    environment = 'trial_simulations')
 nparams = 32
 ncores = if(nparams > 32) 32 else nparams
-country = 'BF'#'BF'#
+country = 'Ma'#'BF'#
 task_create_expr(sim_trial_cohort(trial_ts = 365*3, 
                                                treatment_prob = 1, # default is 1 (which gives children prophylaxis)
                                                threshold = 5000, # default is 5000 parasites per microL
@@ -213,11 +215,11 @@ task_create_expr(sim_trial_cohort(trial_ts = 365*3,
                                                n_param_sets = nparams,
                                                get_parasit = FALSE,
                                                path = "R:/Kelly/synergy_orderly/",
-                                               notes = paste0(country, ' testing best spline fitting from 03-06_2 (Mali) or 03-06_3 (BF)')),
+                                               notes = paste0(country, ' testing best spline fitting from 03-23_Mali or 03-23_BF')),
                               environment = 'trial_simulations',
                               resources = hipercow_resources(cores = ncores))
 task_log_show('8adb05f750f0f09cb274c539f108001c') # Mali
-task_log_show('80c50eb185097ba4ec54eee2eca42380') # BF
+task_log_show('c25d2b3d2e869d6e5990e8d14d8518ad') # BF
 
 # Fitting the spline for chapter 6 
 # hipercow_environment_create(name = 'trial_fitting',
@@ -234,16 +236,20 @@ task_log_show('80c50eb185097ba4ec54eee2eca42380') # BF
 nparams = 1
 ncores = 1
 country = 'BF'
-trial_fitbf_lowthreshold <- task_create_expr(optimise_sim_trial_cohort(trial_ts = 365*3, 
-                                                        country_to_run = country, # should be BF or Mali
-                                                        threshold = 2500,
-                                                        n_param_sets = nparams,
-                                                        notes = paste0(country, ', optimisation with 20 max iterations and threshold of 2500 for case')),
-                              environment = 'trial_simulations',
-                              resources = hipercow_resources(cores = ncores))
-task_log_show(trial_fitbf) 
-task_log_show(trial_fitmali) 
-task_log_show(trial_fitbf_lowthreshold)
+task_create_expr(optimise_sim_trial_cohort(trial_ts = 365*3, 
+                                           country_to_run = country, # should be BF or Mali
+                                           threshold = 5000,
+                                           n_param_sets = nparams,
+                                           notes = paste0(country, ', optimisation with 200 max iterations, trying spline w 143 knots')),
+                 environment = 'trial_simulations',
+                 resources = hipercow_resources(cores = ncores))
+task_log_show('b122962afd4b05a694e47e39a36ad566') # BF 150
+task_log_show('ae6ed35b42db01ca4058a706255ad1f5') # Mali 150
+task_log_show('90f43a6659d5a183511421133f18acfa') # BF 200
+task_log_show('98ca64f0d1d87f06e0ffd38c6017024a') # Mali 200
+task_log_show('a2562f5a4f175917c02b5b22f95388a8') # BF 200, 14 knots 
+task_log_show('a7e234583f29c7122fc9eedc1e395715') # Mali 200, 13 knots 
+
 
 # # compare model_trial 
 # compare_task <- task_create_expr(orderly::orderly_run(name = 'compare_model_trial'))

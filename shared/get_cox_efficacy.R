@@ -24,12 +24,20 @@ get_cox_efficacy <- function(df,
     
     # Create formula dynamically using the ref argument
     if(model){
-      formula_str <- paste("Surv(start_time, end_time, event) ~ factor(", ref, ")")
+      if(length(unique(df$sim_id)) == 1){
+        formula_str <- paste("Surv(start_time, end_time, event) ~ factor(", ref, ")")
+      } else {
+        formula_str <- paste("Surv(start_time, end_time, event) ~ factor(", ref, ") + strata(sim_id)")
+      }
       cox_formula <- as.formula(formula_str)
       
-      clustervar = d$rid
+      clustervar = d$child_id
     } else {
-      formula_str <- paste("Surv(start_time, end_time, event) ~ factor(", ref, ") + factor(country)")
+      if(length(unique(df$sim_id)) >= 1){
+        formula_str <- paste("Surv(start_time, end_time, event) ~ factor(", ref, ") + factor(country)")
+      } else {
+        formula_str <- paste("Surv(start_time, end_time, event) ~ factor(", ref, ")")
+      }
       cox_formula <- as.formula(formula_str)
       
       clustervar = d$rid
