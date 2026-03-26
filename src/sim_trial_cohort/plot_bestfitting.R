@@ -1,16 +1,25 @@
 # Plot figures for chapter 6 best fitting 
 # need to have already run the make_figures.R on the repetitions in the outputs/ folder that uses the coefs from the optimisation (outputs_fitting/)
 
-plot_bestfitting <- function(country_to_use){
+plot_bestfitting <- function(country_to_use,
+                             num_arm_fit){
   path = 'R:/Kelly/synergy_orderly/src/'
   # Pull in repetitions of the best-fitting coefficients 
   if(country_to_use == 'Mali'){ 
-    optimfolder = 'sim_trial_cohort/outputs_fitting/outputs_2026-03-23_Mali'
-    folder <- 'sim_trial_cohort/outputs/outputs_2026-03-24_2' ## update this when optimisation is done and repetitions have been run
+    # optimfolder = 'sim_trial_cohort/outputs_fitting/outputs_2026-03-23_Mali'
+    if(num_arm_fit == 3){
+      folder <- 'sim_trial_cohort/outputs/outputs_2026-03-24_2' ## this is for best-fitting values when fitting to 3 arms (03-23 fitting)
+    }  else if(num_arm_fit == 2){
+      folder <- 'sim_trial_cohort/outputs/outputs_2026-03-26_2' ## this is for best-fitting values when fitting to 2 arms (03-25_2 fitting)
+    }
     incidence_trial <- readRDS('R:/Kelly/synergy_orderly/archive/trial_results/20260219-104643-cb128f65/monthly_incidence_trial_Mali.rds')
   } else if (country_to_use == 'BF') { 
-    optimfolder = 'sim_trial_cohort/outputs_fitting/outputs_2026-03-23_BF'
-    folder <- 'sim_trial_cohort/outputs/outputs_2026-03-24' ## update this when optimisation is done and repetitions have been run
+    # optimfolder = 'sim_trial_cohort/outputs_fitting/outputs_2026-03-23_BF'
+    if(num_arm_fit == 3){
+      folder <- 'sim_trial_cohort/outputs/outputs_2026-03-24' ## this is for best-fitting values when fitting to 3 arms (03-23 fitting)
+    } else if(num_arm_fit == 2){
+      folder <- 'sim_trial_cohort/outputs/outputs_2026-03-26' ## this is for best-fitting values when fitting to 2 arms (03-25_2 fitting)
+    }
     incidence_trial <- readRDS('R:/Kelly/synergy_orderly/archive/trial_results/20260219-104643-cb128f65/monthly_incidence_trial_BF.rds')
   } 
   
@@ -73,8 +82,8 @@ plot_bestfitting <- function(country_to_use){
   inc <- ggplot(inci_joined)+
     geom_point(aes(x = as.Date(yearmonth), y = incidence_per_1000pm_trial, color = 'Trial'), size= 0.9) +
     geom_point(aes(x = as.Date(yearmonth), y = incidence_per_1000pm_model, color = 'Model'), size = 0.9) +
-    # geom_line(aes(x = yearmonth, y = incidence_per_1000pm_trial, color = 'Trial'), linewidth = 0.4) +
-    # geom_line(aes(x = yearmonth, y = incidence_per_1000pm_model, color = 'Model'), linewidth = 0.4) +
+    geom_line(aes(x = yearmonth, y = incidence_per_1000pm_trial, color = 'Trial'), linewidth = 0.4) +
+    geom_line(aes(x = yearmonth, y = incidence_per_1000pm_model, color = 'Model'), linewidth = 0.4) +
     geom_errorbar(aes(x = as.Date(yearmonth), ymin = incidence_per_1000pm_trial_lower, ymax = incidence_per_1000pm_trial_upper, color = 'Trial'),
                   alpha  = 1, width = 15, linewidth = 0.25) +
     geom_errorbar(aes(x = as.Date(yearmonth), ymin = incidence_per_1000pm_model_lower, ymax = incidence_per_1000pm_model_upper, color = 'Model'),
@@ -138,9 +147,16 @@ plot_bestfitting <- function(country_to_use){
   
   p <- plot_grid(inc, eff, nrow = 1, labels = 'AUTO', rel_widths = c(1.2,1))
   
-  ggsave(paste0('R:/Kelly/synergy_orderly/src/sim_trial_cohort/thesis_plots/best_fitting_', country_to_use, '.pdf'),
+  ggsave(paste0('R:/Kelly/synergy_orderly/src/sim_trial_cohort/thesis_plots/best_fitting_', country_to_use, '_', num_arm_fit,'armfit.pdf'),
                 height = 6, width = 13)
 }
 
-plot_bestfitting(country_to_use = 'BF')
-plot_bestfitting(country_to_use = 'Mali')
+plot_bestfitting(country_to_use = 'BF',
+                 num_arm_fit = 3)
+plot_bestfitting(country_to_use = 'Mali',
+                 num_arm_fit = 3)
+
+plot_bestfitting(country_to_use = 'BF',
+                 num_arm_fit = 2)
+plot_bestfitting(country_to_use = 'Mali',
+                 num_arm_fit = 2)

@@ -1,0 +1,1 @@
+# Function to plot parasitaemia in the trial and model together

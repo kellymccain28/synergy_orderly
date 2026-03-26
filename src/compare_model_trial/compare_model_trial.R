@@ -7,9 +7,9 @@ library(zoo)
 orderly_strict_mode()
 
 taskparams <- orderly_parameters(trial_ts = NULL, 
-                   sim_allow_superinfections = NULL, 
-                   country_to_run = NULL,
-                   n_param_sets = NULL)
+                                 sim_allow_superinfections = NULL, 
+                                 country_to_run = NULL,
+                                 n_param_sets = NULL)
 
 orderly_dependency(name = 'trial_results',
                    "latest()",

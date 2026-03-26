@@ -457,6 +457,12 @@ delivery %>%
 # Mali: about 19-20% missed at least 3 rounds
 # while in BF, about 41% in the Both group missed at least 1 smc round, while 61% in teh SMC only group missed at least 1 round 
 # BF: 15.6% missed at least 3 rounds in both group and 23.1% missed rounds in SMC only group 
+delivery %>%
+  filter(arm!= 'rtss') %>%
+  tabyl(nsmc_received, country) %>%
+  adorn_percentages() %>%
+  adorn_pct_formatting()
+
 ycols <- grep("^y", names(delivery), value = TRUE)
 ycols <- ycols[!(ycols %in% grep('date', ycols, value = TRUE))]
 delivery$nsmc_doses <- rowSums(delivery[, ycols], na.rm = TRUE)
@@ -544,8 +550,11 @@ delivery_avg <- delivery %>%
                    list(median = ~median(.x, na.rm = TRUE)),
                    .names = "{.col}_{.fn}")) #%>%
 # pivot_longer(cols = v1_date_median:fu_end_date_median)
-vax_dates_avg <- delivery_avg %>%
-  dplyr::select(country, arm, v1_date_median, v2_date_median, v3_date_median, boost1_date_median, boost2_date_median) %>%
+vax_dates_avg_wide <- delivery_avg %>%
+  dplyr::select(country, arm, v1_date_median, v2_date_median, v3_date_median, boost1_date_median, boost2_date_median) 
+saveRDS(vax_dates_avg_wide, 'R:/Kelly/synergy_orderly/shared/median_rtss_dates_wide.rds')
+
+vax_dates_avg <- vax_dates_avg_wide %>%
   pivot_longer(cols = c(v1_date_median, v2_date_median, v3_date_median, boost1_date_median, boost2_date_median),
                names_to = 'dose',
                values_to = 'date') %>%
@@ -581,7 +590,7 @@ dosecolors <- c('v1'='#99B3FF',
 armlabs = c('Both','RTS,S only','SMC only')
 names(armlabs) = c('both','rtss','smc')
 
-rtssdelivery_dates <- ggplot(vaxdates) +
+rtssdelivery_dates <- ggplot(vaxdates %>% filter(arm != 'smc')) +
   geom_histogram(aes(x = as.Date(date), fill = dose), binwidth = 1) +
   scale_x_date(date_breaks = '1 months', labels = scales::label_date_short()) +
   scale_fill_manual(values = dosecolors,
@@ -606,7 +615,7 @@ vaxdates2 <- vaxdates %>%
 #   geom_tile(aes(x = as.Date(date), y = dose, fill = n)) + 
 #   theme_classic()
 
-smcdelivery_dates <- ggplot(smcdates) +
+smcdelivery_dates <- ggplot(smcdates %>% filter(arm != 'rtss')) +
   geom_histogram(aes(x = as.Date(date), fill = round), binwidth = 1) +
   scale_x_date(date_breaks = '1 months', labels = scales::label_date_short()) +
   facet_grid(vars(country, arm), scales = 'free', labeller = labeller(arm= armlabs)) +
@@ -624,8 +633,11 @@ delivery %>% group_by(country) %>% summarise(median(delivery$v1_date, na.rm = TR
 delivery %>% group_by(country) %>% summarise(median(delivery$v2_date, na.rm = TRUE)) 
 delivery %>% group_by(country) %>% summarise(median(delivery$v3_date, na.rm = TRUE)) 
 
-smcdates <- delivery_avg %>%
-  dplyr::select(country, arm, contains('d3')) %>%
+smcdates_wide <- delivery_avg %>%
+  dplyr::select(country, arm, contains('d1')) 
+saveRDS(smcdates_wide, 'R:/Kelly/synergy_orderly/shared/median_smc_dates_wide.rds')
+
+smcdates <- smcdates_wide %>%
   pivot_longer(cols = contains('date_received'),
                names_to = 'smcdose',
                values_to = 'date') 
@@ -753,55 +765,49 @@ summary(model)
 source("R:/Kelly/synergy_orderly/src/make_figures_modeldev/bootstrap_metric.R")
 library(purrr)
 
-# country = 'Mali'
-# 
-# if(country == 'Mali'){
-#   # when i get the final version of the best fitting curev, can use this isntead 
-#   model_inci_summary_all_halfyear <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24_2/inci_summary_all_halfyear.rds") %>%
-#     mutate(shape_var = case_when(
-#       metric == 'efficacy' & grepl('Expected', comparison) ~ 'Expected',
-#       metric == 'efficacy' ~ 'Model-predicted',
-#       TRUE ~ NA)) 
-#   model_inci_summary_wide_halfyear <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24_2/inci_summary_wide_halfyear.rds")
-#   formatted_infrecords <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24_2/formatted_infrecords.rds")
-#   
-#   monthly_incidence_trial <- readRDS("R:/Kelly/synergy_orderly/archive/trial_results/20260324-150302-df3f8aff/monthly_incidence_trial_Mali.rds")
-# } else if (country == 'BF'){
-#   model_inci_summary_all_halfyear <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24/inci_summary_all_halfyear.rds") %>%
-#     mutate(shape_var = case_when(
-#       metric == 'efficacy' & grepl('Expected', comparison) ~ 'Expected',
-#       metric == 'efficacy' ~ 'Model-predicted',
-#       TRUE ~ NA)) 
-#   model_inci_summary_wide_halfyear <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24/inci_summary_wide_halfyear.rds")
-#   formatted_infrecords <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24/formatted_infrecords.rds")
-#   
-#   monthly_incidence_trial <- readRDS("R:/Kelly/synergy_orderly/archive/trial_results/20260324-150302-df3f8aff/monthly_incidence_trial_BF.rds")
-# }
 
 agg_unit = 'halfyear'
 
 calc_irr_trial <- function(agg_unit,
                            country){
+  # should not really matter if i use the bestruns or syntest because i only look at the incidence 
+  
+  
+  # Folders below are from the bestreps runs for the 2-arm fitting (before finished)
+  # outputfolder <- c('Mali' = 'outputs_2026-03-26_2', #-- antagonistic
+  #                   'BF' = 'outputs_2026-03-26' ## -- synergistic 
+  # )
+  # Folders below are from the bestreps runs for the 3-arm fitting 
+  outputfolder <- c('Mali' = 'outputs_2026-03-24_2', # --synergistic
+                    'BF' = 'outputs_2026-03-24' # --synergistic - a lot
+                    )
+  # # Folders below are from the synergy testing runs for the 2-arm fitting(before finished)
+  # outputfolder <- c('Mali' = 'outputs_2026-03-26_3', # -- anagonistic
+  #                   'BF' = 'outputs_2026-03-26_4' # -- synergistic
+  # )
+  # # Folders below are from the synergy testing runs for the 3-arm fitting
+  # outputfolder <- c('Mali' = 'outputs_2026-03-25_5', # -- synergistic
+  #                   'BF' = 'outputs_2026-03-25_6' # --synergistic 
+  # )
   
   if(country == 'Mali'){
-    # when i get the final version of the best fitting curev, update folder 
-    model_inci_summary_all_halfyear <- readRDS(paste0("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24_2/inci_summary_all_",agg_unit, ".rds")) %>%
-      mutate(shape_var = case_when(
-        metric == 'efficacy' & grepl('Expected', comparison) ~ 'Expected',
-        metric == 'efficacy' ~ 'Model-predicted',
-        TRUE ~ NA)) 
-    model_inci_summary_wide_halfyear <- readRDS(paste0("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24_2/inci_summary_wide_",agg_unit, ".rds"))
-    formatted_infrecords <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24_2/formatted_infrecords.rds")
+    # model_inci_summary_all_halfyear <- readRDS(paste0("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/",outputfolder['Mali'],"/inci_summary_all_",agg_unit, ".rds")) %>%
+    #   mutate(shape_var = case_when(
+    #     metric == 'efficacy' & grepl('Expected', comparison) ~ 'Expected',
+    #     metric == 'efficacy' ~ 'Model-predicted',
+        # TRUE ~ NA)) 
+    model_inci_summary_wide_halfyear <- readRDS(paste0("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/",outputfolder['Mali'],"/inci_summary_wide_",agg_unit, ".rds"))
+    # formatted_infrecords <- readRDS(paste0("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/",outputfolder['Mali'],"/formatted_infrecords.rds"))
     
     monthly_incidence_trial <- readRDS("R:/Kelly/synergy_orderly/archive/trial_results/20260324-150302-df3f8aff/monthly_incidence_trial_Mali.rds")
   } else if (country == 'BF'){
-    model_inci_summary_all_halfyear <- readRDS(paste0("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24/inci_summary_all_",agg_unit, ".rds")) %>%
-      mutate(shape_var = case_when(
-        metric == 'efficacy' & grepl('Expected', comparison) ~ 'Expected',
-        metric == 'efficacy' ~ 'Model-predicted',
-        TRUE ~ NA)) 
-    model_inci_summary_wide_halfyear <- readRDS(paste0("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24/inci_summary_wide_",agg_unit, ".rds"))
-    formatted_infrecords <- readRDS("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/outputs_2026-03-24/formatted_infrecords.rds")
+    # model_inci_summary_all_halfyear <- readRDS(paste0("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/",outputfolder['BF'],"/inci_summary_all_",agg_unit, ".rds")) %>%
+    #   mutate(shape_var = case_when(
+    #     metric == 'efficacy' & grepl('Expected', comparison) ~ 'Expected',
+    #     metric == 'efficacy' ~ 'Model-predicted',
+        # TRUE ~ NA)) 
+    model_inci_summary_wide_halfyear <- readRDS(paste0("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/",outputfolder['BF'],"/inci_summary_wide_",agg_unit, ".rds"))
+    # formatted_infrecords <- readRDS(paste0("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/",outputfolder['BF'],"/formatted_infrecords.rds"))
     
     monthly_incidence_trial <- readRDS("R:/Kelly/synergy_orderly/archive/trial_results/20260324-150302-df3f8aff/monthly_incidence_trial_BF.rds")
   }
@@ -971,10 +977,13 @@ calc_irr_trial <- function(agg_unit,
   return(inci_summary)
 }
 
-trial_halfyear <- calc_irr_trial(agg_unit = 'halfyear',
-                                 country = 'Mali')
-trial_halfyear <- calc_irr_trial(agg_unit = 'halfyear',
-                                 country = 'BF')
+trial_halfyearmali <- calc_irr_trial(agg_unit = 'halfyear',
+                                 country = 'Mali') %>%
+  mutate(country = 'Mali')
+trial_halfyearbf <- calc_irr_trial(agg_unit = 'halfyear',
+                                 country = 'BF') %>%
+  mutate(country = 'BF')
+trial_halfyear <- bind_rows(trial_halfyearmali, trial_halfyearbf)
 # trial_yearmonth <- calc_irr_trial(agg_unit = 'yearmonth',
 #                                   country = 'Mali')
 
@@ -982,7 +991,7 @@ inci_summary <- trial_halfyear
 # inci_summary <- trial_yearmonth
 
 # Plot of the ratio of model-predicted to expected by aggregation unit 
-diff <- ggplot(inci_summary %>% filter(metric == 'difference_inci_averted_pred_exp'), 
+pp <- ggplot(trial_halfyear %>% filter(metric == 'difference_inci_averted_pred_exp'), 
        aes(x = time_value, y = value, 
            # fill = time_value, 
            group = time_value)) +
@@ -991,17 +1000,16 @@ diff <- ggplot(inci_summary %>% filter(metric == 'difference_inci_averted_pred_e
   geom_hline(yintercept = 0, linetype = "dashed", color = "darkred") +
   labs(
     x = NULL,#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Half-year',
-    y = "Difference in model-predicted versus expected\ncases averted per 1000 people of\ncombination vs no intervention",
+    y = "Difference in model-predicted trial observed versus expected\ncases averted per 1000 people of\ncombination vs no intervention",
     shape = NULL, linetype = NULL,
     color = NULL#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Study half-year'
   ) +
-  theme_classic(base_size = 14) +
+  theme_minimal(base_size = 14) +
+  facet_wrap(~country) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = 'none')
-# diff
 
-
-
+ggsave(filename = 'expected_trial_difference.pdf', plot = pp, height = 6, width = 10)
 
 # plotcompare <- ggplot(inci_summary %>% filter(metric == 'efficacy' & time_value == 'Overall'),
 #        aes(x = comparison, y = irr,

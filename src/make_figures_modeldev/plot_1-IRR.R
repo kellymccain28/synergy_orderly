@@ -336,7 +336,7 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_incidenceaverted.pdf'), plot = exppred_inci, width = 10, height = 4)
   
   # Plot of difference of expected vs predicted cases averted per 1000 of both vs none 
-  diffplot <-  ggplot(inci_summary %>% filter(yearmonth > '2017-05-01')) + 
+  diffplot <-  ggplot(inci_summary %>% filter(yearmonth > '2017-04-01')) + 
     geom_vline(data = smc_lines, aes(xintercept = date, color = 'SMC delivery'), 
                linetype = 2, linewidth = 0.8, alpha = 0.7)+
     geom_vline(data = rtss_lines, aes(xintercept = date, color = 'RTS,S delivery'), 

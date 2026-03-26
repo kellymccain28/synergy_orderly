@@ -189,25 +189,10 @@ outputs_folders <- c('outputs_2026-03-23_5',
                     'outputs_2026-03-23_13')
 
 task_create_expr({
-  cohort_folder <- 'sim_cohort_generic'
-  outputs_folders <-  c(#'outputs_2026-03-24_4',
-                        #'outputs_2026-03-24_5',
-                        'outputs_2026-03-24_6',
-                        'outputs_2026-03-24_7',
-                        'outputs_2026-03-24_8',
-                        'outputs_2026-03-24_9',
-                        'outputs_2026-03-24',
-                        'outputs_2026-03-24_2',
-                        'outputs_2026-03-24_3',
-                        'outputs_2026-03-24_10',
-                        'outputs_2026-03-24_11',
-                        'outputs_2026-03-24_12',
-                        'outputs_2026-03-24_13',
-                        'outputs_2026-03-24_14',
-                        'outputs_2026-03-24_15',
-                        'outputs_2026-03-24_16',
-                        'outputs_2026-03-24_17',
-                        'outputs_2026-03-24_18')
+  cohort_folder <- 'sim_trial_cohort'
+  outputs_folders <-  c('outputs_2026-03-26_4','outputs_2026-03-26_3',
+                        'outputs_2026-03-26','outputs_2026-03-26_2',
+                        'outputs_2026-03-2','outputs_2026-03-26_3')
   
   for(outputs_folder in outputs_folders){
     print(outputs_folder)
