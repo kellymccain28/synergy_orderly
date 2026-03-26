@@ -9,6 +9,9 @@ sim_trial_cohort <- function(trial_ts = 365*3,
                              n_param_sets,
                              get_parasit = FALSE,
                              path = "R:/Kelly/synergy_orderly/",
+                             bestreps_or_syntest, # characetr parameter (bestreps or syntest) to say if these runs
+                                                  # are to do multiple reps of the best-fitting parameters from optimisation
+                                                  # or if they are to test synergy by having 100% coverage at median implementation dates 
                              notes){ # notes are to write down the specifics of the runs 
   library(odin2)
   library(ggplot2)
@@ -111,20 +114,18 @@ sim_trial_cohort <- function(trial_ts = 365*3,
     kappa = rep(0.337, n_param_sets),
     alpha_ab = rep(1.74, n_param_sets),
     beta_ab = rep(4.69,  n_param_sets),
-    vmin = rep(0.00259, n_param_sets))#,
-    # lag_p_bite = rep(2, n_param_sets),
-    # p_bite_scaler_1 = rep(0.01315611, n_param_sets),
-    # p_bite_scaler_2 = rep(0.02106561, n_param_sets),
-    # p_bite_scaler_3 = rep(0.0341956, n_param_sets))
+    vmin = rep(0.00259, n_param_sets))
     
   params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run)
   
   # to run with spline fitting 
   # Load saved spline best values 
   if(country_to_run =='BF'){
-    fittedspline <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-23_BF/best_so_far.rds"))$params_row$p_bite
+    # fittedspline <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-23_BF/best_so_far.rds"))$params_row$p_bite
+    fittedspline <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-25_BF_2/best_so_far.rds"))$params_row$p_bite # this is the fitting to only the 2 arms
   } else if(country_to_run == 'Mali'){
-    fittedspline <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-23_Mali/best_so_far.rds"))$params_row$p_bite
+    # fittedspline <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-23_Mali/best_so_far.rds"))$params_row$p_bite
+    fittedspline <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-25_Mali_2/best_so_far.rds"))$params_row$p_bite # this is the fitting to only the 2 arms
   }
   
   params_df$p_bite = fittedspline
@@ -162,6 +163,26 @@ sim_trial_cohort <- function(trial_ts = 365*3,
   params_list <- split(parameters_df, seq(nrow(parameters_df)))
   
   # Make metadata data frame 
+  
+  if (bestreps_or_syntest == 'syntest'){
+    # Edit the children df so that the timing is the same for everyone (median dates from the trial)
+    
+    # Pull in the median dates 
+    smcdates <- readRDS('R:/Kelly/synergy_orderly/shared/median_smc_dates_wide.rds') 
+    names(smcdates) <- gsub("_median$", "", names(smcdates))
+    rtssdates <- readRDS('R:/Kelly/synergy_orderly/shared/median_rtss_dates_wide.rds')
+    names(rtssdates) <- gsub("_median$", "", names(rtssdates))
+    
+    # Update dates of intervention delivery to be median for everyone
+    children <- children %>%
+      select(-(v1_date:y3p4d1_date_received)) %>%
+      left_join(smcdates) %>%
+      left_join(rtssdates) %>%
+      mutate(nprimary = 3, 
+             nsmc_received = 12, 
+             last_primary_vac = v3_date)
+  }
+  
   # Create a metadata child data frame from trial data 
   metadata_df <- children %>%
     # filter to country we are running 
@@ -222,7 +243,7 @@ sim_trial_cohort <- function(trial_ts = 365*3,
   
   # Join synthetic no intervention and real trial kids together
   metadata_df <- full_join(metadata_df, noint_arm)
-  
+
   # Save parameter grid
   saveRDS(parameters_df, paste0(output_dir, "/parameter_grid.rds"))
   saveRDS(base_inputs, paste0(output_dir, "/base_inputs.rds"))
@@ -366,7 +387,8 @@ sim_trial_cohort <- function(trial_ts = 365*3,
                                          
                                          # Make plots comparing hazard ratios 
                                          compare_hr(infs_formatted_model = infs_formatted, 
-                                                    output_dir)
+                                                    output_dir,
+                                                    country_to_use = country_to_run)
                                          
                                          return(list(infection_records_formatted = infs_formatted, 
                                                      incidence_df = inci,
