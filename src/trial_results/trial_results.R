@@ -1004,7 +1004,7 @@ pp <- ggplot(trial_halfyear %>% filter(metric == 'difference_inci_averted_pred_e
     shape = NULL, linetype = NULL,
     color = NULL#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Study half-year'
   ) +
-  theme_minimal(base_size = 14) +
+  theme_bw(base_size = 14) +
   facet_wrap(~country) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = 'none')

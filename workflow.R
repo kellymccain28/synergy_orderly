@@ -207,19 +207,21 @@ task_log_show(unlist(task_ids2)[1])
 #                    environment = 'trial_simulations')
 nparams = 32
 ncores = if(nparams > 32) 32 else nparams
-country = 'Ma'#'BF'#
+country = 'BF'#'BF'#
+bestreps_or_syntest = 'syntest'
 task_create_expr(sim_trial_cohort(trial_ts = 365*3, 
-                                               treatment_prob = 1, # default is 1 (which gives children prophylaxis)
-                                               threshold = 5000, # default is 5000 parasites per microL
-                                               country_to_run = country, # should be BF or Mali
-                                               n_param_sets = nparams,
-                                               get_parasit = FALSE,
-                                               path = "R:/Kelly/synergy_orderly/",
-                                               notes = paste0(country, ' testing best spline fitting from 03-23_Mali or 03-23_BF')),
-                              environment = 'trial_simulations',
-                              resources = hipercow_resources(cores = ncores))
-task_log_show('8adb05f750f0f09cb274c539f108001c') # Mali
-task_log_show('c25d2b3d2e869d6e5990e8d14d8518ad') # BF
+                                  treatment_prob = 1, # default is 1 (which gives children prophylaxis)
+                                  threshold = 5000, # default is 5000 parasites per microL
+                                  country_to_run = country, # should be BF or Mali
+                                  n_param_sets = nparams,
+                                  get_parasit = FALSE,
+                                  path = "R:/Kelly/synergy_orderly/",
+                                  bestreps_or_syntest = bestreps_or_syntest,
+                                  notes = paste0(country, '; ', bestreps_or_syntest, '; best spline fit from 03-25_Mali_2 or 03-25_BF_2')),
+                 environment = 'trial_simulations',
+                 resources = hipercow_resources(cores = ncores))
+task_log_show('3dde8e34cafb3278c55b0eacf5377293') # Mali
+task_log_show('fd3ed55897fe0998cc85f10ccd72a6e1') # BF
 
 # Fitting the spline for chapter 6 
 # hipercow_environment_create(name = 'trial_fitting',
@@ -235,20 +237,22 @@ task_log_show('c25d2b3d2e869d6e5990e8d14d8518ad') # BF
 #                    environment = 'trial_fitting')
 nparams = 1
 ncores = 1
-country = 'BF'
+country = 'Mali'
 task_create_expr(optimise_sim_trial_cohort(trial_ts = 365*3, 
                                            country_to_run = country, # should be BF or Mali
                                            threshold = 5000,
                                            n_param_sets = nparams,
-                                           notes = paste0(country, ', optimisation with 200 max iterations, trying spline w 143 knots')),
+                                           notes = paste0(country, ', optimisation to RTSS and SMC only; 200 max iterations, trying spline w 13 knots')),
                  environment = 'trial_simulations',
                  resources = hipercow_resources(cores = ncores))
-task_log_show('b122962afd4b05a694e47e39a36ad566') # BF 150
-task_log_show('ae6ed35b42db01ca4058a706255ad1f5') # Mali 150
-task_log_show('90f43a6659d5a183511421133f18acfa') # BF 200
-task_log_show('98ca64f0d1d87f06e0ffd38c6017024a') # Mali 200
-task_log_show('a2562f5a4f175917c02b5b22f95388a8') # BF 200, 14 knots 
-task_log_show('a7e234583f29c7122fc9eedc1e395715') # Mali 200, 13 knots 
+# task_log_show('b122962afd4b05a694e47e39a36ad566') # BF 150
+# task_log_show('ae6ed35b42db01ca4058a706255ad1f5') # Mali 150
+# task_log_show('90f43a6659d5a183511421133f18acfa') # BF 200
+# task_log_show('98ca64f0d1d87f06e0ffd38c6017024a') # Mali 200
+task_log_show('fae9807193d9c2907bd30786a46a60a7') # BF 200, 14 knots 
+task_log_show('e8fe7c6adc5edc3b1fcb59ccd0b50f9c') # Mali 200, 13 knots 
+task_log_show('08b073e4f7628eaae421f9f41aa0b408') # BF 200, 14 knots, rtss and smc only not both 
+task_log_show('59e73415cd31efefeab16175cfd37613') # Mali 200, 13 knots, rtss and smc only not both 
 
 
 # # compare model_trial 

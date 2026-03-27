@@ -156,7 +156,33 @@ plot_bestfitting(country_to_use = 'BF',
 plot_bestfitting(country_to_use = 'Mali',
                  num_arm_fit = 3)
 
-plot_bestfitting(country_to_use = 'BF',
-                 num_arm_fit = 2)
-plot_bestfitting(country_to_use = 'Mali',
-                 num_arm_fit = 2)
+pbitemali3 <- readRDS('R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs_fitting/outputs_2026-03-23_Mali/best_so_far.rds')$params_row$p_bite[[1]] 
+pbitebf3 <- readRDS('R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs_fitting/outputs_2026-03-23_BF/best_so_far.rds')$params_row$p_bite[[1]]
+pbite3 <- data.frame(country = c(rep('Mali',length(pbitemali3)), rep('BF',length(pbitebf3))),
+                     pbite = c(pbitemali3, pbitebf3),
+                     date = seq(as.Date('2017-04-01')-50, as.Date('2020-03-31'))) 
+ggplot(pbite3) + 
+  geom_point(aes(x = date, y = pbite, group = country), color = '#256D1B') + 
+  facet_wrap(~country, nrow = 2) + 
+  labs(x = 'Date',
+       y = 'Best-fitting spline for the daily probability of an infectious bite') +
+  theme_bw()
+ggsave(paste0('R:/Kelly/synergy_orderly/src/sim_trial_cohort/thesis_plots/best_fitting_3arm_splines.pdf'),
+       height = 6, width = 8)
+
+# plot_bestfitting(country_to_use = 'BF',
+#                  num_arm_fit = 2)
+# plot_bestfitting(country_to_use = 'Mali',
+#                  num_arm_fit = 2)
+# 
+# pbitemali2 <- readRDS('R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs_fitting/outputs_2026-03-25_Mali_2/best_so_far.rds')$params_row$p_bite[[1]] 
+# pbitebf2 <- readRDS('R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs_fitting/outputs_2026-03-25_BF_2/best_so_far.rds')$params_row$p_bite[[1]]
+# pbite2 <- data.frame(country = c(rep('Mali',length(pbitemali2)), rep('BF',length(pbitebf2))),
+#                      pbite = c(pbitemali2, pbitebf2),
+#                      date = seq(as.Date('2017-04-01')-50, as.Date('2020-03-31'))) 
+# ggplot(pbite2) + 
+#   geom_point(aes(x = date, y = pbite, group = country)) + 
+#   facet_wrap(~country) + 
+#   labs(x = 'Date',
+#        y = 'Best-fitting spline for the daily probability of an infectious bite') +
+#   theme_bw()
