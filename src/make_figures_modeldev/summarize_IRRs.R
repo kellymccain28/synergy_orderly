@@ -30,6 +30,7 @@ summarize_IRRs <- function(outputsfolder,
              time_unit = agg_unit)
     
     inci_overall <- inci %>%
+      filter(date > '2017-05-01') %>%
       group_by(arm, sim_id) %>%
       summarize(person_months = sum(person_months),
                 n_cases = sum(n_cases)) %>%
@@ -68,6 +69,7 @@ summarize_IRRs <- function(outputsfolder,
              time_unit = agg_unit)
     
     inci_overall <- inci %>%
+      filter(date > '2017-05-01') %>%
       group_by(arm, sim_id) %>%
       summarize(person_months = sum(person_months),
                 n_cases = sum(n_cases)) %>%
