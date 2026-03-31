@@ -12,6 +12,7 @@ library(lubridate)
 library(purrr)
 library(orderly)
 library(MASS)
+library(janitor)
 library(tidyr)
 library(tidyverse)
 
@@ -298,21 +299,21 @@ saveRDS(monthly_inci_Mali, 'monthly_incidence_trial_Mali.rds')
 smc_dates <- readRDS('R:/Kelly/synergy_orderly/shared/median_smc_dates.rds') 
 smc_lines_BF <- smc_dates %>% ungroup() %>%
   filter(country == 'BF' & arm != 'rtss') %>%
-  select(date, arm) %>% 
+  dplyr::select(date, arm) %>% 
   mutate(color = '#709176') 
 smc_lines_Mali <-  smc_dates %>% ungroup() %>%
   filter(country == 'Mali' & arm != 'rtss') %>%
-  select(date, arm) %>% 
+  dplyr::select(date, arm) %>% 
   mutate(color = '#709176') 
 
 vaxdates <- readRDS('R:/Kelly/synergy_orderly/shared/median_rtss_dates.rds')
 rtss_lines_BF <-  vaxdates %>% ungroup() %>%
   filter(country == 'BF' & arm != 'smc') %>%
-  select(date, arm) %>% 
+  dplyr::select(date, arm) %>% 
   mutate(color = '#59114D') 
 rtss_lines_Mali <-  vaxdates %>% ungroup() %>%
   filter(country == 'Mali' & arm != 'smc') %>%
-  select(date, arm) %>% 
+  dplyr::select(date, arm) %>% 
   mutate(color = '#59114D') 
 
 
@@ -428,12 +429,22 @@ ggsave("trial_monthlyincidence_Mali.pdf", plot = monthlyincidenceplotmali, width
 
 
 # Delivery proportion ----
+nsmc_percountry <- delivery %>%
+  ungroup() %>%
+  group_by(arm, country, nsmc_received) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  group_by(country, arm) %>%
+  mutate(psmc_received = count / sum(count))
+
 #smc 
-nsmcplot <- ggplot(delivery %>% filter(arm !='rtss')) +
-  geom_bar(aes(x = nsmc_received, group = arm, fill = arm),
+nsmcplot <- ggplot(nsmc_percountry %>% filter(arm !='rtss')) +
+  geom_col(aes(x = as.factor(nsmc_received), y = psmc_received, 
+                     group = arm, fill = arm),
                  position = 'dodge') + 
   facet_wrap(~ country) +
-  scale_x_continuous(breaks =seq(0,12)) + 
+  # scale_x_continuous(breaks =seq(0,12)) + 
+  scale_y_continuous(labels = scales::percent,
+                     breaks= seq(0,0.6,.10)) +
   scale_fill_manual(values = mycols) +
   labs(x = 'Number of SMC rounds received (maximum of 12)',
        y = 'Number of people',
@@ -527,11 +538,36 @@ rr_doses <- ggplot(glm_stratified,
 delivery <- delivery %>%
   rowwise() %>%
   mutate(n_rtss =  sum(as.numeric(nprimary), as.numeric(boost1_done), as.numeric(boost2_done), na.rm = TRUE))
-nrtss <- ggplot(delivery %>% filter(arm !='smc')) +
-  geom_bar(aes(x = n_rtss, group = arm, fill = arm),
+nrtss_percountry <- delivery %>%
+  ungroup() %>%
+  group_by(arm, country, n_rtss) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  group_by(country, arm) %>%
+  mutate(prtss_received = count / sum(count))
+
+delivery %>%
+  filter(arm!= 'smc') %>%
+  tabyl(arm, nprimary, country) %>%
+  adorn_percentages() %>%
+  adorn_pct_formatting()
+
+delivery %>%
+  filter(arm!= 'smc') %>%
+  tabyl(arm, n_rtss, country) %>%
+  adorn_percentages() %>%
+  adorn_pct_formatting()
+  
+
+#smc 
+nrtss <- ggplot(nrtss_percountry %>% filter(arm !='smc')) +
+  geom_col(aes(x = as.factor(n_rtss), y = prtss_received, 
+               group = arm, fill = arm),
            position = 'dodge') + 
-  facet_wrap(~ country, scales = 'free_y') +
-  scale_x_continuous(breaks =seq(0,12)) + 
+  facet_wrap(~ country) +
+  # scale_x_continuous(breaks =seq(0,12)) + 
+  scale_y_continuous(labels = scales::percent,
+                     breaks= seq(0,0.9,.10),
+                     limits = c(0,0.9)) +
   scale_fill_manual(values = mycols) +
   labs(x = 'Number of doses of RTS,S received (maximum of 5)',
        y = 'Number of people',
@@ -568,7 +604,7 @@ vaxdates <- delivery %>%
   mutate(dose = factor(str_replace(dose, "_date", ""), levels = c("v1",'v2','v3','boost1', 'boost2')))
 
 smcdates <- delivery %>%
-  select(rid, arm, country, contains('date_received')) %>%
+  dplyr::select(rid, arm, country, contains('date_received')) %>%
   pivot_longer(cols = c(y1p1d1_date_received:y3p4d3_date_received),
                names_to = 'smcdose',
                values_to = 'date') %>%
@@ -590,40 +626,87 @@ dosecolors <- c('v1'='#99B3FF',
 armlabs = c('Both','RTS,S only','SMC only')
 names(armlabs) = c('both','rtss','smc')
 
-rtssdelivery_dates <- ggplot(vaxdates %>% filter(arm != 'smc')) +
-  geom_histogram(aes(x = as.Date(date), fill = dose), binwidth = 1) +
-  scale_x_date(date_breaks = '1 months', labels = scales::label_date_short()) +
-  scale_fill_manual(values = dosecolors,
-                    labels = c('v1' = 'Dose 1',
-                               'v2' = 'Dose 2',
-                               'v3' = 'Dose 3',
-                               'boost1' = 'Booster 1',
-                               'boost2' = 'Booster 2'))+
-  # theme(axis.text.x = element_text(angle = 45)) +
-  facet_grid(vars(country, arm), scales = 'free', labeller = labeller(arm= armlabs)) +
-  labs(x = 'Date',
-       y = 'Number of trial participants',
-       fill = NULL) +
-  theme_bw(base_size = 14)
+# rtssdelivery_dates <- ggplot(vaxdates %>% filter(arm != 'smc')) +
+#   geom_histogram(aes(x = as.Date(date), fill = dose), binwidth = 1) +
+#   scale_x_date(date_breaks = '1 months', labels = scales::label_date_short()) +
+#   scale_fill_manual(values = dosecolors,
+#                     labels = c('v1' = 'Dose 1',
+#                                'v2' = 'Dose 2',
+#                                'v3' = 'Dose 3',
+#                                'boost1' = 'Booster 1',
+#                                'boost2' = 'Booster 2'))+
+#   # theme(axis.text.x = element_text(angle = 45)) +
+#   facet_grid(vars(country, arm), scales = 'free', labeller = labeller(arm= armlabs)) +
+#   labs(x = 'Date',
+#        y = 'Number of trial participants',
+#        fill = NULL) +
+#   theme_bw(base_size = 14)
+vaxdates_sml <- vaxdates %>%
+  mutate(month = month(date),
+         week = week(date), 
+         year = year(date)) %>%
+  filter(month %in% c(4,5,6,7,8,9)) %>%
+  group_by(country, arm, dose, week, year) %>%
+  summarise(n = n()) %>%
+  mutate(date = ISOweek::ISOweek2date(paste0(year, "-W", sprintf("%02d", week), "-1")),
+         date_f = factor(format(date, "%b %d %Y")),  # convert to factor
+         dose = factor(dose, levels = c('boost2','boost1','v3','v2','v1')))
+
+rtssdelivery_dates <- ggplot(vaxdates_sml %>% filter(arm != 'smc')) +
+  geom_tile(aes(x = date, y = dose, fill = n), color = 'black') +
+  scale_x_date(date_breaks = '1 month', 
+               labels = scales::label_date_short()) +
+  scale_y_discrete(labels = c('v1'= 'Dose 1',
+                              'v2'= 'Dose 2',
+                              'v3' = 'Dose 3',
+                              'boost1' = 'Booster 1',
+                              'boost2'='Booster 2'))+
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(country, arm), cols = vars(year), 
+             scales = 'free_x', labeller = labeller(arm = armlabs)) +
+  labs(x = 'Date', y = NULL, fill = 'Number of participants') +
+  theme_classic(base_size = 14)
 ggsave('rtss_delivery_dates.pdf', plot = rtssdelivery_dates, height = 7, width = 12)
 
 vaxdates2 <- vaxdates %>%
-  select(rid, arm, dose, date) %>%
+  dplyr::select(rid, arm, dose, date) %>%
   group_by(date, dose, arm) %>%
   count()
 # ggplot(vaxdates2 %>% filter(date < '2017-12-01')) + 
 #   geom_tile(aes(x = as.Date(date), y = dose, fill = n)) + 
 #   theme_classic()
 
-smcdelivery_dates <- ggplot(smcdates %>% filter(arm != 'rtss')) +
-  geom_histogram(aes(x = as.Date(date), fill = round), binwidth = 1) +
-  scale_x_date(date_breaks = '1 months', labels = scales::label_date_short()) +
-  facet_grid(vars(country, arm), scales = 'free', labeller = labeller(arm= armlabs)) +
-  labs(x = 'Date',
-       y = 'Number of trial participants',
-       fill = NULL) +
-  theme_bw(base_size = 14)
-ggsave('smcdelivery_dates.pdf', plot = smcdelivery_dates, height = 7, width = 12)
+# smcdelivery_dates <- ggplot(smcdates %>% filter(arm != 'rtss')) +
+#   geom_histogram(aes(x = as.Date(date), fill = round), binwidth = 1) +
+#   scale_x_date(date_breaks = '1 months', labels = scales::label_date_short()) +
+#   facet_grid(vars(country, arm), scales = 'free', labeller = labeller(arm= armlabs)) +
+#   labs(x = 'Date',
+#        y = 'Number of trial participants',
+#        fill = NULL) +
+#   theme_bw(base_size = 14)
+smcdates_sml <- smcdates %>%
+  filter(grepl('Dose 1',smcdose)) %>%
+  mutate(month = month(date),
+         week = week(date), 
+         year = year(date)) %>%
+  filter(month %in% c(7,8,9,10,11)) %>%
+  group_by(country, arm, round, week, year) %>%
+  summarise(n = n()) %>%
+  mutate(date = ISOweek::ISOweek2date(paste0(year, "-W", sprintf("%02d", week), "-1")),
+         round= factor(round, levels = c("Year 3, Round 4", "Year 3, Round 3", "Year 3, Round 2", "Year 3, Round 1",
+                                              "Year 2, Round 4", "Year 2, Round 3", "Year 2, Round 2", "Year 2, Round 1",
+                                              "Year 1, Round 4", "Year 1, Round 3", "Year 1, Round 2", "Year 1, Round 1")))
+
+smcdelivery_dates <- ggplot(smcdates_sml %>% filter(arm != 'rtss')) +
+  geom_tile(aes(x = date, y = round, fill = n), color = 'black') +
+  scale_x_date(date_breaks = '1 month', 
+               labels = scales::label_date_short()) +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(country, arm), cols = vars(year), 
+             scales = 'free_x', labeller = labeller(arm = armlabs)) +
+  labs(x = 'Date', y = NULL, fill = 'Number of participants') +
+  theme_classic(base_size = 14)
+ggsave('smcdelivery_dates.pdf', plot = smcdelivery_dates, height = 9, width = 12)
 
 
 delivery %>% group_by(country) %>% summarise(median(y1p1d1_date_received, na.rm = TRUE)) # 7-27
@@ -749,7 +832,7 @@ ggsave(filename = 'sero_byarmandcountry.pdf', plot = sero_armcountry, height = 4
 # linear regression of the measured titre 
 
 sero_wide_v3 <- sero %>% filter(str_detect(timing, 'dose 3')) %>%
-  select(arm, country, rid, timing, lnnew, age_at_vac) %>%
+  dplyr::select(arm, country, rid, timing, lnnew, age_at_vac) %>%
   pivot_wider(
     names_from = timing,    
     values_from = lnnew     
@@ -777,13 +860,21 @@ calc_irr_trial <- function(agg_unit,
   # outputfolder <- c('Mali' = 'outputs_2026-03-26_2', #-- antagonistic
   #                   'BF' = 'outputs_2026-03-26' ## -- synergistic 
   # )
+  # Folders below are from the bestreps runs for the 2-arm fitting (after finished)
+  outputfolder <- c('Mali' = 'outputs_2026-03-30_2', #-- antagonistic (slightly)
+                    'BF' = 'outputs_2026-03-30' ## -- synergistic
+  )
   # Folders below are from the bestreps runs for the 3-arm fitting 
-  outputfolder <- c('Mali' = 'outputs_2026-03-24_2', # --synergistic
-                    'BF' = 'outputs_2026-03-24' # --synergistic - a lot
-                    )
+  # outputfolder <- c('Mali' = 'outputs_2026-03-24_2', # --synergistic
+  #                   'BF' = 'outputs_2026-03-24' # --synergistic - a lot
+  #                   )
   # # Folders below are from the synergy testing runs for the 2-arm fitting(before finished)
-  # outputfolder <- c('Mali' = 'outputs_2026-03-26_3', # -- anagonistic
+  # outputfolder <- c('Mali' = 'outputs_2026-03-26_3', # -- antagonistic
   #                   'BF' = 'outputs_2026-03-26_4' # -- synergistic
+  # )
+  # # Folders below are from the synergy testing runs for the 2-arm fitting(after finished)
+  # outputfolder <- c('Mali' = 'outputs_2026-03-30_8', # -- antagonistic (less than bestreps)
+  #                   'BF' = 'outputs_2026-03-30_7' # -- synergistic
   # )
   # # Folders below are from the synergy testing runs for the 3-arm fitting
   # outputfolder <- c('Mali' = 'outputs_2026-03-25_5', # -- synergistic
@@ -876,7 +967,7 @@ calc_irr_trial <- function(agg_unit,
   inci_wide <- inci_wide %>%
     # mutate(incidence_per_1000pm_none = 40) %>%
     # Join the model predicted incidence for the no-intervention group to the trial data 
-    left_join(model_inci_summary_wide_halfyear %>% select(time_value, time_value_num, time_unit, incidence_none_median) %>%
+    left_join(model_inci_summary_wide_halfyear %>% dplyr::select(time_value, time_value_num, time_unit, incidence_none_median) %>%
                 rename(incidence_per_1000pm_none = incidence_none_median)) %>%
     mutate(rtss_none_irr = (incidence_per_1000pm_rtss / incidence_per_1000pm_none),
            smc_none_irr = (incidence_per_1000pm_smc / incidence_per_1000pm_none),
