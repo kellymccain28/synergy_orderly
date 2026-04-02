@@ -207,7 +207,7 @@ task_log_show(unlist(task_ids2)[1])
 #                    environment = 'trial_simulations')
 nparams = 32
 ncores = if(nparams > 32) 32 else nparams
-country = 'BF'#'BF'#
+country = 'Mali'#'BF'#
 bestreps_or_syntest = 'syntest'
 task_create_expr(sim_trial_cohort(trial_ts = 365*3, 
                                   treatment_prob = 1, # default is 1 (which gives children prophylaxis)
@@ -217,11 +217,18 @@ task_create_expr(sim_trial_cohort(trial_ts = 365*3,
                                   get_parasit = FALSE,
                                   path = "R:/Kelly/synergy_orderly/",
                                   bestreps_or_syntest = bestreps_or_syntest,
-                                  notes = paste0(country, '; ', bestreps_or_syntest, '; best spline fit from 03-25_Mali_2 or 03-25_BF_2')),
+                                  notes = paste0(country, '; ', bestreps_or_syntest, '; best spline fit from 03-25_Mali_2 (rep 182) or 03-25_BF_2 (rep 153)')),
                  environment = 'trial_simulations',
                  resources = hipercow_resources(cores = ncores))
-task_log_show('3dde8e34cafb3278c55b0eacf5377293') # Mali
-task_log_show('fd3ed55897fe0998cc85f10ccd72a6e1') # BF
+# task_log_show('0c4f5a7e7f234a50289202c7200254bb') # Mali 2-arm (BEST 182)
+# task_log_show('1324bce5c96cb7457c883ab715d95104') # BF 2-arm (BEST 153)
+# task_log_show('efff9ae86637ca336d16382c82a6f9d2') # Mali 2-arm (SECOND BEST 138)
+# task_log_show('af48c9bfc36a530ad02b8caa0a630903') # BF 2-arm (SECOND BEST 199)
+task_log_show('eb1d621f210964ed41b1e5cf6792b87b') # Mali 2-arm (BEST 182) syntest
+task_log_show('c3ae9f2ecd024450b2369fe69c0ad704') # BF 2-arm (BEST 153) syntest
+task_log_show('4591980ec00b4b26729176d5b7a848f7') # Mali 2-arm (SECOND BEST 138) syntest
+task_log_show('b025459ea2d47d835b921b5b92e618fd') # BF 2-arm (SECOND BEST 199) syntest
+
 
 # Fitting the spline for chapter 6 
 # hipercow_environment_create(name = 'trial_fitting',

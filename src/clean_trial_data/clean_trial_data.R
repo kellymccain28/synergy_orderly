@@ -133,7 +133,10 @@ primary <- primary_raw %>%
 delivery_detail <- delivery_detail_raw %>%
   left_join(children) %>%
   mutate(y2p3d2_date_received = case_when(y2p3d2_date_received < as.Date('2017-01-01') ~ as.Date('2018-09-14'), 
-         TRUE ~ y2p3d2_date_received))
+                                          TRUE ~ y2p3d2_date_received),
+         y2p1d1_date_received = case_when(rid == 'B1481' & y2p1d1_date_received == as.Date('2018-09-07') ~ as.Date('2018-07-09'),
+                                          TRUE ~ y2p1d1_date_received)
+)
 
 serology <- serology_raw %>%
   left_join(children) %>%

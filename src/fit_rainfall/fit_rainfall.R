@@ -216,7 +216,7 @@ mali_fits_p <- ggplot() +
             color = 'darkorchid3', linetype = 2, linewidth = 1) + 
   geom_vline(aes(xintercept = 365 * c(1,2,3,4))) + 
   theme_bw()
-ggsave('MLI_rainfallfits.png', bf_fits_p)
+ggsave('MLI_rainfallfits.png', mali_fits_p)
 
 malifits <- list(fit1mali, fit2mali, fit3mali, fit4mali)
 malipredicts <- bind_rows(list(predictm_1, predictm_2, predictm_3, predictm_4)) %>%
