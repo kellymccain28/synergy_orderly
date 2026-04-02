@@ -447,7 +447,7 @@ nsmcplot <- ggplot(nsmc_percountry %>% filter(arm !='rtss')) +
                      breaks= seq(0,0.6,.10)) +
   scale_fill_manual(values = mycols) +
   labs(x = 'Number of SMC rounds received (maximum of 12)',
-       y = 'Number of people',
+       y = 'Percent of children',
        fill = 'Intervention arm') + 
   theme_bw(base_size =  14)
 ggsave('nsmc_received_bycountryandarm.pdf', plot = nsmcplot, height = 5, width = 10)
@@ -557,8 +557,14 @@ delivery %>%
   adorn_percentages() %>%
   adorn_pct_formatting()
   
-
-#smc 
+#mean doses per arm 
+delivery %>%
+  filter(arm != 'smc') %>%
+  group_by(country, arm) %>%
+  summarise(median_rtss = median(n_rtss),
+            median_smcdoses = median(nsmc_doses),
+            median_smc= median(nsmc_received))
+#rtss 
 nrtss <- ggplot(nrtss_percountry %>% filter(arm !='smc')) +
   geom_col(aes(x = as.factor(n_rtss), y = prtss_received, 
                group = arm, fill = arm),
@@ -570,7 +576,7 @@ nrtss <- ggplot(nrtss_percountry %>% filter(arm !='smc')) +
                      limits = c(0,0.9)) +
   scale_fill_manual(values = mycols) +
   labs(x = 'Number of doses of RTS,S received (maximum of 5)',
-       y = 'Number of people',
+       y = 'Percent of children',
        fill = 'Intervention arm') + 
   theme_bw(base_size =  14)
 ggsave('nrtss_received_bycountryandarm.pdf', plot = nrtss, height = 5, width = 10)
@@ -652,10 +658,13 @@ vaxdates_sml <- vaxdates %>%
          date_f = factor(format(date, "%b %d %Y")),  # convert to factor
          dose = factor(dose, levels = c('boost2','boost1','v3','v2','v1')))
 
+line_positions <- c(2.5, 1.5, 0.5)
 rtssdelivery_dates <- ggplot(vaxdates_sml %>% filter(arm != 'smc')) +
   geom_tile(aes(x = date, y = dose, fill = n), color = 'black') +
+  geom_hline(yintercept = line_positions, color = "grey50", size = 0.2, linetype = "dashed") +
   scale_x_date(date_breaks = '1 month', 
-               labels = scales::label_date_short()) +
+               labels = scales::label_date_short(),
+               expand = c(0,0)) +
   scale_y_discrete(labels = c('v1'= 'Dose 1',
                               'v2'= 'Dose 2',
                               'v3' = 'Dose 3',
@@ -697,14 +706,19 @@ smcdates_sml <- smcdates %>%
                                               "Year 2, Round 4", "Year 2, Round 3", "Year 2, Round 2", "Year 2, Round 1",
                                               "Year 1, Round 4", "Year 1, Round 3", "Year 1, Round 2", "Year 1, Round 1")))
 
+# Find positions between rounds 
+line_positions <- c(8.5, 4.5, 0.5, 8.5, 4.5, 0.5, 8.5, 4.5, 0.5, 8.5, 4.5, 0.5)
+
 smcdelivery_dates <- ggplot(smcdates_sml %>% filter(arm != 'rtss')) +
   geom_tile(aes(x = date, y = round, fill = n), color = 'black') +
+  geom_hline(yintercept = line_positions, color = "grey50", size = 0.2, linetype = "dashed") +
   scale_x_date(date_breaks = '1 month', 
-               labels = scales::label_date_short()) +
+               labels = scales::label_date_short(),
+               expand = c(0,0)) +
   scale_fill_viridis_c() +
   facet_grid(rows = vars(country, arm), cols = vars(year), 
              scales = 'free_x', labeller = labeller(arm = armlabs)) +
-  labs(x = 'Date', y = NULL, fill = 'Number of participants') +
+  labs(x = 'Date', y = NULL, fill = 'Number of children') +
   theme_classic(base_size = 14)
 ggsave('smcdelivery_dates.pdf', plot = smcdelivery_dates, height = 9, width = 12)
 
@@ -852,6 +866,7 @@ library(purrr)
 agg_unit = 'halfyear'
 
 calc_irr_trial <- function(agg_unit,
+                           armfit,
                            country){
   # should not really matter if i use the bestruns or syntest because i only look at the incidence 
   
@@ -861,13 +876,15 @@ calc_irr_trial <- function(agg_unit,
   #                   'BF' = 'outputs_2026-03-26' ## -- synergistic 
   # )
   # Folders below are from the bestreps runs for the 2-arm fitting (after finished)
-  outputfolder <- c('Mali' = 'outputs_2026-03-30_2', #-- antagonistic (slightly)
-                    'BF' = 'outputs_2026-03-30' ## -- synergistic
-  )
+  if(armfit == 2){ 
+    outputfolder <- c('Mali' = 'outputs_2026-03-30_2', #-- antagonistic (slightly)
+                      'BF' = 'outputs_2026-03-30' ## -- synergistic
+    )}
   # Folders below are from the bestreps runs for the 3-arm fitting 
-  # outputfolder <- c('Mali' = 'outputs_2026-03-24_2', # --synergistic
-  #                   'BF' = 'outputs_2026-03-24' # --synergistic - a lot
-  #                   )
+  if(armfit == 3){ 
+    outputfolder <- c('Mali' = 'outputs_2026-03-24_2', # --synergistic
+                      'BF' = 'outputs_2026-03-24' # --synergistic - a lot
+    )}
   # # Folders below are from the synergy testing runs for the 2-arm fitting(before finished)
   # outputfolder <- c('Mali' = 'outputs_2026-03-26_3', # -- antagonistic
   #                   'BF' = 'outputs_2026-03-26_4' # -- synergistic
@@ -880,6 +897,15 @@ calc_irr_trial <- function(agg_unit,
   # outputfolder <- c('Mali' = 'outputs_2026-03-25_5', # -- synergistic
   #                   'BF' = 'outputs_2026-03-25_6' # --synergistic 
   # )
+  outputs_folders <-  c(#'BF3syn' = 'outputs_2026-03-25_6',
+    # 'Mali3syn' = 'outputs_2026-03-25_5',
+    # 'BF2syn' = 'outputs_2026-03-30_7',
+    # 'Mali2syn' = 'outputs_2026-03-30_8',
+    
+    'BF3best' = 'outputs_2026-03-24',
+    'Mali3best' = 'outputs_2026-03-24_2',
+    'BF2best' = 'outputs_2026-03-30',
+    'Mali2best' = 'outputs_2026-03-30_2')
   
   if(country == 'Mali'){
     # model_inci_summary_all_halfyear <- readRDS(paste0("R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/",outputfolder['Mali'],"/inci_summary_all_",agg_unit, ".rds")) %>%
@@ -1068,18 +1094,18 @@ calc_irr_trial <- function(agg_unit,
   return(inci_summary)
 }
 
+#armfit = 3
 trial_halfyearmali <- calc_irr_trial(agg_unit = 'halfyear',
+                                     armfit = 3,
                                  country = 'Mali') %>%
   mutate(country = 'Mali')
 trial_halfyearbf <- calc_irr_trial(agg_unit = 'halfyear',
+                                   armfit = 3,
                                  country = 'BF') %>%
   mutate(country = 'BF')
 trial_halfyear <- bind_rows(trial_halfyearmali, trial_halfyearbf)
-# trial_yearmonth <- calc_irr_trial(agg_unit = 'yearmonth',
-#                                   country = 'Mali')
 
 inci_summary <- trial_halfyear
-# inci_summary <- trial_yearmonth
 
 # Plot of the ratio of model-predicted to expected by aggregation unit 
 pp <- ggplot(trial_halfyear %>% filter(metric == 'difference_inci_averted_pred_exp'), 
@@ -1087,7 +1113,7 @@ pp <- ggplot(trial_halfyear %>% filter(metric == 'difference_inci_averted_pred_e
            # fill = time_value, 
            group = time_value)) +
   # model estimated
-  geom_col(fill = '#6F9B8A' ) +
+  geom_col(fill = '#E15554') +
   geom_hline(yintercept = 0, linetype = "dashed", color = "darkred") +
   labs(
     x = NULL,#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Half-year',
@@ -1100,7 +1126,41 @@ pp <- ggplot(trial_halfyear %>% filter(metric == 'difference_inci_averted_pred_e
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = 'none')
 
-ggsave(filename = 'expected_trial_difference.pdf', plot = pp, height = 6, width = 10)
+ggsave(filename = 'expected_trial_difference3.pdf', plot = pp, height = 6, width = 10)
+
+# armfit = 2
+trial_halfyearmali <- calc_irr_trial(agg_unit = 'halfyear',
+                                     armfit = 2,
+                                     country = 'Mali') %>%
+  mutate(country = 'Mali')
+trial_halfyearbf <- calc_irr_trial(agg_unit = 'halfyear',
+                                   armfit = 2,
+                                   country = 'BF') %>%
+  mutate(country = 'BF')
+trial_halfyear <- bind_rows(trial_halfyearmali, trial_halfyearbf)
+
+inci_summary <- trial_halfyear
+
+# Plot of the ratio of model-predicted to expected by aggregation unit 
+pp <- ggplot(trial_halfyear %>% filter(metric == 'difference_inci_averted_pred_exp'), 
+             aes(x = time_value, y = value, 
+                 # fill = time_value, 
+                 group = time_value)) +
+  # model estimated
+  geom_col(fill = 'darkred' ) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = 'black') +
+  labs(
+    x = NULL,#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Half-year',
+    y = "Difference in model-predicted trial observed versus expected\ncases averted per 1000 people of\ncombination vs no intervention",
+    shape = NULL, linetype = NULL,
+    color = NULL#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Study half-year'
+  ) +
+  theme_bw(base_size = 14) +
+  facet_wrap(~country) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = 'none')
+
+ggsave(filename = 'expected_trial_difference2.pdf', plot = pp, height = 6, width = 10)
 
 # plotcompare <- ggplot(inci_summary %>% filter(metric == 'efficacy' & time_value == 'Overall'),
 #        aes(x = comparison, y = irr,

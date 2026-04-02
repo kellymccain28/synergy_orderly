@@ -143,7 +143,5 @@ plot_irr_average <- function(outputsfolder,
     
     ggsave(paste0(path, outputsfolder,'/difference_inci_average_by', agg_unit, '.pdf'), plot = last_plot(), width = 8, height = 6)
     inci_summary %>% filter(metric == 'difference_inci_averted_pred_exp')
-
-   
     
 }

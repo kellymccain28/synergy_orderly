@@ -190,9 +190,10 @@ outputs_folders <- c('outputs_2026-03-23_5',
 
 task_create_expr({
   cohort_folder <- 'sim_trial_cohort'
-  outputs_folders <-  c('outputs_2026-03-26_4','outputs_2026-03-26_3',
-                        'outputs_2026-03-26','outputs_2026-03-26_2',
-                        'outputs_2026-03-2','outputs_2026-03-26_3')
+  outputs_folders <-  c('outputs_2026-03-30_5',
+                        'outputs_2026-03-30_6',
+                        'outputs_2026-03-30_7',
+                        'outputs_2026-03-30_8')
   
   for(outputs_folder in outputs_folders){
     print(outputs_folder)

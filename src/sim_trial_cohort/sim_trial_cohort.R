@@ -121,11 +121,66 @@ sim_trial_cohort <- function(trial_ts = 365*3,
   # to run with spline fitting 
   # Load saved spline best values 
   if(country_to_run =='BF'){
-    # fittedspline <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-23_BF/best_so_far.rds"))$params_row$p_bite
+    # fittedspline <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-23_BF/best_so_far.rds"))$params_row$p_bite # 3-arm fitting
     fittedspline <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-25_BF_2/best_so_far.rds"))$params_row$p_bite # this is the fitting to only the 2 arms
+    
+    # # second lowest (2-arm fitting)
+    # setup <- readRDS(paste0(path, "src/sim_trial_cohort/spline_setupBF_14.rds"))
+    # optim_checkpoint <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-25_BF_2/optim_checkpoint.rds"))
+    # rmse_values <- sapply(1:200, function(ii) {
+    #   val <- optim_checkpoint$history[[ii]]$rmse
+    #   if(is.null(val)) Inf else val
+    # })
+    # # Get indices ordered by RMSE
+    # ordered_indices <- order(rmse_values)
+    # # Get the index of the second lowest RMSE
+    # second_lowest_index <- ordered_indices[2]
+    # # Pull out the coefficients for that index
+    # coefs_scaled_second_lowest <- optim_checkpoint$history[[second_lowest_index]]$coefs
+    # # Get the scaling factors used during optimization
+    # # Recreate X_scale from setup
+    # X <- setup$X
+    # X_scale <- apply(X, 2, sd)
+    # X_scale[1] <- 1  # don't scale intercept
+    # # Unscale the coefficients
+    # coefs_unscaled <- coefs_scaled_second_lowest / X_scale
+    # # Compute linear predictor (log odds) using original X
+    # linear_pred <- as.numeric(X %*% coefs_unscaled)
+    # # Convert to probabilities
+    # bite_prob <- plogis(linear_pred)
+    # # Cap at 0.3 if needed (as in your objective function)
+    # fittedspline <- list(pmin(bite_prob, 0.3))
+    
   } else if(country_to_run == 'Mali'){
-    # fittedspline <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-23_Mali/best_so_far.rds"))$params_row$p_bite
+    # fittedspline <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-23_Mali/best_so_far.rds"))$params_row$p_bite # 3-arm fitting
     fittedspline <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-25_Mali_2/best_so_far.rds"))$params_row$p_bite # this is the fitting to only the 2 arms
+  
+    # # 2-arm fitting - second lowest RMSE
+    # setup <- readRDS(paste0(path, "src/sim_trial_cohort/spline_setupMali_13.rds"))
+    # optim_checkpoint <- readRDS(paste0(path, "src/sim_trial_cohort/outputs_fitting/outputs_2026-03-25_Mali_2/optim_checkpoint.rds"))
+    # rmse_values <- sapply(1:200, function(ii) {
+    #   val <- optim_checkpoint$history[[ii]]$rmse
+    #   if(is.null(val)) Inf else val
+    # })
+    # # Get indices ordered by RMSE
+    # ordered_indices <- order(rmse_values)
+    # # Get the index of the second lowest RMSE
+    # second_lowest_index <- ordered_indices[2]
+    # # Pull out the coefficients for that index
+    # coefs_scaled_second_lowest <- optim_checkpoint$history[[second_lowest_index]]$coefs
+    # # Get the scaling factors used during optimization
+    # # Recreate X_scale from setup
+    # X <- setup$X
+    # X_scale <- apply(X, 2, sd)
+    # X_scale[1] <- 1  # don't scale intercept
+    # # Unscale the coefficients
+    # coefs_unscaled <- coefs_scaled_second_lowest / X_scale
+    # # Compute linear predictor (log odds) using original X
+    # linear_pred <- as.numeric(X %*% coefs_unscaled)
+    # # Convert to probabilities
+    # bite_prob <- plogis(linear_pred)
+    # # Cap at 0.3 if needed (as in your objective function)
+    # fittedspline <- list(pmin(bite_prob, 0.3))
   }
   
   params_df$p_bite = fittedspline
