@@ -111,6 +111,7 @@ run_cohort_simulation <- function(params_row, # this should have max smc kill ra
     bites <- bites[bites %in% active_children]
     
     numbites <- table(bites)
+    # numbites <- pmin(numbites, 1) # to test with only 1 bite per person 
     # create named vector of the number of bites for each child 
     numbites <- setNames(as.vector(numbites), names(numbites))
     
@@ -599,7 +600,7 @@ calc_rtss_efficacy <- function(df){
     rename(cases_smc = cases, inci_rtss = inci, pop_rtss = pop) %>%
     select(-arm)
   
-  d <- left_join(none, rtss, by = c('months_since_rtss','sim_id'))
+  d <- full_join(none, rtss, by = c('months_since_rtss','sim_id'))
   d$efficacy <-  1 - (d$inci_rtss / d$inci_none)
   
   return(d)

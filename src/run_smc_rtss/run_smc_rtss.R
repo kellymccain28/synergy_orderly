@@ -169,14 +169,28 @@ smc_dose_days <- c(seq(season_start_day, season_start_day + 120 - 1, 30),
                    seq(season_start_day + 365*2, season_start_day  + 366*2 + 120 - 1, 30))
 # will output kill vector in length ts
 tssmc = 365*3/2
+smc_inf_start = 0
 smc_killvec <- unlist(get_smc_vectors(smc_dose_days = smc_dose_days,
                                ts = tssmc, 
                                max_SMC_kill_rate = runpars$max_SMC_kill_rate,
                                lambda = runpars$lambda, 
                                kappa = runpars$kappa))
-smckillvec_subset <- smc_killvec[floor((runpars$inf_start) / 2) :length(smc_killvec)]
-smckillvec_subset <- list(c(smckillvec_subset, rep(0, tssmc-length(smckillvec_subset))))
-smckilltime <- seq(0, length(smckillvec_subset[[1]])-1,1)
+# Calculate start index
+start_ts <- floor(smc_inf_start / 2)
+# Pad zeros at front if inf_start is negative, otherwise take subset
+if (start_ts < 1) {
+  smckillvec_subset <- c(rep(0, abs(start_ts)), smc_killvec)
+} else {
+  smckillvec_subset <- smc_killvec[start_ts:length(smc_killvec)]
+}
+# Trim or pad to exactly tssmc length
+length(smckillvec_subset) <- ceiling(tssmc)
+smckillvec_subset[is.na(smckillvec_subset)] <- 0
+smckillvec_subset <- list(smckillvec_subset)
+
+# smckillvec_subset <- smc_killvec[floor((runpars$inf_start) / 2) :length(smc_killvec)]
+# smckillvec_subset <- list(c(smckillvec_subset, rep(0, tssmc-length(smckillvec_subset))))
+# smckilltime <- seq(0, length(smckillvec_subset[[1]])-1,1)
 # Without vaccination but with SMC ----
 smc <- run_model(n_particles = runpars$n_particles,
                  n_threads = 4L,
@@ -188,10 +202,10 @@ smc <- run_model(n_particles = runpars$n_particles,
                  VB = VB,
                  SMC_time = smckilltime,
                  SMC_kill_vec = smckillvec_subset,
-                 infection_start_day = runpars$inf_start
+                 infection_start_day = smc_inf_start
                  ) %>%
   format_data(tt= tt,
-              infection_start_day = runpars$inf_start,
+              infection_start_day = smc_inf_start,
               n_particles = runpars$n_particles) %>%
   make_plots()
 smc[[1]] + xlim(c(0,365))# plotting time which is in 2 day timesteps
