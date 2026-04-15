@@ -159,7 +159,9 @@ weekly_raw <- rbind(weekly1_raw, weekly2_raw, weekly3_raw)
 weekly <- weekly_raw %>%
   left_join(children) %>%
   mutate(time_since_vac = ifelse(pf_asex_fresult == 1 & arm != 'smc', dateweekly - v3_date, NA),
-         time_since_smc = ifelse(pf_asex_fresult == 1 & arm != 'rtss', dateweekly - y1p1d1_date_received, NA))
+         time_since_smc = ifelse(pf_asex_fresult == 1 & arm != 'rtss', dateweekly - y1p1d1_date_received, NA)) %>%
+  mutate(dateweekly = case_when(dateweekly == '2017-02-08' ~ as.Date('2017-08-02'),
+                                TRUE ~ dateweekly))
 
 
 # Analysis dataset
