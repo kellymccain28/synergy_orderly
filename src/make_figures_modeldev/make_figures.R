@@ -89,7 +89,7 @@ source('./summarize_IRRs.R')
 # outputs_folder <- 'outputs_2026-01-23_21' # late 140 80
 
 cohort_folder <- 'sim_cohort_generic'
-outputs_folder <- 'outputs_2026-01-26' # balanced with 32*3 runs -- use this as of 29 Jan 
+# outputs_folder <- 'outputs_2026-01-26' # balanced with 32*3 runs -- use this as of 29 Jan 
 
 # Real trial simulations -- need to use cohort_folder = 'sim_trial_cohort'
 cohort_folder = 'sim_trial_cohort'
@@ -135,7 +135,7 @@ outputs_folders <- c('outputs_2026-02-18_9',
                      'outputs_2026-02-18_6',
                      'outputs_2026-02-18_5',
                      'outputs_2026-02-18_4',
-                     'outputs_2026-02-18_3',
+                     'outputs_2026-02-18_3', # this is what is currently used in tehsis (as of 10 April, secnario 5)
                      'outputs_2026-02-18_25',
                      'outputs_2026-02-18_24',
                      'outputs_2026-02-18_23',
@@ -189,11 +189,8 @@ outputs_folders <- c('outputs_2026-03-23_5',
                     'outputs_2026-03-23_13')
 
 task_create_expr({
-  cohort_folder <- 'sim_trial_cohort'
-  outputs_folders <-  c('outputs_2026-03-30_5',
-                        'outputs_2026-03-30_6',
-                        'outputs_2026-03-30_7',
-                        'outputs_2026-03-30_8')
+  cohort_folder <- 'sim_cohort_generic'
+  outputs_folders <-  c('outputs_2026-02-18_3')
   
   for(outputs_folder in outputs_folders){
     print(outputs_folder)

@@ -1,4 +1,4 @@
-# Function to calculate the men least squared difference (2-norm) between model-predicted and observed incidence 
+# Function to calculate the root mean least squared difference (2-norm) between model-predicted and observed incidence 
 # loss function to minimise when fitting lag and scaler 
 
 compare_incidence <- function(incidence_model, 
@@ -34,10 +34,30 @@ compare_incidence <- function(incidence_model,
     filter(arm != 'none')
   message('joined model and trial incidence')
   
-  # Calculate root mean squared error -- minimise 
+  # Calculate root mean squared error OVERALL -- minimise  ----
   rmse <- sqrt(mean((inci_joined$incidence_per_1000pm_trial - inci_joined$incidence_per_1000pm_model)^2))
   message('got rmse: ', rmse)
-  # Calculate the negative binomial negative likelihood
+  
+  # === PER-ARM RMSE ====
+  rmse_by_arm <- inci_joined %>%
+    group_by(arm) %>%
+    summarise(
+      rmse = sqrt(mean((incidence_per_1000pm_trial - incidence_per_1000pm_model)^2)),
+      .groups = 'drop'
+    )
+  message('RMSE by arm:\n', paste(capture.output(print(rmse_by_arm)), collapse = '\n'))
+  
+  # === PER-ARM OVER TIME (monthly RMSE) ====
+  rmse_by_arm_time <- inci_joined %>%
+    group_by(arm, yearmonth) %>%
+    summarise(
+      rmse_monthly = sqrt(mean((incidence_per_1000pm_trial - incidence_per_1000pm_model)^2)),
+      incidence_trial = mean(incidence_per_1000pm_trial),
+      incidence_model = mean(incidence_per_1000pm_model),
+      .groups = 'drop'
+    )
+  
+  # Calculate the negative likelihood
   # Get model predicted rate (cases per person-month)
   model_rate <- inci_joined$n_cases_model / inci_joined$person_months_model
   
@@ -48,10 +68,58 @@ compare_incidence <- function(incidence_model,
   # inci_joined <- inci_joined %>%
   #   mutate(n_cases_model = pmax(n_cases_model, epsilon))
   
-  size = 0.5854176
-  negll <- -sum(dnbinom(inci_joined$n_cases_trial, 
-                        mu = expected_cases, #inci_joined$n_cases_model,#
-                        size = size, log = TRUE))
+  # POISSON NEG LL 
+  log_lik <- sum(dpois(inci_joined$n_cases_trial, lambda = expected_cases, log = TRUE))
+  negll <- -log_lik
+  
+  # For Poisson with no estimated parameters (lambda is fixed from model predictions)
+  # Number of parameters = 0 (the model gives expected cases directly)
+  n_params <- 0
+  aic <- 2 * n_params + 2 * negll  # = 2 * negll
+  bic <- log(nrow(inci_joined)) * n_params + 2 * negll  # = 2 * negll
+  message('got negll: ', round(negll, 2))
+  message('AIC: ', round(aic, 2))
+  message('BIC: ', round(bic, 2))
+  
+  negll_by_arm <- inci_joined %>%
+    group_by(arm) %>%
+    summarise({
+      expected_cases_arm <- (n_cases_model / person_months_model) * person_months_trial
+      expected_cases_arm <- pmax(expected_cases_arm, epsilon)
+      negll_val <- -sum(dpois(n_cases_trial, lambda = expected_cases_arm, log = TRUE))
+      tibble(negll = negll_val)
+    }, .groups = 'drop')
+  message('NegLL by arm:\n', paste(capture.output(print(negll_by_arm)), collapse = '\n'))
+  
+  # Per-arm Poisson metrics
+  poisson_by_arm <- inci_joined %>%
+    group_by(arm) %>%
+    summarise({
+      expected_cases_arm <- (n_cases_model / person_months_model) * person_months_trial
+      expected_cases_arm <- pmax(expected_cases_arm, epsilon)
+      
+      log_lik_arm <- sum(dpois(n_cases_trial, 
+                               lambda = expected_cases_arm, 
+                               log = TRUE))
+      negll_arm <- -log_lik_arm
+      
+      # For Poisson with fixed lambda (no estimated parameters)
+      n_params_arm <- 0
+      aic_arm <- 2 * negll_arm
+      bic_arm <- 2 * negll_arm
+      
+      tibble(
+        negll = negll_arm,
+        aic = aic_arm,
+        bic = bic_arm,
+        n_obs = n(),
+        rmse = sqrt(mean((incidence_per_1000pm_trial - incidence_per_1000pm_model)^2))
+      )
+    }, .groups = 'drop')
+  
+  message('\nPoisson fit by arm:')
+  print(poisson_by_arm)
+  
   message('got negll: ', negll)
   
   iter <- unique(incidence_model$iter)
@@ -66,39 +134,114 @@ compare_incidence <- function(incidence_model,
                                    'Model' = '#E1BC29'))+#c('#C44536','#772E25','#197278','#283D3B'))+
     labs(color = 'Intervention arm',
          x = 'Date',
-         y = 'Incidence per 1000 person-months'#,
-         # caption = paste0('lag: ', pars$lag_p_bite, 'yr 1 scaler: ', pars$p_bite_scaler_1,'\nyr 2 scaler: ', pars$p_bite_scaler_2, 'yr3 scaler: ',pars$p_bite_scaler_3)
-         ) +
+         y = 'Incidence per 1000 person-months') +
     theme_bw(base_size = 14) + 
     facet_wrap(~factor(arm, levels = c('none','rtss','smc','both')), 
                nrow = 4,
                scales = 'free')
   
-  # ggsave(filename = paste0(output_dir, '/incidence_trial_vs_model_', simid, '.png'), incicomparison)
-  # Add timestamp to filename - guarantees uniqueness
-  # Simple version - just check and add number
-  output_dir <- paste0(output_dir, '/plots')
-  base_filename <- paste0(output_dir, '/incidence_trial_vs_model_', iter, '.png')
+  # Plot 2: RMSE over time by arm
+  rmse_time_plot <- ggplot(rmse_by_arm_time, aes(x = yearmonth, y = rmse_monthly, color = arm)) +
+    geom_line(linewidth = 0.8) +
+    geom_point(size = 1.5) +
+    labs(x = 'Date', 
+         y = 'Monthly RMSE (incidence per 1000 pm)',
+         title = paste('Model vs Trial Fit Over Time (Overall RMSE:', round(rmse, 3), ')'),
+         color = 'Arm') +
+    theme_bw(base_size = 12) +
+    facet_wrap(~arm, scales = 'free_y', nrow = 2)
   
-  if (!file.exists(base_filename)) {
-    ggsave(filename = base_filename, incicomparison)
-  } else {
-    # If exists, find next available number
-    counter <- 1
-    repeat {
-      new_filename <- paste0(output_dir, '/incidence_trial_vs_model_', iter, '_', counter, '.png')
-      if (!file.exists(new_filename)) {
-        ggsave(filename = new_filename, incicomparison)
-        break
+  # Plot 3: Scatter plot of model vs trial by arm
+  scatter_plot <- ggplot(inci_joined, aes(x = incidence_per_1000pm_model, 
+                                          y = incidence_per_1000pm_trial)) +
+    geom_point(aes(color = arm), alpha = 0.6) +
+    geom_abline(slope = 1, intercept = 0, linetype = 'dashed', color = 'gray50') +
+    geom_smooth(method = 'lm', se = FALSE, color = 'black', linewidth = 0.5) +
+    labs(x = 'Model Incidence (per 1000 pm)',
+         y = 'Trial Incidence (per 1000 pm)',
+         title = paste('Overall RMSE:', round(rmse, 3), 
+                       ' | AIC:', round(aic, 1))) +
+    theme_bw(base_size = 12) +
+    facet_wrap(~arm, scales = 'free')
+  
+  
+  # save plots 
+  output_dir_plots <- paste0(output_dir, '/plots')
+  if(!dir.exists(output_dir_plots)) dir.create(output_dir_plots, recursive = TRUE)
+  # function to generate unique file nam e
+  get_unique_filename <- function(base_path, base_name, iter, extension = '.png') {
+    filename <- paste0(base_path, '/', base_name, '_', iter, extension)
+    if (!file.exists(filename)) {
+      return(filename)
+    } else {
+      counter <- 1
+      repeat {
+        new_filename <- paste0(base_path, '/', base_name, '_', iter, '_', counter, extension)
+        if (!file.exists(new_filename)) {
+          return(new_filename)
+        }
+        counter <- counter + 1
       }
-      counter <- counter + 1
     }
   }
+
+  
+  # Save incidence comparison plot
+  incifile <- get_unique_filename(output_dir_plots, 'incidence_trial_vs_model', iter, '.png')
+  ggsave(filename = incifile, incicomparison, width = 10, height = 12)
+  message('Saved: ', incifile)
+  
+  # Save RMSE over time plot
+  rmsefile <- get_unique_filename(output_dir_plots, 'rmse_over_time', iter, '.png')
+  ggsave(filename = rmsefile, rmse_time_plot, width = 10, height = 8)
+  message('Saved: ', rmsefile)
+  
+  # Save scatter plot
+  scatterfile <- get_unique_filename(output_dir_plots, 'scatter_model_vs_trial', iter, '.png')
+  ggsave(filename = scatterfile, scatter_plot, width = 10, height = 8)
+  message('Saved: ', scatterfile)
+  
+  # Save RMSE metrics to CSV
+  rmse_metrics <- list(
+    overall = data.frame(
+      iter = iter,
+      simid = simid,
+      rmse = rmse,
+      negll = negll,
+      log_lik = log_lik,
+      aic = aic,
+      bic = bic,
+      n_obs = nrow(inci_joined)
+    ),
+    by_arm = rmse_by_arm,
+    by_arm_time = rmse_by_arm_time,
+    poisson_by_arm = poisson_by_arm
+  )
+  
+  write.csv(rmse_metrics$overall, 
+            get_unique_filename(output_dir_plots, 'metrics_overall', iter, '.csv'), 
+            row.names = FALSE)
+  write.csv(rmse_metrics$by_arm, 
+            get_unique_filename(output_dir_plots, 'rmse_by_arm', iter, '.csv'), 
+            row.names = FALSE)
+  write.csv(rmse_metrics$by_arm_time, 
+            get_unique_filename(output_dir_plots, 'rmse_by_arm_time', iter, '.csv'), 
+            row.names = FALSE)
+  write.csv(rmse_metrics$poisson_by_arm, 
+            get_unique_filename(output_dir_plots, 'poisson_metrics_by_arm', iter, '.csv'), 
+            row.names = FALSE)
   
   return(list(
-    rmse = rmse,
-    negll = negll,
-    simid = simid
+    rmse = rmse,  
+    rmse_by_arm = rmse_by_arm,
+    rmse_by_arm_time = rmse_by_arm_time,
+    negll = negll,  
+    negll_by_arm = negll_by_arm,  # 
+    log_lik = log_lik,  # 
+    aic = aic,  # 
+    bic = bic,  # 
+    simid = simid,
+    iter = iter
   ))
 }
 

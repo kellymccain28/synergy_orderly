@@ -91,15 +91,6 @@ plot_synergytest <- function(){
   inci_summary_halfyear <- bind_rows(inci_summary_halfyear2, inci_summary_halfyear3) %>%
     filter(metric == 'difference_inci_averted_pred_exp')
   
-  # Pull in data for yearmonth
-  # inci_summary_yearmonth_BF <- readRDS(paste0(path, outputs_folders['BF3'], '/inci_summary_wide_yearmonth.rds')) %>%
-  #   mutate(country = 'BF')
-  # inci_summary_yearmonth_Mali <- readRDS(paste0(path, outputs_folders['Mali3'], '/inci_summary_wide_yearmonth.rds')) %>%
-  #   mutate(country = 'Mali')
-  # 
-  # inci_summary_yearmonth <- bind_rows(inci_summary_yearmonth_BF, inci_summary_yearmonth_Mali) %>%
-  #   rename(yearmonth = time_value)
-  
   # Plot of the difference of model-predicted to expected between bestreps for 2 and 3-arm fits of BF and Mali
   ggplot(inci_summary_halfyear, 
          aes(x = time_value, y = median, 
@@ -151,6 +142,8 @@ plot_synergytest <- function(){
   ggsave(paste0('R:/Kelly/synergy_orderly/src/', cohort_folder, '/thesis_plots/difference_inci_average_byhalfyear_BFMali_3armfit.pdf'), 
          plot = last_plot(), width = 9, height = 5)
   
+
+    
   
   # Plot of expected vs predicted cases averted per 1000 of both vs none 
   # exppred_inci <- ggplot(inci_summary_yearmonth %>% filter(yearmonth > '2017-05-01')) + 

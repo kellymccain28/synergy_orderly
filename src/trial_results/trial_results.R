@@ -462,7 +462,9 @@ delivery %>%
             missed3ormoresmc = sum(missed3ormoresmc),
             total = n()) %>% 
   mutate(percent_missinganysmc = scales::percent(missedanysmc / total),
-         percent_missed3ormoresmc = scales::percent(missed3ormoresmc / total)) %>%
+         percent_missed3ormoresmc = scales::percent(missed3ormoresmc / total),
+         atleast11 = scales::percent(1-(missedanysmc / total)),
+         atleast9 = scales::percent(1-(missed3ormoresmc / total))) %>%
   arrange(country)
 # in Mali, about 41-42% of people missed at least 1 smc round over 3 years in both SMC and Both groups,
 # Mali: about 19-20% missed at least 3 rounds
@@ -797,6 +799,24 @@ repeats <- weekly %>%
 table(repeats$country)
 # no ids with repeated parasitaemia results 
 
+# prevalence of parasiteamia in weekly surveys 
+weekly %>%
+  tabyl(country, poutcome) %>%
+  adorn_percentages() %>%
+  adorn_pct_formatting()
+weekly %>%
+  tabyl(poutcome, country) %>%
+  adorn_totals() 
+# number of non zero samples 
+weekly %>%
+  tabyl(country,pf_asex_fresult) %>%
+  adorn_totals()  %>%
+  adorn_percentages() %>%
+  adorn_pct_formatting()
+
+weekly %>% 
+  group_by(country) %>% 
+  summarise(maxdate = max(dateweekly), mindate = min(dateweekly))
 
 # Serology ---- 
 ncasesperperson <- mitt %>%
@@ -830,10 +850,48 @@ summarisedsero <- sero %>% filter(postonly =='post' & arm != 'smc') %>%
 #   geom_vline(data = vaxdates, aes(xintercept = date)) + 
 #   facet_wrap(~country)
 
+
+ks_results <- sero %>%
+  filter(arm %in% c('both', 'rtss'), postonly == 'post') %>%
+  group_by(country, timing) %>%
+  summarise(
+    # Get values for each arm
+    both_values = list(lnnew[arm == 'both']),
+    rtss_values = list(lnnew[arm == 'rtss']),
+    
+    # Sample sizes
+    n_both = length(both_values[[1]]),
+    n_rtss = length(rtss_values[[1]]),
+    
+    # Perform KS test
+    ks_test = list(ks.test(both_values[[1]], rtss_values[[1]])),
+    
+    # Extract statistics
+    ks_statistic = ks_test[[1]]$statistic,
+    ks_pvalue = ks_test[[1]]$p.value,
+    
+    .groups = 'drop'
+  ) %>%
+  dplyr::select(-both_values, -rtss_values, -ks_test)  # Remove list columns if desired
+
+# Add p-value annotations to your density plot
+ks_results_annot <- ks_results %>%
+  mutate(
+    label = sprintf("p = %.3f", ks_pvalue),#, ks_statistic),
+    max_density = 0.15  # Adjust based on your density plot y-axis
+  )
+
 sero_armcountry <- ggplot(sero %>% filter(arm !='smc' & postonly == 'post')) + 
   geom_density(aes(x = lnnew, fill = arm), alpha =0.7) + 
   geom_vline(data = summarisedsero,
              aes(xintercept = median, color = arm), linewidth = 1, linetype = 2, alpha = 0.5) +
+  geom_text(data = ks_results_annot,
+            aes(x = -Inf, y = Inf, label = label),  # Top left corner
+            inherit.aes = FALSE,
+            hjust = -0.1,   # Slightly inside from left edge
+            vjust = 3,    # Slightly below top edge
+            size = 3.5,
+            fontface = "italic") +
   scale_fill_manual(values = mycols) + 
   scale_color_manual(values = colorspace::darken(mycols, 0.2)) + 
   facet_wrap(~country + timing) + 
@@ -841,7 +899,37 @@ sero_armcountry <- ggplot(sero %>% filter(arm !='smc' & postonly == 'post')) +
        x = expression(paste(italic('ln'), '(anti-CSP antibody titre in EU/mL)')),
        color = NULL, fill = NULL) +
   theme_minimal(base_size = 14)
-ggsave(filename = 'sero_byarmandcountry.pdf', plot = sero_armcountry, height = 4, width = 7)
+ggsave(filename = 'sero_byarmandcountry.pdf', plot = sero_armcountry, height = 5, width = 8)
+
+# Check normality (violated)
+shapiro_results <- sero %>%
+  filter(arm %in% c('both', 'rtss'), postonly == 'post') %>%
+  group_by(country, timing, arm) %>%
+  summarise(
+    shapiro_p = shapiro.test(lnnew)$p.value,
+    normal = shapiro_p > 0.05,
+    .groups = 'drop'
+  )
+print(shapiro_results)  # Most p < 0.05, indicating non-normality
+
+# Create a summary table for reporting
+# summary_table <- ks_results %>%
+#   mutate(
+#     Result = case_when(
+#       ks_pvalue > 0.05 ~ "Not significant",
+#       ks_pvalue > 0.01 ~ "Significant (p < 0.05)",
+#       ks_pvalue > 0.001 ~ "Significant (p < 0.01)",
+#       TRUE ~ "Significant (p < 0.001)"
+#     ),
+#     `KS statistic` = round(ks_statistic, 3),
+#     `P-value` = round(ks_pvalue, 4)
+#   ) %>%
+#   dplyr::select(Country = country, Timing = timing, 
+#          `N (both)` = n_both, `N (rtss)` = n_rtss,
+#          `KS statistic`, `P-value`, Result)
+
+# Export to CSV
+write.csv(summary_table, "ks_test_results_both_vs_rtss.csv", row.names = FALSE)
 
 # linear regression of the measured titre 
 
@@ -1108,12 +1196,15 @@ trial_halfyear <- bind_rows(trial_halfyearmali, trial_halfyearbf)
 inci_summary <- trial_halfyear
 
 # Plot of the ratio of model-predicted to expected by aggregation unit 
-pp <- ggplot(trial_halfyear %>% filter(metric == 'difference_inci_averted_pred_exp'), 
+pp <- ggplot(trial_halfyear %>% filter(metric == 'difference_inci_averted_pred_exp') %>%
+               mutate(ypos = ifelse(value>= -0.2, value + 0.5, value-0.5)), 
        aes(x = time_value, y = value, 
            # fill = time_value, 
            group = time_value)) +
   # model estimated
   geom_col(fill = '#E15554') +
+  geom_text(aes(x = time_value, y = ypos, label = round(value,2), group = value),
+            size.unit = 'pt', size = 10) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "darkred") +
   labs(
     x = NULL,#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Half-year',
@@ -1142,12 +1233,15 @@ trial_halfyear <- bind_rows(trial_halfyearmali, trial_halfyearbf)
 inci_summary <- trial_halfyear
 
 # Plot of the ratio of model-predicted to expected by aggregation unit 
-pp <- ggplot(trial_halfyear %>% filter(metric == 'difference_inci_averted_pred_exp'), 
+pp <- ggplot(trial_halfyear %>% filter(metric == 'difference_inci_averted_pred_exp') %>%
+               mutate(ypos = ifelse(value>= -0.2, value + 0.75, value-0.75)), 
              aes(x = time_value, y = value, 
                  # fill = time_value, 
                  group = time_value)) +
   # model estimated
   geom_col(fill = 'darkred' ) +
+  geom_text(aes(x = time_value, y = ypos, label = round(value,2), group = value),
+            size.unit = 'pt', size = 10) +
   geom_hline(yintercept = 0, linetype = "dashed", color = 'black') +
   labs(
     x = NULL,#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Half-year',
@@ -1159,7 +1253,7 @@ pp <- ggplot(trial_halfyear %>% filter(metric == 'difference_inci_averted_pred_e
   facet_wrap(~country) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = 'none')
-
+# pp
 ggsave(filename = 'expected_trial_difference2.pdf', plot = pp, height = 6, width = 10)
 
 # plotcompare <- ggplot(inci_summary %>% filter(metric == 'efficacy' & time_value == 'Overall'),

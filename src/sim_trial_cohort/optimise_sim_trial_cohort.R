@@ -6,6 +6,7 @@ optimise_sim_trial_cohort <- function(trial_ts = 365*3,
                                       n_param_sets,
                                       path = "R:/Kelly/synergy_orderly/",
                                       get_parasit = FALSE,
+                                      arms_to_fit = c('rtss','smc','both'),
                                       notes){
   
   # almost the same as sim_cohort_generic and sim_trial_cohort but separate for clarity 
@@ -115,8 +116,45 @@ optimise_sim_trial_cohort <- function(trial_ts = 365*3,
     # Load saved spline setup
     if(country_to_run =='BF'){
       setup <- readRDS(paste0(path, "src/sim_trial_cohort/spline_setupBF_14.rds"))
+      # update starting values of coefs to be those from the best fitting 2 arm spline 
+      # Get the scaling factors used in the original optimization
+      previous_best <- readRDS('R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs_fitting/outputs_2026-03-25_BF_2/best_so_far.rds')
+      #get scaling factors used
+      X <- setup$X
+      X_scale <- apply(X, 2, sd)
+      X_scale[1] <- 1  # don't scale intercept
+      
+      # UNSCALE the coefficients (convert from scaled back to original logit scale)
+      previous_coefs_scaled <- previous_best$coefs
+      previous_coefs_unscaled <- previous_coefs_scaled / X_scale
+      
+      # Preserve names
+      coef_names <- names(setup$starting_coefs)
+      names(previous_coefs_unscaled) <- coef_names
+      
+      # Update setup with unscaled coefficients
+      setup$starting_coefs <- previous_coefs_unscaled
+      
     } else if(country_to_run == 'Mali'){
       setup <- readRDS(paste0(path, "src/sim_trial_cohort/spline_setupMali_13.rds"))
+      # update starting values of coefs to be those from the best fitting 2 arm spline 
+      # Get the scaling factors used in the original optimization
+      previous_best <- readRDS('R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs_fitting/outputs_2026-03-25_Mali_2/best_so_far.rds')
+      #get scaling factors used
+      X <- setup$X
+      X_scale <- apply(X, 2, sd)
+      X_scale[1] <- 1  # don't scale intercept
+      
+      # UNSCALE the coefficients (convert from scaled back to original logit scale)
+      previous_coefs_scaled <- previous_best$coefs
+      previous_coefs_unscaled <- previous_coefs_scaled / X_scale
+      
+      # Preserve names
+      coef_names <- names(setup$starting_coefs)
+      names(previous_coefs_unscaled) <- coef_names
+      
+      # Update setup with unscaled coefficients
+      setup$starting_coefs <- previous_coefs_unscaled
     }
     
     
@@ -191,7 +229,7 @@ optimise_sim_trial_cohort <- function(trial_ts = 365*3,
     
     # Get incidence to compare to depending on the country run
     if(country_to_run == 'BF'){
-      incidence_trial <- readRDS('R:/Kelly/synergy_orderly/archive/trial_results/20260219-104643-cb128f65/monthly_incidence_trial_BF.rds')#readRDS("R:/Kelly/synergy_orderly/archive/trial_results/20260127-164922-12477275/monthly_incidence_trial.rds")
+      incidence_trial <- readRDS('R:/Kelly/synergy_orderly/archive/trial_results/20260219-104643-cb128f65/monthly_incidence_trial_BF.rds') 
     } else if(country_to_run == 'Mali'){
       incidence_trial <- readRDS('R:/Kelly/synergy_orderly/archive/trial_results/20260219-104643-cb128f65/monthly_incidence_trial_Mali.rds')
     }
@@ -273,7 +311,8 @@ optimise_sim_trial_cohort <- function(trial_ts = 365*3,
           output_dir = output_dir,
           incidence_trial = incidence_trial,
           setup = setup,
-          country_to_run = country_to_run
+          country_to_run = country_to_run,
+          arms_to_fit = arms_to_fit
         )
       })                               
                       

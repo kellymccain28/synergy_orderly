@@ -4,7 +4,8 @@ fit_prob_bite_spline <- function(params_row,  # Add params_row as argument
                                  output_dir,
                                  incidence_trial,
                                  setup,
-                                 country_to_run) {
+                                 country_to_run,
+                                 arms_to_fit = c('rtss','smc','both')) {
   
   optimization_state <- list(
     counter = 0,
@@ -110,12 +111,12 @@ fit_prob_bite_spline <- function(params_row,  # Add params_row as argument
       message('got incidence')
       
       # Get rmse and make plots comparing incidence
-      metrics <- compare_incidence(incidence_model = inci, 
+      metrics <- compare_incidence(incidence_model = inci %>% filter(arm %in% arms_to_fit),#!= 'both'), 
                                    incidence_trial = incidence_trial,
                                    output_dir = output_dir)
       
       # Make plots comparing hazard ratios 
-      compare_hr(infs_formatted_model = infs_formatted, 
+      compare_hr(infs_formatted_model = infs_formatted %>% filter(arm %in% arms_to_fit), 
                  country_to_use = country_to_run,
                  output_dir)
       
@@ -143,6 +144,11 @@ fit_prob_bite_spline <- function(params_row,  # Add params_row as argument
         coefs = coefs_scaled,
         bite_prob = bite_prob,
         rmse = rmse,
+        metrics = metrics,
+        # rmse_by_arm = metrics$rmse_by_arm, 
+        # rmse_by_arm_time = metrics$rmse_by_arm_time, 
+        # negll = metrics$negll, 
+        # negll_by_arm = metrics$negll_by_arm,
         iter = iter,
         inci = inci,
         params_row = params_row_wprob,
@@ -155,13 +161,12 @@ fit_prob_bite_spline <- function(params_row,  # Add params_row as argument
     }
     
     # Store in history (limit size to prevent memory issues)
-    if(iter <= 50) {  # Keep last 50
-      optimization_state$history[[iter]] <<- list(
+    optimization_state$history[[iter]] <<- list(
         coefs = coefs_scaled,
         rmse = rmse,
         time = Sys.time()
       )
-    }
+    
     
     
     # Save checkpoint every 5 iterations
@@ -182,7 +187,7 @@ fit_prob_bite_spline <- function(params_row,  # Add params_row as argument
                                  eval_f = objectivefunc,
                                  opts = list(algorithm = "NLOPT_LN_SBPLX", 
                                              maxeval = 200,
-                                             ftol_rel = 1e-3,
+                                             ftol_rel = 1e-4,
                                              print_level = 2))
   message('got optim results')
   # Get final probabilities
@@ -200,21 +205,3 @@ fit_prob_bite_spline <- function(params_row,  # Add params_row as argument
 }
 
 
-resume_optimization <- function(output_dir, max_additional_evals = 30) {
-  # Load checkpoint
-  checkpoint_file <- file.path(output_dir, "optim_checkpoint.rds")
-  if(!file.exists(checkpoint_file)) {
-    stop("No checkpoint found in ", output_dir)
-  }
-  
-  state <- readRDS(checkpoint_file)
-  cat("Resuming from iteration", state$counter, "\n")
-  cat("Best RMSE so far:", state$best_rmse, "\n")
-  
-  # You'll need to recreate the objective function with the saved state
-  # This is trickier - you might want to save the entire environment
-  
-  return(state)
-}
-# If optimization crashes, just run:
-# result <- resume_optimization()

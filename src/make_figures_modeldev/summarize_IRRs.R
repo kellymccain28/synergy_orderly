@@ -15,11 +15,11 @@ summarize_IRRs <- function(outputsfolder,
     # Get annual and overall incidence 
     inci_annual <- inci %>%
       filter(!is.na(date)) %>%
-      filter(date > '2017-05-01') %>%
-      mutate(time_value = case_when(date >= '2017-06-01' & date < '2018-04-01' ~ 'Jun 2017-Mar 2018',
+      # filter(date > '2017-05-01') %>%
+      mutate(time_value = case_when(date >= '2017-04-01' & date < '2018-04-01' ~ 'Apr 2017-Mar 2018',
                                     date >= '2018-04-01' & date < '2019-04-01' ~ 'Apr 2018-Mar 2019',
                                     date >= '2019-04-01' & date < '2020-04-01' ~ 'Apr 2019-Mar 2020'),
-             time_value_num = case_when(date >= '2017-06-01' & date < '2018-04-01' ~ '1',
+             time_value_num = case_when(date >= '2017-04-01' & date < '2018-04-01' ~ '1',
                                         date >= '2018-04-01' & date < '2019-04-01' ~ '2',
                                         date >= '2019-04-01' & date < '2020-04-01' ~ '3')) %>%
       group_by(time_value, time_value_num, arm, sim_id) %>%
@@ -30,7 +30,7 @@ summarize_IRRs <- function(outputsfolder,
              time_unit = agg_unit)
     
     inci_overall <- inci %>%
-      filter(date > '2017-05-01') %>%
+      # filter(date > '2017-05-01') %>%
       group_by(arm, sim_id) %>%
       summarize(person_months = sum(person_months),
                 n_cases = sum(n_cases)) %>%
@@ -40,7 +40,7 @@ summarize_IRRs <- function(outputsfolder,
              time_unit = agg_unit)
     
     inci <- rbind(inci_annual, inci_overall) %>%
-      mutate(time_value = factor(time_value, levels = c('Jun 2017-Mar 2018',
+      mutate(time_value = factor(time_value, levels = c('Apr 2017-Mar 2018',
                                                         'Apr 2018-Mar 2019',
                                                         'Apr 2019-Mar 2020',
                                                         'Overall')))
@@ -48,14 +48,14 @@ summarize_IRRs <- function(outputsfolder,
   } else if (agg_unit == 'halfyear'){
     inci_annual <- inci %>%
       filter(!is.na(date)) %>%
-      filter(date > '2017-05-01') %>%
-      mutate(time_value = case_when(date < '2017-10-01' & date > '2017-05-01' ~ 'June 2017-Sep 2017',
-                                   date < '2018-04-01' ~ 'Oct 2017-March 2018',
-                                   date < '2018-10-01' ~ 'April 2018-Sep 2018',
-                                   date < '2019-04-01' ~ 'Oct 2018-March 2019',
-                                   date < '2019-10-01' ~ 'April 2019-Sep 2019',
-                                   date < '2020-04-01' ~ 'Oct 2019-March 2020'),
-             time_value_num = case_when(date < '2017-10-01' & date > '2017-05-01' ~ '1',
+      # filter(date > '2017-05-01') %>%
+      mutate(time_value = case_when(date < '2017-10-01' ~ 'April 2017-Sep 2017',
+                                    date < '2018-04-01' ~ 'Oct 2017-March 2018',
+                                    date < '2018-10-01' ~ 'April 2018-Sep 2018',
+                                    date < '2019-04-01' ~ 'Oct 2018-March 2019',
+                                    date < '2019-10-01' ~ 'April 2019-Sep 2019',
+                                    date < '2020-04-01' ~ 'Oct 2019-March 2020'),
+             time_value_num = case_when(date < '2017-10-01' ~ '1',
                                         date < '2018-04-01' ~ '2',
                                         date < '2018-10-01' ~ '3',
                                         date < '2019-04-01' ~ '4',
@@ -69,7 +69,7 @@ summarize_IRRs <- function(outputsfolder,
              time_unit = agg_unit)
     
     inci_overall <- inci %>%
-      filter(date > '2017-05-01') %>%
+      # filter(date > '2017-05-01') %>%
       group_by(arm, sim_id) %>%
       summarize(person_months = sum(person_months),
                 n_cases = sum(n_cases)) %>%
@@ -79,7 +79,7 @@ summarize_IRRs <- function(outputsfolder,
              time_unit = agg_unit)
     
     inci <- rbind(inci_annual, inci_overall) %>%
-      mutate(time_value = factor(time_value, levels = c('June 2017-Sep 2017',
+      mutate(time_value = factor(time_value, levels = c('April 2017-Sep 2017',
                                                         'Oct 2017-March 2018',
                                                         'April 2018-Sep 2018',
                                                         'Oct 2018-March 2019',
@@ -88,7 +88,7 @@ summarize_IRRs <- function(outputsfolder,
                                                         'Overall')))
   } else if( agg_unit == 'yearmonth'){
     inci <- inci %>%
-      filter(date > '2017-05-01') %>%
+      # filter(date > '2017-05-01') %>%
       mutate(time_value = yearmonth, 
              time_value_num = yearmonth,
              time_unit = agg_unit)
@@ -134,26 +134,18 @@ summarize_IRRs <- function(outputsfolder,
       # For incidence, can take direct median and quantiles
       # incidence smc 
       incidence_smc_median = median(incidence_per_1000pm_smc, na.rm = TRUE),
-      incidence_smc_q25 = quantile(incidence_per_1000pm_smc, 0.25, na.rm = TRUE),
-      incidence_smc_q75 = quantile(incidence_per_1000pm_smc, 0.75, na.rm = TRUE),
       incidence_smc_q025 = quantile(incidence_per_1000pm_smc, 0.025, na.rm = TRUE),
       incidence_smc_q975 = quantile(incidence_per_1000pm_smc, 0.975, na.rm = TRUE),
       # incidence rtss 
       incidence_rtss_median = median(incidence_per_1000pm_rtss, na.rm = TRUE),
-      incidence_rtss_q25 = quantile(incidence_per_1000pm_rtss, 0.25, na.rm = TRUE),
-      incidence_rtss_q75 = quantile(incidence_per_1000pm_rtss, 0.75, na.rm = TRUE),
       incidence_rtss_q025 = quantile(incidence_per_1000pm_rtss, 0.025, na.rm = TRUE),
       incidence_rtss_q975 = quantile(incidence_per_1000pm_rtss, 0.975, na.rm = TRUE),
       # incidence none 
       incidence_none_median = median(incidence_per_1000pm_none, na.rm = TRUE),
-      incidence_none_q25 = quantile(incidence_per_1000pm_none, 0.25, na.rm = TRUE),
-      incidence_none_q75 = quantile(incidence_per_1000pm_none, 0.75, na.rm = TRUE),
       incidence_none_q025 = quantile(incidence_per_1000pm_none, 0.025, na.rm = TRUE),
       incidence_none_q975 = quantile(incidence_per_1000pm_none, 0.975, na.rm = TRUE),
       # incidence both 
       incidence_both_median = median(incidence_per_1000pm_both, na.rm = TRUE),
-      incidence_both_q25 = quantile(incidence_per_1000pm_both, 0.25, na.rm = TRUE),
-      incidence_both_q75 = quantile(incidence_per_1000pm_both, 0.75, na.rm = TRUE),
       incidence_both_q025 = quantile(incidence_per_1000pm_both, 0.025, na.rm = TRUE),
       incidence_both_q975 = quantile(incidence_per_1000pm_both, 0.975, na.rm = TRUE),
       
@@ -187,64 +179,46 @@ summarize_IRRs <- function(outputsfolder,
       both_smc_median = sapply(both_smc, `[`, 1),
       both_smc_q025 = sapply(both_smc, `[`, 2),
       both_smc_q975 = sapply(both_smc, `[`, 3),
-      both_smc_q25 = sapply(both_smc, `[`, 4),
-      both_smc_q75 = sapply(both_smc, `[`, 5),
       
       # RTSS vs none
       rtss_none_median = sapply(rtss_none, `[`, 1),
       rtss_none_q025 = sapply(rtss_none, `[`, 2),
       rtss_none_q975 = sapply(rtss_none, `[`, 3),
-      rtss_none_q25 = sapply(rtss_none, `[`, 4),
-      rtss_none_q75 = sapply(rtss_none, `[`, 5),
       
       # Both vs RTSS
       both_rtss_median = sapply(both_rtss, `[`, 1),
       both_rtss_q025 = sapply(both_rtss, `[`, 2),
       both_rtss_q975 = sapply(both_rtss, `[`, 3),
-      both_rtss_q25 = sapply(both_rtss, `[`, 4),
-      both_rtss_q75 = sapply(both_rtss, `[`, 5),
       
       # SMC vs none
       smc_none_median = sapply(smc_none, `[`, 1),
       smc_none_q025 = sapply(smc_none, `[`, 2),
       smc_none_q975 = sapply(smc_none, `[`, 3),
-      smc_none_q25 = sapply(smc_none, `[`, 4),
-      smc_none_q75 = sapply(smc_none, `[`, 5),
       
       # Both vs none
       both_none_median = sapply(both_none, `[`, 1),
       both_none_q025 = sapply(both_none, `[`, 2),
       both_none_q975 = sapply(both_none, `[`, 3),
-      both_none_q25 = sapply(both_none, `[`, 4),
-      both_none_q75 = sapply(both_none, `[`, 5),
       
       # RTSS vs SMC
       rtss_smc_median = sapply(rtss_smc, `[`, 1),
       rtss_smc_q025 = sapply(rtss_smc, `[`, 2),
       rtss_smc_q975 = sapply(rtss_smc, `[`, 3),
-      rtss_smc_q25 = sapply(rtss_smc, `[`, 4),
-      rtss_smc_q75 = sapply(rtss_smc, `[`, 5),
       
       # SMC vs RTSS
       smc_rtss_median = sapply(smc_rtss, `[`, 1),
       smc_rtss_q025 = sapply(smc_rtss, `[`, 2),
       smc_rtss_q975 = sapply(smc_rtss, `[`, 3),
-      smc_rtss_q25 = sapply(smc_rtss, `[`, 4),
-      smc_rtss_q75 = sapply(smc_rtss, `[`, 5),
       
       # Expected efficacy
       expected_efficacy_median = sapply(expected_efficacy, `[`, 1),
       expected_efficacy_q025 = sapply(expected_efficacy, `[`, 2),
       expected_efficacy_q975 = sapply(expected_efficacy, `[`, 3),
-      expected_efficacy_q25 = sapply(expected_efficacy, `[`, 4),
-      expected_efficacy_q75 = sapply(expected_efficacy, `[`, 5),
       
       # Ratio pred/exp
       ratio_pred_exp_median = sapply(ratio_pred_exp, `[`, 1),
       ratio_pred_exp_q025 = sapply(ratio_pred_exp, `[`, 2),
       ratio_pred_exp_q975 = sapply(ratio_pred_exp, `[`, 3),
-      ratio_pred_exp_q25 = sapply(ratio_pred_exp, `[`, 4),
-      ratio_pred_exp_q75 = sapply(ratio_pred_exp, `[`, 5),
       
       # Incidence averted 
       inci_averted_model_median = sapply(inci_averted_model, `[`, 1),
@@ -304,8 +278,8 @@ summarize_IRRs <- function(outputsfolder,
     mutate(metric = 'incidence', comparison = NA)
   
   irrs_long <- inci_summary %>%
-    dplyr::select(time_value, time_value_num, time_unit, both_smc_median:smc_rtss_q75, expected_efficacy_median:expected_efficacy_q75) %>%
-    pivot_longer(cols =  c(both_smc_median:smc_rtss_q75,expected_efficacy_median:expected_efficacy_q75),
+    dplyr::select(time_value, time_value_num, time_unit, both_smc_median:smc_rtss_q975, expected_efficacy_median:expected_efficacy_q975) %>%
+    pivot_longer(cols =  c(both_smc_median:smc_rtss_q975,expected_efficacy_median:expected_efficacy_q975),
                  names_to = 'comparison',
                  values_to = "irr")%>%
     separate(comparison, 
@@ -346,7 +320,7 @@ summarize_IRRs <- function(outputsfolder,
       names_from = statistic,
       values_from = value
     ) %>% 
-    mutate(arm = NA, comparison = NA, q25 = NA, q75 = NA)
+    mutate(arm = NA, comparison = NA)
   
   inci_summary_all <- rbind(inci_long, 
                             irrs_long,

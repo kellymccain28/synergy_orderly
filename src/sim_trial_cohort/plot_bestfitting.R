@@ -14,7 +14,7 @@
 # 
 # # Pull out the coefficients for that index
 # coefs_second_lowest <- optim_checkpoint$history[[second_lowest_index]]$coefs
-
+# function to plot the incidence best fitting for each arm fit ####
 plot_bestfitting <- function(country_to_use,
                              num_arm_fit){
   path = 'R:/Kelly/synergy_orderly/src/'
@@ -99,7 +99,7 @@ plot_bestfitting <- function(country_to_use,
     facet_wrap(~factor(arm, levels = c('none','rtss','smc','both')), 
                nrow = 4,
                scales = 'free')
-  inc
+  # inc
   # Plot efficacy comparison between model and trial 
   # (within get_cox_efficacy, I deal with the multiple simulations)
   eff_model_smc <- get_cox_efficacy(df = infs_formatted_model, 
@@ -161,45 +161,11 @@ plot_bestfitting(country_to_use = 'Mali',
                  num_arm_fit = 2)
 
 
-#  Plot splines
-pbitemali3 <- readRDS('R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs_fitting/outputs_2026-03-23_Mali/best_so_far.rds')$params_row$p_bite[[1]] 
-pbitebf3 <- readRDS('R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs_fitting/outputs_2026-03-23_BF/best_so_far.rds')$params_row$p_bite[[1]]
-pbite3 <- data.frame(country = c(rep('Mali',length(pbitemali3)), rep('BF',length(pbitebf3))),
-                     pbite = c(pbitemali3, pbitebf3),
-                     date = seq(as.Date('2017-04-01')-50, as.Date('2020-03-31')),
-                     armfit = '3-arm fit') 
-pbitemali2 <- readRDS('R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs_fitting/outputs_2026-03-25_Mali_2/best_so_far.rds')$params_row$p_bite[[1]]
-pbitebf2 <- readRDS('R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs_fitting/outputs_2026-03-25_BF_2/best_so_far.rds')$params_row$p_bite[[1]]
-pbite2 <- data.frame(country = c(rep('Mali',length(pbitemali2)), rep('BF',length(pbitebf2))),
-                     pbite = c(pbitemali2, pbitebf2),
-                     date = seq(as.Date('2017-04-01')-50, as.Date('2020-03-31')),
-                     armfit = '2-arm fit')
-
-pbite23 <- bind_rows(pbite2, pbite3)
-
-ggplot(pbite3) + 
-  geom_point(aes(x = date, y = pbite, group = country), color = '#E15554') + 
-  facet_wrap(~country, nrow = 2) + 
-  labs(x = 'Date',
-       y = 'Best-fitting spline for the daily probability of an infectious bite') +
-  theme_bw()
-ggsave(paste0('R:/Kelly/synergy_orderly/src/sim_trial_cohort/thesis_plots/best_fitting_3arm_splines.pdf'),
-       height = 6, width = 8)
-
-ggplot(pbite23) + 
-  geom_line(aes(x = date, y = pbite, group = armfit, color = armfit), alpha = 0.8, linewidth = 1) + 
-  facet_wrap(~country, nrow = 2) + 
-  scale_color_manual(values =  c('2-arm fit' = 'darkred', 
-                                 '3-arm fit' = '#E15554')) + 
-  labs(x = 'Date', color = NULL,
-       y = 'Best-fitting spline for the daily probability of an infectious bite') +
-  theme_bw()
-ggsave(paste0('R:/Kelly/synergy_orderly/src/sim_trial_cohort/thesis_plots/best_fitting_2and3armfit_splines.pdf'),
-       height = 6, width = 8)
 
 
 
-# Below is code to plot the 3-arm fit in grey with the 2-arm fit in color on top (modified from function above)
+
+# Plot the 3-arm fit in grey with the 2-arm fit in color on top (modified from function above)####
 
 path = 'R:/Kelly/synergy_orderly/src/'
 outputs_folders <-  c(#'BF3syn' = 'outputs_2026-03-25_6',
@@ -296,11 +262,11 @@ incidence_trial <- incidence_trial %>%
 
 inci_joined <- left_join(incidence_model_summ,
                          incidence_trial) %>%
-  filter(arm != 'none') %>%
   mutate(yearmonth = as.Date(yearmonth))
 
-# Plot the comparison of the incidence in trial and in model output
-inc <- ggplot(inci_joined)+
+# Plot the comparison of2 and 3arm fits of the incidence in trial and in model output ####
+inc <- ggplot(inci_joined%>%
+                filter(arm != 'none'))+
   # Trial data
   geom_point(aes(x = as.Date(yearmonth), y = incidence_per_1000pm_trial, color = 'Trial'), size= 0.9) +
   geom_line(aes(x = yearmonth, y = incidence_per_1000pm_trial, color = 'Trial'), linewidth = 0.4, alpha = 0.8) +
@@ -309,20 +275,20 @@ inc <- ggplot(inci_joined)+
   geom_ribbon(aes(x = as.Date(yearmonth), ymin = incidence_per_1000pm_trial_lower, ymax = incidence_per_1000pm_trial_upper, fill = 'Trial'),
                 alpha  = 0.2, width = 15, linewidth = 0.25) +
   # Model - 3-arm
-  geom_point(data = inci_joined %>% filter(armfit == '3-arm fit'),
+  geom_point(data = inci_joined %>% filter(armfit == '3-arm fit' & arm != 'none'),
              aes(x = as.Date(yearmonth), y = incidence_per_1000pm_model, color = '3-arm fit', group = armfit), size = 0.9) +
-  geom_line(data = inci_joined %>% filter(armfit == '3-arm fit'),
+  geom_line(data = inci_joined %>% filter(armfit == '3-arm fit' & arm != 'none'),
             aes(x = yearmonth, y = incidence_per_1000pm_model, color = '3-arm fit', group = scenario), linewidth = 0.4, alpha = 0.8) +
-  geom_errorbar(data = inci_joined %>% filter(armfit == '3-arm fit'),
+  geom_errorbar(data = inci_joined %>% filter(armfit == '3-arm fit' & arm != 'none'),
                 aes(x = as.Date(yearmonth), ymin = incidence_per_1000pm_model_lower, ymax = incidence_per_1000pm_model_upper, 
                     color = '3-arm fit', group = scenario),
                 alpha  = 0.9, width = 15, linewidth = 0.25) +
   # Model - 2-arm
-  geom_point(data = inci_joined %>% filter(armfit == '2-arm fit'),
+  geom_point(data = inci_joined %>% filter(armfit == '2-arm fit' & arm != 'none'),
              aes(x = as.Date(yearmonth), y = incidence_per_1000pm_model, color = '2-arm fit', group = armfit), size = 0.9) +
-  geom_line(data = inci_joined %>% filter(armfit == '2-arm fit'),
+  geom_line(data = inci_joined %>% filter(armfit == '2-arm fit' & arm != 'none'),
             aes(x = yearmonth, y = incidence_per_1000pm_model, color = '2-arm fit', group = scenario), linewidth = 0.4, alpha = 0.8) +
-  geom_errorbar(data = inci_joined %>% filter(armfit == '2-arm fit'),
+  geom_errorbar(data = inci_joined %>% filter(armfit == '2-arm fit' & arm != 'none'),
                 aes(x = as.Date(yearmonth), ymin = incidence_per_1000pm_model_lower, ymax = incidence_per_1000pm_model_upper, 
                     color = '2-arm fit', group = scenario),
                 alpha  = 0.9, width = 15, linewidth = 0.25) +
@@ -342,12 +308,89 @@ inc <- ggplot(inci_joined)+
   facet_grid(rows = vars(factor(arm, levels = c('rtss','smc','both'))), 
              cols = vars(country),
              scales = 'free') +   guides(fill = "none") 
-  # facet_wrap(~factor(arm, levels = c('none','rtss','smc','both')), 
-  #            nrow = 4,
-  #            scales = 'free')
 inc
 
 
+# Plot the control arm incidence for each arm ====
+inci_none <- inci_joined%>%
+  filter(arm == 'none')
+ggplot(inci_none)+
+  # Model - 3-arm
+  geom_point(data = inci_none %>% filter(armfit == '3-arm fit'),
+             aes(x = as.Date(yearmonth), y = incidence_per_1000pm_model, color = '3-arm fit', group = armfit), size = 0.9) +
+  geom_line(data = inci_none %>% filter(armfit == '3-arm fit'),
+            aes(x = yearmonth, y = incidence_per_1000pm_model, color = '3-arm fit', group = scenario), linewidth = 0.4, alpha = 0.8) +
+  geom_errorbar(data = inci_none %>% filter(armfit == '3-arm fit'),
+                aes(x = as.Date(yearmonth), ymin = incidence_per_1000pm_model_lower, ymax = incidence_per_1000pm_model_upper, 
+                    color = '3-arm fit', group = scenario),
+                alpha  = 0.9, width = 15, linewidth = 0.25) +
+  # Model - 2-arm
+  geom_point(data = inci_none %>% filter(armfit == '2-arm fit'),
+             aes(x = as.Date(yearmonth), y = incidence_per_1000pm_model, color = '2-arm fit', group = armfit), size = 0.9) +
+  geom_line(data = inci_none %>% filter(armfit == '2-arm fit'),
+            aes(x = yearmonth, y = incidence_per_1000pm_model, color = '2-arm fit', group = scenario), linewidth = 0.4, alpha = 0.8) +
+  geom_errorbar(data = inci_none %>% filter(armfit == '2-arm fit'),
+                aes(x = as.Date(yearmonth), ymin = incidence_per_1000pm_model_lower, ymax = incidence_per_1000pm_model_upper, 
+                    color = '2-arm fit', group = scenario),
+                alpha  = 0.9, width = 15, linewidth = 0.25) +
+  scale_color_manual(values =  c('2-arm fit' = 'darkred', 
+                                 '3-arm fit' = '#E15554'))+#c('#C44536','#772E25','#197278','#283D3B'))+
+  scale_fill_manual(values =  c('2-arm fit' = 'darkred', 
+                                '3-arm fit' = '#E15554'))+#c('#C44536','#772E25','#197278','#283D3B'))+
+  scale_x_date(breaks = '3 months',
+               labels = scales::label_date_short()) +
+  labs(color = NULL,#'Intervention arm',
+       fill = NULL,#'Intervention arm',
+       x = 'Date',
+       y = 'Incidence per 1000 person-months') +
+  theme_bw(base_size = 14) + 
+  facet_grid(cols = vars(country),
+             scales = 'free') +   guides(fill = "none") 
+ggsave(paste0('R:/Kelly/synergy_orderly/src/sim_trial_cohort/thesis_plots/best_fitting_controlarms_2and3armfits.pdf'),
+       height = 4, width = 10)
+
+
+
+#  Plot splines ####
+pbitemali3 <- readRDS('R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs_fitting/outputs_2026-03-23_Mali/best_so_far.rds')$params_row$p_bite[[1]] 
+pbitebf3 <- readRDS('R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs_fitting/outputs_2026-03-23_BF/best_so_far.rds')$params_row$p_bite[[1]]
+pbite3 <- data.frame(country = c(rep('Mali',length(pbitemali3)), rep('BF',length(pbitebf3))),
+                     pbite = c(pbitemali3, pbitebf3),
+                     date = seq(as.Date('2017-04-01')-50, as.Date('2020-03-31')),
+                     armfit = '3-arm fit') 
+pbitemali2 <- readRDS('R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs_fitting/outputs_2026-03-25_Mali_2/best_so_far.rds')$params_row$p_bite[[1]]
+pbitebf2 <- readRDS('R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs_fitting/outputs_2026-03-25_BF_2/best_so_far.rds')$params_row$p_bite[[1]]
+pbite2 <- data.frame(country = c(rep('Mali',length(pbitemali2)), rep('BF',length(pbitebf2))),
+                     pbite = c(pbitemali2, pbitebf2),
+                     date = seq(as.Date('2017-04-01')-50, as.Date('2020-03-31')),
+                     armfit = '2-arm fit')
+
+pbite23 <- bind_rows(pbite2, pbite3)
+
+ggplot(pbite3) + 
+  geom_point(aes(x = date, y = pbite, group = country), color = '#E15554') + 
+  facet_wrap(~country, nrow = 2) + 
+  labs(x = 'Date',
+       y = 'Best-fitting spline for the daily probability of an infectious bite') +
+  theme_bw()
+ggsave(paste0('R:/Kelly/synergy_orderly/src/sim_trial_cohort/thesis_plots/best_fitting_3arm_splines.pdf'),
+       height = 6, width = 8)
+
+ggplot(pbite23) + 
+  geom_line(aes(x = date, y = pbite, group = armfit, color = armfit), alpha = 0.8, linewidth = 1) + 
+  facet_wrap(~country, nrow = 2) + 
+  scale_color_manual(values =  c('2-arm fit' = 'darkred', 
+                                 '3-arm fit' = '#E15554')) + 
+  labs(x = 'Date', color = NULL,
+       y = 'Best-fitting spline for the daily probability of an infectious bite') +
+  theme_bw()
+ggsave(paste0('R:/Kelly/synergy_orderly/src/sim_trial_cohort/thesis_plots/best_fitting_2and3armfit_splines.pdf'),
+       height = 6, width = 8)
+
+
+# get mean of the pbite to re-fit rtss efficacy 
+mean(pbite3$pbite)
+mean(pbite23$pbite) # 0.004
 
 # Plot efficacy comparison between model and trial 
 trial_overall <- tidy_results_trial %>%

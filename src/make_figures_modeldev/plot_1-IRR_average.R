@@ -49,29 +49,29 @@ plot_irr_average <- function(outputsfolder,
                                                       'rtss vs none','smc vs none',
                                                       'rtss vs smc','smc vs rtss')))
   # plot
-  ggplot(inci_summary %>% filter(metric == 'efficacy'), aes(x = comparison, y = median, 
-                                                            color = time_value, group = time_value, shape = shape_var)) +
-    # model estimated
-    geom_point(position = position_dodge(width = 0.5), size = 1) +
-    geom_errorbar(aes(ymin = lower_ci, ymax = upper_ci),
-                  width = 0.2, position = position_dodge(width = 0.5)) +
-    scale_shape_manual(values = c('Expected' = 7, 'Model-predicted' = 16)) + 
-    # scale_linetype_manual(values = c('Expected: both vs none' = 2)) +
-    # scale_color_brewer(palette = 'BuPu') +
-    scale_color_manual(values = colors) +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "darkred") +
-    labs(
-      x = "Arm Comparison",
-      y = "Relative efficacy (1-IRR)",
-      # title = "Median IRR with 95% CI by Intervention Comparison",
-      shape = NULL, linetype = NULL,
-      color = if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Study half-year'
-    ) +
-    scale_y_continuous(breaks = seq(-1,1,0.2)) + 
-    theme_minimal(base_size = 14) +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
-    
-  ggsave(paste0(path, outputsfolder,'/irr_average_by', agg_unit, '.pdf'), plot = last_plot(), width = 12, height = 6)
+  # ggplot(inci_summary %>% filter(metric == 'efficacy'), aes(x = comparison, y = median, 
+  #                                                           color = time_value, group = time_value, shape = shape_var)) +
+  #   # model estimated
+  #   geom_point(position = position_dodge(width = 0.5), size = 1) +
+  #   geom_errorbar(aes(ymin = lower_ci, ymax = upper_ci),
+  #                 width = 0.2, position = position_dodge(width = 0.5)) +
+  #   scale_shape_manual(values = c('Expected' = 7, 'Model-predicted' = 16)) + 
+  #   # scale_linetype_manual(values = c('Expected: both vs none' = 2)) +
+  #   # scale_color_brewer(palette = 'BuPu') +
+  #   scale_color_manual(values = colors) +
+  #   geom_hline(yintercept = 0, linetype = "dashed", color = "darkred") +
+  #   labs(
+  #     x = "Arm Comparison",
+  #     y = "Relative efficacy (1-IRR)",
+  #     # title = "Median IRR with 95% CI by Intervention Comparison",
+  #     shape = NULL, linetype = NULL,
+  #     color = if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Study half-year'
+  #   ) +
+  #   scale_y_continuous(breaks = seq(-1,1,0.2)) + 
+  #   theme_minimal(base_size = 14) +
+  #   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  #   
+  # ggsave(paste0(path, outputsfolder,'/irr_average_by', agg_unit, '.pdf'), plot = last_plot(), width = 12, height = 6)
     
   
   # irr overall 
@@ -143,5 +143,20 @@ plot_irr_average <- function(outputsfolder,
     
     ggsave(paste0(path, outputsfolder,'/difference_inci_average_by', agg_unit, '.pdf'), plot = last_plot(), width = 8, height = 6)
     inci_summary %>% filter(metric == 'difference_inci_averted_pred_exp')
+    
+    # Calculate percentage difference
+    inci_comparison <- inci_summary %>%
+      filter(metric == 'inci_averted_model' | metric == 'inci_averted_expected') %>%
+      select(time_value, time_value_num, metric, median) %>%
+      pivot_wider(id_cols = c(time_value, time_value_num), 
+                  names_from = metric, 
+                  values_from = median) %>%
+      mutate(
+        pct_diff = (inci_averted_model - inci_averted_expected) / inci_averted_expected * 100,
+        pct_diff_abs = abs(pct_diff),  # optional: absolute percentage difference
+        diff_direction = ifelse(pct_diff > 0, "model higher", "model lower")
+      )
+    
+    saveRDS(inci_comparison, paste0(path, outputsfolder,'/inci_percent_averted.rds'))
     
 }
