@@ -105,14 +105,14 @@ task_log_show(test_lhs_smc_7day)
 # task_log_show(rtss20_fixedparams_months)
 
 # Grid RTSS 
-nparams = 32
+nparams = 32*3
 ncores = if(nparams > 32) 32 else nparams
-rtss_grid_final_1000threshold_0liver_2000_vmin_lognormal <- task_create_expr(expr = run_grid_rtss(path = "R:/Kelly/synergy_orderly",
+rtss_grid_final_1000threshold_0liver_2000_vmin_lognormal_pbite015 <- task_create_expr(expr = run_grid_rtss(path = "R:/Kelly/synergy_orderly",
                                                                             N = 2000,
                                                                             threshold = 1000,
                                                                             n_param_sets = nparams),
                                        resources = hipercow_resources(cores = ncores))
-task_log_show(rtss_grid_final_1000threshold_0liver_2000_vmin_lognormal)
+task_log_show(rtss_grid_final_1000threshold_0liver_2000_vmin_lognormal_pbite015)
 
 # run generic cohort 
 # hipercow_environment_create(name = 'generic',
@@ -126,16 +126,16 @@ nparams = 32*2
 ncores = if(nparams > (32-4)) 32 else nparams + 4
 task_create_expr(sim_cohort_generic(trial_ts = 365*3,
                                     treatment_prob = 0.9, # default is 0.9 (which gives children prophylaxis)
-                                    season_start_day = 140, # 137 is to start on August 15 (days since April 1) -- this was good for highly seasonal;
+                                    season_start_day = 147, # 137 is to start on August 15 (days since April 1) -- this was good for highly seasonal;
                                     # 115 days is July 25 which is close to trial dates; 122 is Aug 1
-                                    vax_day = 68, #75;# for perennial, trying an earlier start day of vaccination so they overlap less
+                                    vax_day = 30, #75;# for perennial, trying an earlier start day of vaccination so they overlap less
                                     threshold = 5000, # default is 5000 parasites per microL
                                     country_to_run = 'generic',
                                     season = 'seasonal',
                                     N = 600,
                                     n_param_sets = nparams,
                                     get_parasit = TRUE,
-                                    notes = 'testing with no rtss decay; season from 140 and vax from 68; 365*3; threshold at 5000, log normal weighting, seasonal generic, fitted rtss (1.77, 2.63, 0.000513) and smc pars (2.37, 18.5, 0.337)'),
+                                    notes = 'season from 147 and vax from 30 (scen 5); 365*3; threshold at 5000, log normal weighting, seasonal generic, fitted rtss to pbite = 0.004 (1.277, 6.203, 0.0028) and smc pars (2.37, 18.5, 0.337)'),
                  environment = 'generic',
                  resources = hipercow_resources(cores = ncores))
 source('R:/Kelly/synergy_orderly/src/sim_cohort_generic/extract_sim_notes.R')
@@ -150,9 +150,9 @@ latest_vax_3rd <- as.Date('2017-07-01')
 earliest_smc_start <- as.Date('2017-07-01')
 latest_smc_start <- as.Date('2017-09-01')
 
-vax_day <- seq(earliest_vax_3rd, latest_vax_3rd, by = '1 month')# '2 weeks')
+vax_day <- seq(earliest_vax_3rd, latest_vax_3rd, by = '2 weeks')# '2 weeks')
 vax_day <- vax_day - as.Date('2017-04-01')
-season_start_day <- seq(earliest_smc_start, latest_smc_start, by = '1 month')#'2 weeks')
+season_start_day <- seq(earliest_smc_start, latest_smc_start, by = '2 weeks')#'2 weeks')
 season_start_day <- season_start_day - as.Date('2017-04-01')
 
 combos <- crossing(vax_day, season_start_day)
@@ -160,7 +160,7 @@ combos$season = 'seasonal'
 combos$get_parasit = FALSE
 combos$notes = paste(combos$vax_day, combos$season_start_day, combos$season, sep = '_')
 combos <- combos %>%
-  mutate(notes = paste0('testing with time-based immunity (tau = 100) AND gen adaptive; ', notes))#paste0('testing with no rtss decay; ', notes))
+  mutate(notes = paste0('testing with gen adaptive only; ', notes))#paste0('testing with no rtss decay; ', notes))
 
 nparams = 32
 ncores = if(nparams > (32-4)) 32 else nparams + 4
@@ -224,10 +224,10 @@ task_create_expr(sim_trial_cohort(trial_ts = 365*3,
 # task_log_show('1324bce5c96cb7457c883ab715d95104') # BF 2-arm (BEST 153)
 # task_log_show('efff9ae86637ca336d16382c82a6f9d2') # Mali 2-arm (SECOND BEST 138)
 # task_log_show('af48c9bfc36a530ad02b8caa0a630903') # BF 2-arm (SECOND BEST 199)
-task_log_show('eb1d621f210964ed41b1e5cf6792b87b') # Mali 2-arm (BEST 182) syntest
-task_log_show('c3ae9f2ecd024450b2369fe69c0ad704') # BF 2-arm (BEST 153) syntest
-task_log_show('4591980ec00b4b26729176d5b7a848f7') # Mali 2-arm (SECOND BEST 138) syntest
-task_log_show('b025459ea2d47d835b921b5b92e618fd') # BF 2-arm (SECOND BEST 199) syntest
+# task_log_show('eb1d621f210964ed41b1e5cf6792b87b') # Mali 2-arm (BEST 182) syntest
+# task_log_show('c3ae9f2ecd024450b2369fe69c0ad704') # BF 2-arm (BEST 153) syntest
+# task_log_show('4591980ec00b4b26729176d5b7a848f7') # Mali 2-arm (SECOND BEST 138) syntest
+# task_log_show('b025459ea2d47d835b921b5b92e618fd') # BF 2-arm (SECOND BEST 199) syntest
 
 
 # Fitting the spline for chapter 6 
@@ -249,17 +249,18 @@ task_create_expr(optimise_sim_trial_cohort(trial_ts = 365*3,
                                            country_to_run = country, # should be BF or Mali
                                            threshold = 5000,
                                            n_param_sets = nparams,
-                                           notes = paste0(country, ', optimisation to RTSS and SMC only; 200 max iterations, trying spline w 13 knots')),
+                                           arms_to_fit = c('rtss','smc','both'),
+                                           notes = paste0(country, ', optimisation to 3 arms; 200 max iterations, trying spline w 13 knots; outputting rmse over time and/or by arm; lower tol (1e-4)')),
                  environment = 'trial_simulations',
                  resources = hipercow_resources(cores = ncores))
 # task_log_show('b122962afd4b05a694e47e39a36ad566') # BF 150
 # task_log_show('ae6ed35b42db01ca4058a706255ad1f5') # Mali 150
 # task_log_show('90f43a6659d5a183511421133f18acfa') # BF 200
 # task_log_show('98ca64f0d1d87f06e0ffd38c6017024a') # Mali 200
-task_log_show('fae9807193d9c2907bd30786a46a60a7') # BF 200, 14 knots 
-task_log_show('e8fe7c6adc5edc3b1fcb59ccd0b50f9c') # Mali 200, 13 knots 
-task_log_show('08b073e4f7628eaae421f9f41aa0b408') # BF 200, 14 knots, rtss and smc only not both 
-task_log_show('59e73415cd31efefeab16175cfd37613') # Mali 200, 13 knots, rtss and smc only not both 
+task_log_show('bdb333c9db09a51471f4ba395e45af40') # BF 200, 14 knots 
+task_log_show('5a440e11cc95a539e8d23cba1d75d42a') # Mali 200, 13 knots 
+task_log_show('a56e2e66fba175fa4dd4f7f673ce25fc') # BF 200, 14 knots, rtss and smc only not both 
+task_log_show('39d97b44589e1ff3a2a645a25b0a0fcf') # Mali 200, 13 knots, rtss and smc only not both 
 
 
 # # compare model_trial 
