@@ -611,6 +611,12 @@ vaxdates <- delivery %>%
                values_to = 'date') %>%
   mutate(dose = factor(str_replace(dose, "_date", ""), levels = c("v1",'v2','v3','boost1', 'boost2')))
 
+vaxdates %>%
+  group_by(arm, country, dose) %>%
+  summarize(firstdate = min(date, na.rm = TRUE),
+            lastdate = max(date, na.rm = TRUE)) %>% 
+  View()
+
 smcdates <- delivery %>%
   dplyr::select(rid, arm, country, contains('date_received')) %>%
   pivot_longer(cols = c(y1p1d1_date_received:y3p4d3_date_received),
@@ -625,6 +631,13 @@ smcdates <- delivery %>%
                                    "y(\\d+)p(\\d+)d(\\d+)", 
                                    "Year \\1, Round \\2, Dose \\3"))
 
+smcdates %>%
+  group_by(arm, country, smcdose) %>%
+  summarize(firstdate = min(date, na.rm = TRUE),
+            lastdate = max(date, na.rm = TRUE)) %>% 
+  filter(arm !='rtss' ) %>%
+  filter(grepl('Dose 1',smcdose) & grepl('Round 1',smcdose)) %>%
+  View()
 
 dosecolors <- c('v1'='#99B3FF',
                 'v2'='#7A82AB',
@@ -672,7 +685,9 @@ rtssdelivery_dates <- ggplot(vaxdates_sml %>% filter(arm != 'smc')) +
                               'v3' = 'Dose 3',
                               'boost1' = 'Booster 1',
                               'boost2'='Booster 2'))+
-  scale_fill_viridis_c() +
+  scale_fill_viridis_c(#trans = "log", 
+                       name = "Number of participants",
+                       breaks = c(1,seq(0,800,200))) +#c(1, 5, 10, 100, 300,500)) +
   facet_grid(rows = vars(country, arm), cols = vars(year), 
              scales = 'free_x', labeller = labeller(arm = armlabs)) +
   labs(x = 'Date', y = NULL, fill = 'Number of participants') +
@@ -929,7 +944,7 @@ print(shapiro_results)  # Most p < 0.05, indicating non-normality
 #          `KS statistic`, `P-value`, Result)
 
 # Export to CSV
-write.csv(summary_table, "ks_test_results_both_vs_rtss.csv", row.names = FALSE)
+# write.csv(summary_table, "ks_test_results_both_vs_rtss.csv", row.names = FALSE)
 
 # linear regression of the measured titre 
 
@@ -1208,7 +1223,7 @@ pp <- ggplot(trial_halfyear %>% filter(metric == 'difference_inci_averted_pred_e
   geom_hline(yintercept = 0, linetype = "dashed", color = "darkred") +
   labs(
     x = NULL,#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Half-year',
-    y = "Difference in model-predicted trial observed versus expected\ncases averted per 1000 people of\ncombination vs no intervention",
+    y = "Difference in model-predicted trial observed versus expected\ncases averted per 1000 person-months of\ncombination vs no intervention",
     shape = NULL, linetype = NULL,
     color = NULL#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Study half-year'
   ) +
@@ -1245,7 +1260,7 @@ pp <- ggplot(trial_halfyear %>% filter(metric == 'difference_inci_averted_pred_e
   geom_hline(yintercept = 0, linetype = "dashed", color = 'black') +
   labs(
     x = NULL,#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Half-year',
-    y = "Difference in model-predicted trial observed versus expected\ncases averted per 1000 people of\ncombination vs no intervention",
+    y = "Difference in model-predicted trial observed versus expected\ncases averted per 1000 person-months of\ncombination vs no intervention",
     shape = NULL, linetype = NULL,
     color = NULL#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Study half-year'
   ) +

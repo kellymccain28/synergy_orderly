@@ -16,13 +16,17 @@
 # coefs_second_lowest <- optim_checkpoint$history[[second_lowest_index]]$coefs
 # function to plot the incidence best fitting for each arm fit ####
 plot_bestfitting <- function(country_to_use,
-                             num_arm_fit){
+                             num_arm_fit,
+                             lagscaler_fit = FALSE){# lagscaler_fit == TRUE if using the best fits from the lag/sclaers fitting, if FALSE using the splines
   path = 'R:/Kelly/synergy_orderly/src/'
   # Pull in repetitions of the best-fitting coefficients 
   if(country_to_use == 'Mali'){ 
     # optimfolder = 'sim_trial_cohort/outputs_fitting/outputs_2026-03-23_Mali'
     if(num_arm_fit == 3){
       folder <- 'sim_trial_cohort/outputs/outputs_2026-03-24_2' ## this is for best-fitting values when fitting to 3 arms (03-23 fitting)
+      if(lagscaler_fit){
+        folder <- 'sim_trial_cohort/outputs/outputs_2026-03-17_3'
+      }
     }  else if(num_arm_fit == 2){
       # folder <- 'sim_trial_cohort/outputs/outputs_2026-03-26_2' ## this is for best-fitting values when fitting to 2 arms (03-25_2 fitting - pre-finished optim)
       folder <- 'sim_trial_cohort/outputs/outputs_2026-03-30_2' ## this is for best-fitting values when fitting to 2 arms (03-25_2 fitting)
@@ -32,6 +36,9 @@ plot_bestfitting <- function(country_to_use,
     # optimfolder = 'sim_trial_cohort/outputs_fitting/outputs_2026-03-23_BF'
     if(num_arm_fit == 3){
       folder <- 'sim_trial_cohort/outputs/outputs_2026-03-24' ## this is for best-fitting values when fitting to 3 arms (03-23 fitting)
+      if(lagscaler_fit){
+        folder <- 'sim_trial_cohort/outputs/outputs_2026-03-17_4'
+      }
     } else if(num_arm_fit == 2){
       # folder <- 'sim_trial_cohort/outputs/outputs_2026-03-26' ## this is for best-fitting values when fitting to 2 arms (03-25_2 fitting - pre-finished optim)
       folder <- 'sim_trial_cohort/outputs/outputs_2026-03-30' ## this is for best-fitting values when fitting to 2 arms (03-25_2 fitting)
@@ -41,6 +48,7 @@ plot_bestfitting <- function(country_to_use,
   
   inci_model <- readRDS(paste0(path, folder, '/incidence.rds'))
   infs_formatted_model <- readRDS(paste0(path, folder, '/formatted_infrecords.rds'))
+  
   
   # Pull in trial summary results 
   tidy_results_trial <- readRDS('R:/Kelly/synergy_orderly/archive/trial_results/20260324-110905-235eebeb/surv_analysis_trial_stratified.rds') %>%
@@ -146,7 +154,8 @@ plot_bestfitting <- function(country_to_use,
   
   p <- plot_grid(inc, eff, nrow = 1, labels = 'AUTO', rel_widths = c(1.2,1))
   
-  ggsave(paste0('R:/Kelly/synergy_orderly/src/sim_trial_cohort/thesis_plots/best_fitting_', country_to_use, '_', num_arm_fit,'armfit.pdf'),
+  fittype = if (lagscaler_fit) 'lag_scaler' else 'spline'
+  ggsave(paste0('R:/Kelly/synergy_orderly/src/sim_trial_cohort/thesis_plots/best_fitting_', country_to_use, '_', num_arm_fit, fittype,Sys.Date(),'armfit.pdf'),
          height = 6, width = 13)
 }
 
@@ -159,6 +168,14 @@ plot_bestfitting(country_to_use = 'BF',
                  num_arm_fit = 2)
 plot_bestfitting(country_to_use = 'Mali',
                  num_arm_fit = 2)
+
+# below are plots for worse fits 
+plot_bestfitting(country_to_use = 'BF',
+                 num_arm_fit = 3,
+                 lagscaler_fit = TRUE)
+plot_bestfitting(country_to_use = 'Mali',
+                 num_arm_fit = 3,
+                 lagscaler_fit = TRUE)
 
 
 
@@ -182,7 +199,8 @@ outputs_folders <-  c(#'BF3syn' = 'outputs_2026-03-25_6',
 read_model_outputs <- function(folder_name, folder_path, base_path = "R:/Kelly/synergy_orderly/src/sim_trial_cohort/outputs/") {
   incidence <- readRDS(file.path(base_path, folder_path, 'incidence.rds'))
   formatted <- readRDS(file.path(base_path, folder_path, 'formatted_infrecords.rds'))
-  return(list(incidence = incidence, formatted = formatted))
+  cox_summary <- readRDS(file.path(base_path, folder_path, 'cox_efficacy_summary.rds'))
+  return(list(incidence = incidence, formatted = formatted, cox = cox_summary))
 }
 
 # Use lapply to read all folders
@@ -225,8 +243,22 @@ formatted_combined <- map_dfr(results, ~ .x$formatted, .id = "scenario") %>%
     )
   )
 
-# Pull in trial summary results 
-tidy_results_trial <- readRDS('R:/Kelly/synergy_orderly/archive/trial_results/20260324-110905-235eebeb/surv_analysis_trial_stratified.rds') 
+# Extract and bind cox summary 
+cox_combined <- map_dfr(results, ~ .x$cox, .id = "scenario") %>%
+  mutate(
+    country = case_when(
+      grepl("^BF", scenario) ~ "BF",
+      grepl("^Mali", scenario) ~ "Mali"
+    ),
+    armfit = case_when(
+      grepl("3", scenario) ~ "3-arm fit",
+      grepl("2", scenario) ~ "2-arm fit"
+    ),
+    type = case_when(
+      grepl("syn$", scenario) ~ "syntest",
+      grepl("best$", scenario) ~ "bestreps"
+    )
+  )
 
 # trial incidence
 incidence_trialBF <- readRDS('R:/Kelly/synergy_orderly/archive/trial_results/20260219-104643-cb128f65/monthly_incidence_trial_BF.rds') %>%
@@ -392,7 +424,10 @@ ggsave(paste0('R:/Kelly/synergy_orderly/src/sim_trial_cohort/thesis_plots/best_f
 mean(pbite3$pbite)
 mean(pbite23$pbite) # 0.004
 
-# Plot efficacy comparison between model and trial 
+# Plot efficacy comparison between model and trial ----
+# Pull in trial summary results 
+tidy_results_trial <- readRDS('R:/Kelly/synergy_orderly/archive/trial_results/20260324-110905-235eebeb/surv_analysis_trial_stratified.rds') 
+
 trial_overall <- tidy_results_trial %>%
   filter(term %in% c("Both vs. RTSS", 'RTSS vs. SMC', 'Both vs. SMC'),
          year == 'Overall') %>%
@@ -402,34 +437,40 @@ trial_overall <- tidy_results_trial %>%
   )
 
 # (within get_cox_efficacy, I deal with the multiple simulations)
-scenarios_list <- split(formatted_combined, formatted_combined$scenario)
+# scenarios_list <- split(formatted_combined, formatted_combined$scenario)
+# 
+# model_results_list <- lapply(names(scenarios_list), function(scen) {
+#   df <- scenarios_list[[scen]]
+#   
+#   eff_smc <- get_cox_efficacy(df = df, ref = 'arm_smcref', model = TRUE)
+#   eff_rtss <- get_cox_efficacy(df = df, ref = 'arm_rtssref', model = TRUE)
+#   
+#   bind_rows(eff_smc, eff_rtss) %>%
+#     mutate(
+#       scenario = scen,
+#       country = unique(df$country),
+#       armfit = unique(df$armfit),
+#       type = unique(df$type)
+#     )
+# })
+# model_results <- bind_rows(model_results_list) %>%
+#   mutate(
+#     year = factor(year, 
+#                   levels = c(1, 2, 3, 'overall'),
+#                   labels = c("Year 1", "Year 2", "Year 3", "Overall")),
+#     source_type = "Model"
+  # ) %>%
+  # filter(term %in% c("Both vs. RTSS", 'RTSS vs. SMC', 'Both vs. SMC') &
+  #          year == 'Overall')
 
-model_results_list <- lapply(names(scenarios_list), function(scen) {
-  df <- scenarios_list[[scen]]
-  
-  eff_smc <- get_cox_efficacy(df = df, ref = 'arm_smcref', model = TRUE)
-  eff_rtss <- get_cox_efficacy(df = df, ref = 'arm_rtssref', model = TRUE)
-  
-  bind_rows(eff_smc, eff_rtss) %>%
-    mutate(
-      scenario = scen,
-      country = unique(df$country),
-      armfit = unique(df$armfit),
-      type = unique(df$type)
-    )
-})
-model_results <- bind_rows(model_results_list) %>%
-  mutate(
-    year = factor(year, 
-                  levels = c(1, 2, 3, 'overall'),
-                  labels = c("Year 1", "Year 2", "Year 3", "Overall")),
-    source_type = "Model"
-  ) %>%
+# Pull in model cox efficacy summary results 
+cox_combined <- cox_combined %>%
+  mutate(source_type = "Model") %>%
   filter(term %in% c("Both vs. RTSS", 'RTSS vs. SMC', 'Both vs. SMC') &
            year == 'Overall')
 
 # Combine both datasets
-combined_overall <- bind_rows(trial_overall, model_results) %>%
+combined_overall <- bind_rows(trial_overall, cox_combined) %>%
   mutate(
     # Create a dodge group combining term and armfit
     dodge_group = interaction(term, armfit)
