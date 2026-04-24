@@ -68,18 +68,18 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
   )
   # # Generate LHS samples
   # Set up grid of parameter ranges
-  # param_ranges <- list(
-  #   alpha_ab = c(0.8, 4),#1.99    3.80 0.00182  and #1.65    4.05 0.00401 are decent ;  2.94    4.98 0.00691; 1.99    4.67 0.00196
-  #   beta_ab = c(2, 7),
-  #   vmin = c(0, 0.025)
-  # )
-  # A <- randomLHS(n_param_sets, 3)
-  # # # Scale to parameter ranges
-  # params_df <- data.frame(
-  #   alpha_ab = qunif(A[,1], param_ranges$alpha_ab[1], param_ranges$alpha_ab[2]),
-  #   beta_ab = qunif(A[,2], param_ranges$beta_ab[1], param_ranges$beta_ab[2]),
-  #   vmin = qunif(A[,3], param_ranges$vmin[1], param_ranges$vmin[2])
-  # )
+  param_ranges <- list(
+    alpha_ab = c(1, 1.5),#1.99    3.80 0.00182  and #1.65    4.05 0.00401 are decent ;  2.94    4.98 0.00691; 1.99    4.67 0.00196
+    beta_ab = c(5, 7),
+    vmin = c(0, 0.02)
+  )
+  A <- randomLHS(n_param_sets, 3)
+  # # Scale to parameter ranges
+  params_df <- data.frame(
+    alpha_ab = qunif(A[,1], param_ranges$alpha_ab[1], param_ranges$alpha_ab[2]),
+    beta_ab = qunif(A[,2], param_ranges$beta_ab[1], param_ranges$beta_ab[2]),
+    vmin = qunif(A[,3], param_ranges$vmin[1], param_ranges$vmin[2])
+  )
   
   # params_df <- data.frame(
   #   alpha_ab = c(rep(1.476746, n_param_sets/3), rep(1.38, n_param_sets/3), rep(1.51, n_param_sets/3)),#1.285119 qunif(A[,1], param_ranges$alpha_ab[1], param_ranges$alpha_ab[2]),
@@ -105,11 +105,14 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
   
   # params_df <- params_df %>%
   #   mutate(vmin = seq(0, 0.4, length.out = n_param_sets))
-  params_df <- data.frame( # from best from 01-23 -- this is after changing back to pars for ONE not 5 bites 
-    alpha_ab = rep(1.74, n_param_sets), #rep(1.66, n_param_sets), 
-    beta_ab = rep(4.69, n_param_sets), #rep(3.45, n_param_sets), 
-    vmin = rep(0.00259, n_param_sets) #rep(0.00311, n_param_sets)
-  )
+  
+  
+  # params_df <- data.frame( # from best from 01-23 -- this is after changing back to pars for ONE not 5 bites 
+  #   alpha_ab = rep(1.74, n_param_sets), #rep(1.66, n_param_sets), 
+  #   beta_ab = rep(4.69, n_param_sets), #rep(3.45, n_param_sets), 
+  #   vmin = rep(0.00259, n_param_sets) #rep(0.00311, n_param_sets)
+  # )
+  
   params_df <- params_df %>%
     mutate(
     max_SMC_kill_rate = rep(0, n_param_sets),
@@ -119,7 +122,7 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
   params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", treatment_probability)
   
   prob_bite_generic <- readRDS(paste0(path, '/archive/fit_rainfall/20251009-144330-1d355186/prob_bite_generic.rds'))
-  prob_bite_generic$prob_infectious_bite = 0.3
+  prob_bite_generic$prob_infectious_bite = 0.015
   p_bitevector <- calc_lagged_vectors(prob_bite_generic, 0, burnints = burnints) # no lagged values
   
   params_df$lag_p_bite <- 0
@@ -161,7 +164,9 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
            country = country_to_run) %>%
     mutate(rid_original = paste0(country_short, sprintf("%04d", rid)),
            country = 'generic',
-           v1_date = as.Date('2017-04-01'))
+           v1_date = as.Date('2017-04-01')) %>%
+    mutate(fu_end_date = as.Date('2017-03-31') + burnints + trial_ts,
+           fu_end_day = round(fu_end_date - as.Date('2017-03-31'), 0))
   
   # "Observed" efficacy from White model 
   observed_efficacy_rtss <- readRDS(paste0(path, '/src/fit_rtss/observed_rtss_efficacy_months.rds'))
@@ -196,7 +201,8 @@ run_grid_rtss <- function(path = "R:/Kelly/synergy_orderly",
                            arrange(rid, detection_day) %>%
                            mutate(previous_detday = lag(detection_day),
                                   diff = detection_day - previous_detday) %>%
-                           filter(diff > 7 | is.na(diff)) %>% select(-diff, -previous_detday)
+                           filter(diff > 7 | is.na(diff)) %>%
+                           select(-diff, -previous_detday)
                          
                          eff <- calc_rtss_efficacy(infs)
                          

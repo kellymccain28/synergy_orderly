@@ -76,7 +76,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
   params_df$sim_id <- paste0('parameter_set_', rownames(params_df),"_", country_to_run, "_", treatment_probability)
   
   prob_bite_generic <- readRDS(paste0(path, '/archive/fit_rainfall/20251009-144330-1d355186/prob_bite_generic.rds'))
-  prob_bite_generic$prob_infectious_bite = 0.3
+  prob_bite_generic$prob_infectious_bite = 0.004#0.3
   p_bitevector <- calc_lagged_vectors(prob_bite_generic, 0, burnints = burnints) # no lagged values
   
   params_df$lag_p_bite <- 0
@@ -123,9 +123,10 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
   observed_efficacy_rtss <- readRDS(paste0(path, '/src/fit_rtss/observed_rtss_efficacy_months.rds'))
   
   best_lhs <- data.frame(
-    sim_id = 'parameter_set_1',
-    alpha_ab = c(1.38, 1.32, 1.5),
-    beta_ab = c(5.83, 6.62, 6),
+    sim_id = paste0('parameter_set_', seq(1,4)),
+    alpha_ab = 1.74,#c(1.38, 1.32),
+    beta_ab = 4.69, #c(5.83, 6.62, 6),
+    vmin = 0.00259,
     lag_p_bite = 0
   )
   # best_lhs <- pars[pars$sim_id %in% top_runs$sim_id,]
@@ -208,7 +209,7 @@ run_fit_rtss <- function(path = "R:/Kelly/synergy_orderly",
           lower = lower_bounds,
           upper = upper_bounds,
           control = list(
-            maxit = 100,  # Hard limit
+            maxit = 150,  # Hard limit
             trace = 1,
             factr = 1e6  # Loose convergence 
           )
