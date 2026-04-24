@@ -24,7 +24,7 @@ plot_time_to_threshold <- function(outputsfolder, cohort_folder = 'sim_cohort_ge
   
   ggplot(formatted %>% filter(sim_id == 'parameter_set_1_generic_0.9')) + 
     geom_boxplot(aes(x = arm, y = t_toreach_threshold, color = arm, fill = arm), 
-                 linewidth = 0.8, outlier.alpha = 0.1) + 
+                 linewidth = 0.8, outlier.alpha = 0.2) + 
     geom_text(data = distr, 
               aes(x = arm, y = 12, label = paste0('n = ', round(n, 1)," (", scales::percent(round(percent, 2)), ")")),
                   size = 3.5, fontface = 'bold') +
@@ -45,13 +45,14 @@ plot_time_to_threshold <- function(outputsfolder, cohort_folder = 'sim_cohort_ge
   ggsave(paste0(path, outputsfolder,'/time_to_threshold.pdf'), plot = last_plot(), height = 4, width = 6)
   
   return(formatted %>%
-    group_by(arm) %>%
-    summarize(min_t_threshold = min(t_toreach_threshold),
-              max_t_threshold = max(t_toreach_threshold),
-              median_t_threshold = median(t_toreach_threshold),
-              mean_t_threshold = mean(t_toreach_threshold),
-              lower_t_threshold = quantile(t_toreach_threshold, 0.025),
-              upper_t_threshold = quantile(t_toreach_threshold, 0.975)))
+           filter(sim_id == 'parameter_set_1_generic_0.9') %>%
+           group_by(arm) %>%
+           summarize(min_t_threshold = min(t_toreach_threshold),
+                     max_t_threshold = max(t_toreach_threshold),
+                     median_t_threshold = median(t_toreach_threshold),
+                     mean_t_threshold = mean(t_toreach_threshold),
+                     lower_t_threshold = quantile(t_toreach_threshold, 0.025),
+                     upper_t_threshold = quantile(t_toreach_threshold, 0.975)))
 }
 # A tibble: 4 × 5
 # arm   median_t_threshold mean_t_threshold lower_t_threshold upper_t_threshold

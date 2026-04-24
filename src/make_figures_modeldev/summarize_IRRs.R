@@ -4,12 +4,12 @@
 # to get median and 95% CrIs of the IRRs, efficacy (1-IRR), 
 # and the ratio of efficacy and difference of inci/cases averted between expected and model-predicted using bootstrapping
 # summarizes over sim ids (I think)
-
-summarize_IRRs <- function(outputsfolder, 
+summarize_IRRs_nobootstrapping <- function(outputsfolder, 
                            agg_unit){
   library(purrr)
   path <- paste0('R:/Kelly/synergy_orderly/src/', cohort_folder, '/outputs/')
   inci <- readRDS(paste0(path, outputsfolder, '/incidence.rds'))
+  event_df <- readRDS(paste0(path, outputsfolder, '/formatted_infrecords.rds'))
   
   if(agg_unit == 'year'){
     # Get annual and overall incidence 
@@ -99,7 +99,7 @@ summarize_IRRs <- function(outputsfolder,
     split(.$sim_id) %>%
     map_dfr(~ .x %>%
               dplyr::select(arm, time_value, time_value_num, time_unit, 
-                     person_months, incidence_per_1000pm) %>%
+                            person_months, incidence_per_1000pm) %>%
               pivot_wider(
                 names_from = arm,
                 values_from = c(person_months, incidence_per_1000pm),
@@ -125,7 +125,346 @@ summarize_IRRs <- function(outputsfolder,
              (incidence_per_1000pm_rtss * incidence_per_1000pm_smc)/incidence_per_1000pm_none,
            cases_averted_expected = inci_averted_expected * 1000, # if pop is 1000
            difference_inci_averted_pred_exp = inci_averted_model - inci_averted_expected,
-           difference_cases_averted_pred_exp = cases_averted_model - cases_averted_expected)
+           difference_cases_averted_pred_exp = cases_averted_model - cases_averted_expected,
+           pct_diff_inci_averted = (difference_inci_averted_pred_exp / inci_averted_expected) * 100)
+  
+  # ============ NEW: Run Cox efficacy across all simulations ============
+  # Get unique simulation IDs from event_data
+  if(agg_unit == 'year'){ # only need to run it once
+    sim_ids <- unique(event_df$sim_id)
+    
+    # Run get_cox_efficacy for each simulation and combine results
+    cox_results_all <- map_dfr(sim_ids, function(sim) {
+      # Filter event_data for this simulation
+      df <- event_df %>% filter(sim_id == sim)
+      
+      model <- TRUE
+      # Run Cox models 
+      eff_model_smc <- get_cox_efficacy(df = df, 
+                                        ref = 'arm_smcref',
+                                        model = model)
+      eff_model_rtss <- get_cox_efficacy(df = df, 
+                                         ref = 'arm_rtssref',
+                                         model = model)
+      
+      nonerefresults <- get_cox_efficacy(df = df,
+                                         ref = 'arm_noneref',
+                                         model = model)
+      
+      # Combine and add sim_id
+      rbind(eff_model_smc, eff_model_rtss, nonerefresults) %>%
+        mutate(sim_id = sim,
+               year = factor(year, 
+                             levels = c(1, 2, 3, 'overall'),
+                             labels = c("Year 1", "Year 2", "Year 3", "Overall")))
+    })
+    
+    # Summarize Cox results to get median and quantiles across simulations
+    cox_summary <- cox_results_all %>%
+      group_by(term, year) %>%
+      summarise(
+        VE = median(VE, na.rm = TRUE),
+        VE_lower = median(VE_lower, na.rm = TRUE),   # Median of lower bounds
+        VE_upper = median(VE_upper, na.rm = TRUE),   # Median of upper bounds
+        HR = median(HR, na.rm = TRUE),
+        HR_lower = median(HR_lower, na.rm = TRUE),
+        HR_upper = median(HR_upper, na.rm = TRUE),
+        n_events_median = median(n_events, na.rm = TRUE),
+        n_obs_median = median(n_obs, na.rm = TRUE),
+        .groups = "drop"
+      )
+    
+    # Save Cox summary
+    saveRDS(cox_summary, paste0(path, outputsfolder, '/cox_efficacy_summary.rds'))
+  }
+  
+  # Calculate median and IQR for each metric by time aggregation unit 
+  inci_summary <- inci_wide %>%
+    group_by(time_value, time_value_num, time_unit) %>%
+    summarise(
+      # Incidence
+      across(c(incidence_per_1000pm_smc, incidence_per_1000pm_rtss, 
+               incidence_per_1000pm_none, incidence_per_1000pm_both),
+             list(median = ~median(., na.rm = TRUE),
+                  q025 = ~quantile(., 0.025, na.rm = TRUE),
+                  q975 = ~quantile(., 0.975, na.rm = TRUE)),
+             .names = "{.col}_{.fn}"),
+      
+      # Efficacy (1 - IRR)
+      across(c(both_smc_irr, rtss_none_irr, both_rtss_irr, smc_none_irr,
+               both_none_irr, rtss_smc_irr, smc_rtss_irr),
+             list(median = ~median(1 - ., na.rm = TRUE),
+                  q025 = ~quantile(1 - ., 0.025, na.rm = TRUE),
+                  q975 = ~quantile(1 - ., 0.975, na.rm = TRUE)),
+             .names = "{.col}_{.fn}"),
+      
+      # Averted metrics (no transformation)
+      across(c(inci_averted_model, cases_averted_model, inci_averted_expected,
+               cases_averted_expected, difference_inci_averted_pred_exp,
+               difference_cases_averted_pred_exp, pct_diff_inci_averted,
+               expected_efficacy,
+               ratio_inci_rate_only),
+             list(median = ~median(., na.rm = TRUE),
+                  q025 = ~quantile(., 0.025, na.rm = TRUE),
+                  q975 = ~quantile(., 0.975, na.rm = TRUE)),
+             .names = "{.col}_{.fn}")
+    )
+  
+  # Rename efficacy columns to drop _irr
+  names(inci_summary) <- names(inci_summary) %>%
+    gsub("_irr_", "_", .)
+  
+  if(agg_unit == 'year'){
+    overallinci <- inci_summary %>% filter(time_value_num == 'Overall')
+    saveRDS(overallinci, paste0(path, outputsfolder, '/inci_summary_overall.rds'))
+  }
+  
+  # Make long 
+  inci_long <- inci_summary %>%
+    dplyr::select(time_value, time_value_num, time_unit, starts_with('incidence')) %>%
+    pivot_longer(cols = starts_with('incidence'),
+                 names_to = c("arm", "stat"),
+                 names_pattern = "incidence_(.*)_(.*)",
+                 values_to = "value")%>%
+    pivot_wider(
+      names_from = stat,
+      values_from = value
+    )%>% 
+    mutate(metric = 'incidence', comparison = NA)
+  
+  irrs_long <- inci_summary %>%
+    dplyr::select(time_value, time_value_num, time_unit, both_smc_median:smc_rtss_q975, expected_efficacy_median:expected_efficacy_q975) %>%#, expected_efficacy_median:expected_efficacy_q975
+    pivot_longer(cols =  c(both_smc_median:smc_rtss_q975, expected_efficacy_median:expected_efficacy_q975),#,expected_efficacy_median:expected_efficacy_q975
+                 names_to = 'comparison',
+                 values_to = "irr")%>%
+    separate(comparison, 
+             into = c('comparison','statistic'),
+             sep = '_(?=[^_]+$)') %>%
+    mutate(
+      # Clean up the comparison names for better labels
+      comparison = gsub("_", " vs ", comparison),
+      comparison = ifelse(comparison == 'expected vs efficacy', 'Expected both vs none', comparison)
+    ) %>%
+    pivot_wider(
+      names_from = statistic,
+      values_from = irr
+    )%>% 
+    mutate(metric = 'efficacy',
+           arm = NA)
+  
+  # exp_ratio_long <- inci_summary %>%
+  #   dplyr::select(time_value,time_value_num,  time_unit, contains('ratio'), 
+  #                 -contains('averted'), -contains('ratio_inci_rate_only')) %>%
+  #   pivot_longer(cols =  contains('ratio'),
+  #                names_to = 'statistic',
+  #                values_to = "ratio_pred_exp",
+  #                names_prefix = "ratio_pred_exp_") %>%
+  #   pivot_wider(
+  #     names_from = statistic,
+  #     values_from = ratio_pred_exp
+  #   ) %>% 
+  #   mutate(metric = 'ratio pred to exp', arm = NA, comparison = NA)
+  
+  
+  inci_averted_long <- inci_summary %>%
+    dplyr::select(time_value,time_value_num,  time_unit, contains('averted'), contains('ratio_inci_rate_only')) %>%
+    pivot_longer(cols =  c(contains('ratio_inci_rate_only'), contains('averted')),
+                 names_to = c("metric", "statistic"),
+                 names_pattern = "^(.+)_(median|q025|q975)$") %>%
+    pivot_wider(
+      names_from = statistic,
+      values_from = value
+    ) %>% 
+    mutate(arm = NA, comparison = NA)
+  
+  inci_summary_all <- rbind(inci_long, 
+                            irrs_long,
+                            # exp_ratio_long,
+                            inci_averted_long) %>%
+    rename(lower_ci = q025, 
+           upper_ci = q975)
+  
+  saveRDS(inci_summary, paste0(path, outputsfolder, '/inci_summary_wide_', agg_unit, '.rds'))
+  saveRDS(inci_summary_all, paste0(path, outputsfolder, '/inci_summary_all_', agg_unit, '.rds'))
+  
+}
+
+# with bootstrapping -- probably want to get rid of this afterwards
+summarize_IRRs <- function(outputsfolder, 
+                                       agg_unit){
+  library(purrr)
+  path <- paste0('R:/Kelly/synergy_orderly/src/', cohort_folder, '/outputs/')
+  inci <- readRDS(paste0(path, outputsfolder, '/incidence.rds'))
+
+  
+  if(agg_unit == 'year'){
+    # Get annual and overall incidence 
+    inci_annual <- inci %>%
+      filter(!is.na(date)) %>%
+      # filter(date > '2017-05-01') %>%
+      mutate(time_value = case_when(date >= '2017-04-01' & date < '2018-04-01' ~ 'Apr 2017-Mar 2018',
+                                    date >= '2018-04-01' & date < '2019-04-01' ~ 'Apr 2018-Mar 2019',
+                                    date >= '2019-04-01' & date < '2020-04-01' ~ 'Apr 2019-Mar 2020'),
+             time_value_num = case_when(date >= '2017-04-01' & date < '2018-04-01' ~ '1',
+                                        date >= '2018-04-01' & date < '2019-04-01' ~ '2',
+                                        date >= '2019-04-01' & date < '2020-04-01' ~ '3')) %>%
+      group_by(time_value, time_value_num, arm, sim_id) %>%
+      summarize(person_months = sum(person_months),
+                n_cases = sum(n_cases)) %>%
+      mutate(incidence_per_1000pm = n_cases / person_months * 1000,
+             time_value = as.character(time_value),
+             time_unit = agg_unit)
+    
+    inci_overall <- inci %>%
+      # filter(date > '2017-05-01') %>%
+      group_by(arm, sim_id) %>%
+      summarize(person_months = sum(person_months),
+                n_cases = sum(n_cases)) %>%
+      mutate(incidence_per_1000pm = n_cases / person_months * 1000,
+             time_value = 'Overall',
+             time_value_num = 'Overall',
+             time_unit = agg_unit)
+    
+    inci <- rbind(inci_annual, inci_overall) %>%
+      mutate(time_value = factor(time_value, levels = c('Apr 2017-Mar 2018',
+                                                        'Apr 2018-Mar 2019',
+                                                        'Apr 2019-Mar 2020',
+                                                        'Overall')))
+    
+  } else if (agg_unit == 'halfyear'){
+    inci_annual <- inci %>%
+      filter(!is.na(date)) %>%
+      # filter(date > '2017-05-01') %>%
+      mutate(time_value = case_when(date < '2017-10-01' ~ 'April 2017-Sep 2017',
+                                    date < '2018-04-01' ~ 'Oct 2017-March 2018',
+                                    date < '2018-10-01' ~ 'April 2018-Sep 2018',
+                                    date < '2019-04-01' ~ 'Oct 2018-March 2019',
+                                    date < '2019-10-01' ~ 'April 2019-Sep 2019',
+                                    date < '2020-04-01' ~ 'Oct 2019-March 2020'),
+             time_value_num = case_when(date < '2017-10-01' ~ '1',
+                                        date < '2018-04-01' ~ '2',
+                                        date < '2018-10-01' ~ '3',
+                                        date < '2019-04-01' ~ '4',
+                                        date < '2019-10-01' ~ '5',
+                                        date < '2020-04-01' ~ '6')) %>%
+      group_by(time_value, time_value_num, arm, sim_id) %>%
+      summarize(person_months = sum(person_months),
+                n_cases = sum(n_cases)) %>%
+      mutate(incidence_per_1000pm = n_cases / person_months * 1000,
+             time_value = as.character(time_value),
+             time_unit = agg_unit)
+    
+    inci_overall <- inci %>%
+      # filter(date > '2017-05-01') %>%
+      group_by(arm, sim_id) %>%
+      summarize(person_months = sum(person_months),
+                n_cases = sum(n_cases)) %>%
+      mutate(incidence_per_1000pm = n_cases / person_months * 1000,
+             time_value = 'Overall',
+             time_value_num = 'Overall',
+             time_unit = agg_unit)
+    
+    inci <- rbind(inci_annual, inci_overall) %>%
+      mutate(time_value = factor(time_value, levels = c('April 2017-Sep 2017',
+                                                        'Oct 2017-March 2018',
+                                                        'April 2018-Sep 2018',
+                                                        'Oct 2018-March 2019',
+                                                        'April 2019-Sep 2019',
+                                                        'Oct 2019-March 2020',
+                                                        'Overall')))
+  } else if( agg_unit == 'yearmonth'){
+    inci <- inci %>%
+      # filter(date > '2017-05-01') %>%
+      mutate(time_value = yearmonth, 
+             time_value_num = yearmonth,
+             time_unit = agg_unit)
+  } 
+  
+  # Pivot wider 
+  inci_wide <- inci %>%
+    split(.$sim_id) %>%
+    map_dfr(~ .x %>%
+              dplyr::select(arm, time_value, time_value_num, time_unit, 
+                            person_months, incidence_per_1000pm) %>%
+              pivot_wider(
+                names_from = arm,
+                values_from = c(person_months, incidence_per_1000pm),
+                id_cols = c(time_value, time_value_num, time_unit)
+              ),
+            .id = "sim_id")
+  
+  # ============ NEW: Run Cox efficacy across all simulations ============
+  # Get unique simulation IDs from event_data
+  if(agg_unit == 'year' & cohort_folder == 'sim_trial_cohort'){ # only need to run it once and only needed for the trial ones 
+    event_df <- readRDS(paste0(path, outputsfolder, '/formatted_infrecords.rds'))
+    sim_ids <- unique(event_df$sim_id)
+    
+    # Run get_cox_efficacy for each simulation and combine results
+    cox_results_all <- map_dfr(sim_ids, function(sim) {
+      # Filter event_data for this simulation
+      df <- event_df %>% filter(sim_id == sim)
+      
+      model <- TRUE
+      # Run Cox models 
+      eff_model_smc <- get_cox_efficacy(df = df, 
+                                        ref = 'arm_smcref',
+                                        model = model)
+      eff_model_rtss <- get_cox_efficacy(df = df, 
+                                         ref = 'arm_rtssref',
+                                         model = model)
+      
+      nonerefresults <- get_cox_efficacy(df = df,
+                                         ref = 'arm_noneref',
+                                         model = model)
+      
+      # Combine and add sim_id
+      rbind(eff_model_smc, eff_model_rtss, nonerefresults) %>%
+        mutate(sim_id = sim,
+               year = factor(year, 
+                             levels = c(1, 2, 3, 'overall'),
+                             labels = c("Year 1", "Year 2", "Year 3", "Overall")))
+    })
+    
+    # Summarize Cox results to get median and quantiles across simulations
+    cox_summary <- cox_results_all %>%
+      group_by(term, year) %>%
+      summarise(
+        VE = median(VE, na.rm = TRUE),
+        VE_lower = median(VE_lower, na.rm = TRUE),   # Median of lower bounds
+        VE_upper = median(VE_upper, na.rm = TRUE),   # Median of upper bounds
+        HR = median(HR, na.rm = TRUE),
+        HR_lower = median(HR_lower, na.rm = TRUE),
+        HR_upper = median(HR_upper, na.rm = TRUE),
+        n_events_median = median(n_events, na.rm = TRUE),
+        n_obs_median = median(n_obs, na.rm = TRUE),
+        .groups = "drop"
+      )
+    
+    # Save Cox summary
+    saveRDS(cox_summary, paste0(path, outputsfolder, '/cox_efficacy_summary.rds'))
+  }
+  
+  # Get IRRs
+  inci_wide <- inci_wide %>%
+    mutate(rtss_none_irr = (incidence_per_1000pm_rtss / incidence_per_1000pm_none),
+           smc_none_irr = (incidence_per_1000pm_smc / incidence_per_1000pm_none),
+           both_none_irr = (incidence_per_1000pm_both / incidence_per_1000pm_none),
+           rtss_smc_irr = (incidence_per_1000pm_rtss / incidence_per_1000pm_smc),
+           both_smc_irr = (incidence_per_1000pm_both / incidence_per_1000pm_smc),
+           both_rtss_irr = (incidence_per_1000pm_both / incidence_per_1000pm_rtss),
+           smc_rtss_irr = (incidence_per_1000pm_smc / incidence_per_1000pm_rtss)  )%>%
+    mutate(expected_efficacy = 1 - (rtss_none_irr * smc_none_irr),
+           ratio_pred_exp = (1-both_none_irr) / expected_efficacy,
+           ratio_inci_rate_only = both_none_irr / (rtss_none_irr * smc_none_irr),
+           inci_averted_model = incidence_per_1000pm_none - incidence_per_1000pm_both,
+           cases_averted_model = inci_averted_model * 1000, # if pop is 1000
+           inci_averted_expected = incidence_per_1000pm_none - 
+             (incidence_per_1000pm_rtss * incidence_per_1000pm_smc)/incidence_per_1000pm_none,
+           cases_averted_expected = inci_averted_expected * 1000, # if pop is 1000
+           difference_inci_averted_pred_exp = inci_averted_model - inci_averted_expected,
+           difference_cases_averted_pred_exp = cases_averted_model - cases_averted_expected,
+           pct_diff_inci_averted = (difference_inci_averted_pred_exp / inci_averted_expected) * 100)
+  
   
   # Calculate median and IQR for each metric by time aggregation unit 
   inci_summary <- inci_wide %>%
@@ -170,6 +509,7 @@ summarize_IRRs <- function(outputsfolder,
       cases_averted_expected = list(bootstrap_metric(cases_averted_expected)),
       difference_inci_averted_pred_exp = list(bootstrap_metric(difference_inci_averted_pred_exp)),
       difference_cases_averted_pred_exp =  list(bootstrap_metric(difference_cases_averted_pred_exp)),
+      pct_diff_inci_averted = list(bootstrap_metric(pct_diff_inci_averted)),
       
       ratio_inci_rate_only = list(bootstrap_metric(ratio_inci_rate_only))
     ) %>%
@@ -250,14 +590,19 @@ summarize_IRRs <- function(outputsfolder,
       # Ratio incidence rate only 
       ratio_inci_rate_only_median = sapply(ratio_inci_rate_only, `[`, 1),
       ratio_inci_rate_only_q025 = sapply(ratio_inci_rate_only, `[`, 2),
-      ratio_inci_rate_only_q975 = sapply(ratio_inci_rate_only, `[`, 3)
+      ratio_inci_rate_only_q975 = sapply(ratio_inci_rate_only, `[`, 3),
+      
+      # percent differences 
+      pct_diff_inci_averted_median = sapply(pct_diff_inci_averted, `[`, 1),
+      pct_diff_inci_averted_q025 = sapply(pct_diff_inci_averted, `[`, 2),
+      pct_diff_inci_averted_q975 = sapply(pct_diff_inci_averted, `[`, 3)
       
     ) %>%
     dplyr::select(-both_smc, -rtss_none, -both_rtss, -smc_none, -both_none, 
-           -expected_efficacy, -ratio_pred_exp,
-           -inci_averted_model, -cases_averted_model , -inci_averted_expected ,
-           -cases_averted_expected , -difference_inci_averted_pred_exp , -difference_cases_averted_pred_exp,
-           -ratio_inci_rate_only)
+                  -expected_efficacy, -ratio_pred_exp,
+                  -inci_averted_model, -cases_averted_model , -inci_averted_expected ,
+                  -cases_averted_expected , -difference_inci_averted_pred_exp , -difference_cases_averted_pred_exp,
+                  -ratio_inci_rate_only, -pct_diff_inci_averted)
   
   if(agg_unit == 'year'){
     overallinci <- inci_summary %>% filter(time_value_num == 'Overall')
@@ -286,10 +631,10 @@ summarize_IRRs <- function(outputsfolder,
              into = c('comparison','statistic'),
              sep = '_(?=[^_]+$)') %>%
     mutate(
-          # Clean up the comparison names for better labels
-          comparison = gsub("_", " vs ", comparison),
-          comparison = ifelse(comparison == 'expected vs efficacy', 'Expected both vs none', comparison)
-        ) %>%
+      # Clean up the comparison names for better labels
+      comparison = gsub("_", " vs ", comparison),
+      comparison = ifelse(comparison == 'expected vs efficacy', 'Expected both vs none', comparison)
+    ) %>%
     pivot_wider(
       names_from = statistic,
       values_from = irr
@@ -299,7 +644,7 @@ summarize_IRRs <- function(outputsfolder,
   
   exp_ratio_long <- inci_summary %>%
     dplyr::select(time_value,time_value_num,  time_unit, contains('ratio'), 
-           -contains('averted'), -contains('ratio_inci_rate_only')) %>%
+                  -contains('averted'), -contains('ratio_inci_rate_only')) %>%
     pivot_longer(cols =  contains('ratio'),
                  names_to = 'statistic',
                  values_to = "ratio_pred_exp",

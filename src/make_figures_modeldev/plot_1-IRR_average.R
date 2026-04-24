@@ -1,6 +1,6 @@
 # plot overall 1-IRR for each year 
 
-plot_irr_average <- function(outputsfolder, 
+plot_irr_average <- function(outputsfolder, # in thesis, have used may 1 and aug 26, scen 5, outputs_2026-02-18_3
                              agg_unit = 'year',
                              cohort_folder = 'sim_cohort_generic'){
   # Load packages
@@ -32,7 +32,7 @@ plot_irr_average <- function(outputsfolder,
     mutate(median = median * 100,
            lower_ci = lower_ci * 100,
            upper_ci = upper_ci * 100) %>%
-    select(comparison, median, lower_ci, upper_ci) %>%
+    dplyr::select(comparison, median, lower_ci, upper_ci) %>%
     saveRDS(paste0(path, outputsfolder, '/summary_efficacy.rds'))
   
   # Plotting
@@ -120,7 +120,7 @@ plot_irr_average <- function(outputsfolder,
     ggsave(paste0(path, outputsfolder,'/bothvsnone_irr_', agg_unit, '.pdf'), plot = last_plot(), width = 8, height = 6)
     
     
-    # Plot of the ratio of model-predicted to expected by aggregation unit 
+    # Plot of the difference of model-predicted to expected by aggregation unit 
     ggplot(inci_summary %>% filter(metric == 'difference_inci_averted_pred_exp'), 
            aes(x = time_value, y = median, 
                color = time_value, group = time_value)) +
@@ -130,9 +130,14 @@ plot_irr_average <- function(outputsfolder,
                     width = 0.2, position = position_dodge(width = 0.5)) +
       scale_color_manual(values = colors) +
       geom_hline(yintercept = 0, linetype = "dashed", color = "darkred") +
+      # Add annotations for synergistic/antagonistic
+      annotate("text", x = -Inf, y = max(inci_summary$upper_ci[inci_summary$metric == 'difference_inci_averted_pred_exp'], na.rm = TRUE) * 0.05, 
+               label = "Synergistic", color = "green4", hjust = -0.1, vjust = 1, size = 4, fontface = "italic") +
+      annotate("text", x = -Inf, y = min(inci_summary$lower_ci[inci_summary$metric == 'difference_inci_averted_pred_exp'], na.rm = TRUE) * 0.05, 
+               label = "Antagonistic", color = "red3", hjust = -0.1, vjust = 1.5, size = 4, fontface = "italic") +
       labs(
         x = NULL,#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Half-year',
-        y = "Difference in model-predicted versus expected\ncases averted per 1000 people of\ncombination vs no intervention",
+        y = "Difference in model-predicted versus expected\ncases averted per 1000 person-months of\ncombination vs no intervention",
         shape = NULL, linetype = NULL,
         color = NULL#if(agg_unit == 'year') "Study year" else if (agg_unit == 'halfyear') 'Study half-year'
       ) +
@@ -144,18 +149,20 @@ plot_irr_average <- function(outputsfolder,
     ggsave(paste0(path, outputsfolder,'/difference_inci_average_by', agg_unit, '.pdf'), plot = last_plot(), width = 8, height = 6)
     inci_summary %>% filter(metric == 'difference_inci_averted_pred_exp')
     
-    # Calculate percentage difference
+    # print percentage difference
     inci_comparison <- inci_summary %>%
-      filter(metric == 'inci_averted_model' | metric == 'inci_averted_expected') %>%
-      select(time_value, time_value_num, metric, median) %>%
+      filter(metric == 'inci_averted_model' | metric == 'inci_averted_expected' | 
+               metric == 'difference_inci_averted_pred_exp' | metric == 'pct_diff_inci_averted') %>%
+      dplyr::select(time_value, time_value_num, metric, median) %>%
       pivot_wider(id_cols = c(time_value, time_value_num), 
                   names_from = metric, 
                   values_from = median) %>%
       mutate(
-        pct_diff = (inci_averted_model - inci_averted_expected) / inci_averted_expected * 100,
-        pct_diff_abs = abs(pct_diff),  # optional: absolute percentage difference
-        diff_direction = ifelse(pct_diff > 0, "model higher", "model lower")
+        abs_diff = inci_averted_model - inci_averted_expected
       )
+    
+    inci_summary %>%
+      filter(metric == 'difference_inci_averted_pred_exp')
     
     saveRDS(inci_comparison, paste0(path, outputsfolder,'/inci_percent_averted.rds'))
     

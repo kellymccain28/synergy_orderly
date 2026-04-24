@@ -45,10 +45,12 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
       smc_dates <- as.Date(unlist(formatted$smc_dose_days[3]), origin = '2017-04-01')
     } else if(!is.null(unlist(formatted$smc_dose_days[4]))){
       smc_dates <- as.Date(unlist(formatted$smc_dose_days[4]), origin = '2017-04-01')
-    } else if(!is.null(unlist(all$smc_dose_days[5]))){
-      smc_dates <- as.Date(unlist(all$smc_dose_days[5]), origin = '2017-04-01')
-    } else if(!is.null(unlist(all$smc_dose_days[20]))){
-      smc_dates <- as.Date(unlist(all$smc_dose_days[20]), origin = '2017-04-01')
+    } else if(!is.null(unlist(formatted$smc_dose_days[5]))){
+      smc_dates <- as.Date(unlist(formatted$smc_dose_days[5]), origin = '2017-04-01')
+    } else if(!is.null(unlist(formatted$smc_dose_days[20]))){
+      smc_dates <- as.Date(unlist(formatted$smc_dose_days[20]), origin = '2017-04-01')
+    } else if(!is.null(unlist(formatted$smc_dose_days[20]))){
+      smc_dates <- as.Date(unlist(formatted$smc_dose_days[20]), origin = '2017-04-01')
     }
     
     smc_lines <- data.frame(
@@ -238,70 +240,70 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
   
   
   # Plot of expected vs predicted efficacy of both vs none 
-  exppred <- ggplot(inci_summary %>% filter(yearmonth > '2017-05-01')) + 
-    geom_vline(data = smc_lines, aes(xintercept = date, color = 'SMC delivery'), linetype = 2, linewidth = 0.8)+
-    geom_vline(data = rtss_lines, aes(xintercept = date, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
-    geom_line(aes(x = as.Date(yearmonth), y = expected_efficacy_median, color = 'Expected efficacy'), linewidth = 1) +
-    geom_ribbon(aes(x = as.Date(yearmonth), ymin = expected_efficacy_q025, ymax = expected_efficacy_q975,
-                    fill = 'Expected efficacy'), alpha = 0.3) +
-    geom_line(aes(x = as.Date(yearmonth), y = both_none_median, color = 'Model-predicted efficacy'), linewidth = 1) +
-    geom_ribbon(aes(x = as.Date(yearmonth), ymin = both_none_q025, ymax = both_none_q975,
-                    fill = 'Model-predicted efficacy'), alpha = 0.3) +
-    # ylim(c(-, 1)) + #xlim(c(min(iii_summary$yearmonth), max(iii_summary$yearmonth))) +
-    coord_cartesian(ylim = c(-0.15, 1)) +
-    scale_y_continuous(breaks=seq(-0.1,1, 0.1),
-                       labels=seq(-0.1,1, 0.1)) +
-    geom_hline(yintercept = 0, linetype = 2) +
-    scale_x_date(breaks = '3 months',
-                 labels = scales::label_date_short()) +
-    scale_color_manual(values = c('Model-predicted efficacy' = '#59C9A5',
-                                  'SMC delivery' = '#709176',
-                                  'RTS,S delivery' = '#470024',
-                                  'Expected efficacy' = '#6457A6')) +#'#449DD1'
-    scale_fill_manual(values = c('Expected efficacy' = '#6457A6',
-                                 'Model-predicted efficacy' = '#59C9A5')) +#'#449DD1'
-    labs(x = 'Date',
-         y = 'Efficacy (1-IRR)',
-         color = NULL,
-         fill = NULL) + 
-    theme_bw(base_size = 14)
-  ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_efficacy.pdf'), plot = exppred, width = 10, height = 4)
+  # exppred <- ggplot(inci_summary %>% filter(yearmonth > '2017-05-01')) + 
+  #   geom_vline(data = smc_lines, aes(xintercept = date, color = 'SMC delivery'), linetype = 2, linewidth = 0.8)+
+  #   geom_vline(data = rtss_lines, aes(xintercept = date, color = 'RTS,S delivery'), linetype = 3, linewidth = 0.8) +
+  #   geom_line(aes(x = as.Date(yearmonth), y = expected_efficacy_median, color = 'Expected efficacy'), linewidth = 1) +
+  #   geom_ribbon(aes(x = as.Date(yearmonth), ymin = expected_efficacy_q025, ymax = expected_efficacy_q975,
+  #                   fill = 'Expected efficacy'), alpha = 0.3) +
+  #   geom_line(aes(x = as.Date(yearmonth), y = both_none_median, color = 'Model-predicted efficacy'), linewidth = 1) +
+  #   geom_ribbon(aes(x = as.Date(yearmonth), ymin = both_none_q025, ymax = both_none_q975,
+  #                   fill = 'Model-predicted efficacy'), alpha = 0.3) +
+  #   # ylim(c(-, 1)) + #xlim(c(min(iii_summary$yearmonth), max(iii_summary$yearmonth))) +
+  #   coord_cartesian(ylim = c(-0.15, 1)) +
+  #   scale_y_continuous(breaks=seq(-0.1,1, 0.1),
+  #                      labels=seq(-0.1,1, 0.1)) +
+  #   geom_hline(yintercept = 0, linetype = 2) +
+  #   scale_x_date(breaks = '3 months',
+  #                labels = scales::label_date_short()) +
+  #   scale_color_manual(values = c('Model-predicted efficacy' = '#59C9A5',
+  #                                 'SMC delivery' = '#709176',
+  #                                 'RTS,S delivery' = '#470024',
+  #                                 'Expected efficacy' = '#6457A6')) +#'#449DD1'
+  #   scale_fill_manual(values = c('Expected efficacy' = '#6457A6',
+  #                                'Model-predicted efficacy' = '#59C9A5')) +#'#449DD1'
+  #   labs(x = 'Date',
+  #        y = 'Efficacy (1-IRR)',
+  #        color = NULL,
+  #        fill = NULL) + 
+  #   theme_bw(base_size = 14)
+  # ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_efficacy.pdf'), plot = exppred, width = 10, height = 4)
   
   # Plot of ratio of expected vs predicted efficacy of both vs none 
-  ratioplot <-  ggplot(inci_summary %>% filter(yearmonth > '2017-05-01')) + 
-    geom_vline(data = smc_lines, aes(xintercept = date, color = 'SMC delivery'), 
-               linetype = 2, linewidth = 0.8, alpha = 0.7)+
-    geom_vline(data = rtss_lines, aes(xintercept = date, color = 'RTS,S delivery'), 
-               linetype = 3, linewidth = 0.8, alpha = 0.7) +
-    geom_line(aes(x = as.Date(yearmonth), y = ratio_pred_exp_median), 
-              color = '#3E6990', linewidth = 1) +
-    geom_ribbon(aes(x = as.Date(yearmonth), ymin = ratio_pred_exp_q025, ymax = ratio_pred_exp_q975),
-                fill = '#3E6990', alpha = 0.5) +
-    # ylim(c(0.2, 1.2)) + #xlim(c(min(iii_summary$yearmonth), max(iii_summary$yearmonth))) +
-    # coord_cartesian(ylim = c(0.8,1.2)) + 
-    # scale_y_continuous(breaks = seq(-0.4,1.2,0.1),
-    #                    labels = seq(-0.4,1.2,0.1))+
-    geom_hline(yintercept = 1, linetype = 2) +
-    scale_x_date(breaks = '3 months',
-                 labels = scales::label_date_short()) +
-    scale_color_manual(values = c('SMC delivery' = '#709176',
-                                  'RTS,S delivery' = '#470024')) +#'#449DD1'
-    # scale_fill_manual(values = c('Expected efficacy' = '#6457A6',
-    #                              'Model-predicted efficacy' = '#59C9A5')) +#'#449DD1'
-    labs(x = 'Date',
-         y = 'Ratio of model-predicted to expected efficacy',
-         color = NULL,
-         fill = NULL) + 
-    theme_bw(base_size = 14)
-  
-  combinedratio <- plot_grid(exppred, ratioplot + theme(legend.position = 'none'), nrow = 2,
-                             align = 'v')
+  # ratioplot <-  ggplot(inci_summary %>% filter(yearmonth > '2017-05-01')) + 
+  #   geom_vline(data = smc_lines, aes(xintercept = date, color = 'SMC delivery'), 
+  #              linetype = 2, linewidth = 0.8, alpha = 0.7)+
+  #   geom_vline(data = rtss_lines, aes(xintercept = date, color = 'RTS,S delivery'), 
+  #              linetype = 3, linewidth = 0.8, alpha = 0.7) +
+  #   geom_line(aes(x = as.Date(yearmonth), y = ratio_pred_exp_median), 
+  #             color = '#3E6990', linewidth = 1) +
+  #   geom_ribbon(aes(x = as.Date(yearmonth), ymin = ratio_pred_exp_q025, ymax = ratio_pred_exp_q975),
+  #               fill = '#3E6990', alpha = 0.5) +
+  #   # ylim(c(0.2, 1.2)) + #xlim(c(min(iii_summary$yearmonth), max(iii_summary$yearmonth))) +
+  #   # coord_cartesian(ylim = c(0.8,1.2)) + 
+  #   # scale_y_continuous(breaks = seq(-0.4,1.2,0.1),
+  #   #                    labels = seq(-0.4,1.2,0.1))+
+  #   geom_hline(yintercept = 1, linetype = 2) +
+  #   scale_x_date(breaks = '3 months',
+  #                labels = scales::label_date_short()) +
+  #   scale_color_manual(values = c('SMC delivery' = '#709176',
+  #                                 'RTS,S delivery' = '#470024')) +#'#449DD1'
+  #   # scale_fill_manual(values = c('Expected efficacy' = '#6457A6',
+  #   #                              'Model-predicted efficacy' = '#59C9A5')) +#'#449DD1'
+  #   labs(x = 'Date',
+  #        y = 'Ratio of model-predicted to expected efficacy',
+  #        color = NULL,
+  #        fill = NULL) + 
+  #   theme_bw(base_size = 14)
+  # 
+  # combinedratio <- plot_grid(exppred, ratioplot + theme(legend.position = 'none'), nrow = 2,
+  #                            align = 'v')
   
   # mean(inci_summary$ratio_pred_exp_median)
   # mean(inci_summary$ratio_pred_exp_q025)
   # mean(inci_summary$ratio_pred_exp_q975)
-  ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_ratio.pdf'), plot = ratioplot, width = 10, height = 4)
-  ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_and_ratio.pdf'), plot = combinedratio, width = 12, height = 9)
+  # ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_ratio.pdf'), plot = ratioplot, width = 10, height = 4)
+  # ggsave(paste0(path, outputsfolder,'/predicted_vs_expected_combined_and_ratio.pdf'), plot = combinedratio, width = 12, height = 9)
   
   
   # Plot of expected vs predicted cases averted per 1000 of both vs none 
@@ -346,13 +348,16 @@ plot_irr <- function(outputsfolder, cohort_folder = 'sim_cohort_generic'){
     geom_ribbon(aes(x = as.Date(yearmonth), ymin = difference_inci_averted_pred_exp_q025, 
                     ymax = difference_inci_averted_pred_exp_q975),
                 fill = '#3E6990', alpha = 0.5) +
+    # Add annotations for synergistic/antagonistic
+    annotate("text", x = -Inf, y = max(inci_summary$difference_inci_averted_pred_exp_q975, na.rm = TRUE) * 0.05, 
+             label = "Synergistic", color = "green4", hjust = -0.1, vjust = -2.5, size = 4, fontface = "italic") +
+    annotate("text", x = -Inf, y = min(inci_summary$difference_inci_averted_pred_exp_q025, na.rm = TRUE) * 0.05, 
+             label = "Antagonistic", color = "red3", hjust = -0.1, vjust = 2.5, size = 4, fontface = "italic") +
     geom_hline(yintercept = 1, linetype = 2) +
     scale_x_date(breaks = '3 months',
                  labels = scales::label_date_short()) +
     scale_color_manual(values = c('SMC delivery' = '#709176',
                                   'RTS,S delivery' = '#470024')) +#'#449DD1'
-    # scale_fill_manual(values = c('Expected efficacy' = '#6457A6',
-    #                              'Model-predicted efficacy' = '#59C9A5')) +#'#449DD1'
     labs(x = 'Date',
          y = 'Difference in model-predicted cases averted\nper 1000 people versus expected cases\naverted per 1000 people',
          color = NULL,

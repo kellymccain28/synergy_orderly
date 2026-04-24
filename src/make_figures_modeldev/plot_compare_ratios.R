@@ -49,8 +49,8 @@ plot_compare_ratios <- function(output_folders, cohort_folder = 'sim_cohort_gene
   
   # Plot of ratios of expected vs predicted efficacy of both vs none 
   diffplot <- ggplot(incidence_df) + 
-    geom_ribbon(aes(x = as.Date(yearmonth), ymin = lower_ci, ymax = upper_ci,
-                fill = as.factor(first_smc_dose)), alpha = 0.2) +
+    # geom_ribbon(aes(x = as.Date(yearmonth), ymin = lower_ci, ymax = upper_ci,
+    #             fill = as.factor(first_smc_dose)), alpha = 0.2) +
     geom_line(aes(x = as.Date(yearmonth), y = median, group = as.factor(first_smc_dose),
                   color = as.factor(first_smc_dose)),
               alpha = 0.8,
@@ -65,7 +65,7 @@ plot_compare_ratios <- function(output_folders, cohort_folder = 'sim_cohort_gene
     # scale_fill_brewer(palette = 'Dark2') +
     # coord_cartesian(ylim = c(0.0,1.2))+
     labs(x = 'Date',
-         y = 'Difference of cases averted per 1000 people\n(model-predicted - expected)',
+         y = 'Difference of cases averted per 1000 person-months\n(model-predicted - expected)',
          color = 'Date of first SMC dose',
          fill = 'Date of first SMC dose') + 
     theme_bw(base_size = 14) + 
@@ -81,4 +81,28 @@ plot_compare_ratios <- function(output_folders, cohort_folder = 'sim_cohort_gene
 #                       'outputs_2026-01-19_4', # 135, 80
 #                       'outputs_2026-01-19_2') # 100, 60
 #                     )
-  
+plot_compare_ratios(output_folders = c('outputs_2026-02-18_9',
+                                       'outputs_2026-02-18_8',
+                                       'outputs_2026-02-18_7',
+                                       'outputs_2026-02-18_6',
+                                       'outputs_2026-02-18_5',
+                                       'outputs_2026-02-18_4',
+                                       'outputs_2026-02-18_3',
+                                       'outputs_2026-02-18_25',
+                                       'outputs_2026-02-18_24',
+                                       'outputs_2026-02-18_23',
+                                       'outputs_2026-02-18_22',
+                                       'outputs_2026-02-18_21',
+                                       'outputs_2026-02-18_20',
+                                       'outputs_2026-02-18_2',
+                                       'outputs_2026-02-18_19',
+                                       'outputs_2026-02-18_18',
+                                       'outputs_2026-02-18_17',
+                                       'outputs_2026-02-18_16',
+                                       'outputs_2026-02-18_15',
+                                       'outputs_2026-02-18_14',
+                                       'outputs_2026-02-18_13',
+                                       'outputs_2026-02-18_12',
+                                       'outputs_2026-02-18_11',
+                                       'outputs_2026-02-18_10',
+                                       'outputs_2026-02-18'))
